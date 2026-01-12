@@ -10,7 +10,8 @@ Deno.test('structure: Edge Functions directory exists', () => {
     const stat = Deno.statSync(functionsDir);
     assertExists(stat.isDirectory, 'supabase/functions should be a directory');
   } catch (e) {
-    throw new Error(`supabase/functions directory does not exist: ${e.message}`);
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`supabase/functions directory does not exist: ${message}`);
   }
 });
 
@@ -20,7 +21,8 @@ Deno.test('structure: _shared directory exists', () => {
     const stat = Deno.statSync(sharedDir);
     assertExists(stat.isDirectory, 'supabase/functions/_shared should be a directory');
   } catch (e) {
-    throw new Error(`supabase/functions/_shared directory does not exist: ${e.message}`);
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`supabase/functions/_shared directory does not exist: ${message}`);
   }
 });
 
@@ -30,7 +32,8 @@ Deno.test('structure: cors.ts utility exists', () => {
     const stat = Deno.statSync(corsFile);
     assertExists(stat.isFile, 'cors.ts should be a file');
   } catch (e) {
-    throw new Error(`cors.ts does not exist: ${e.message}`);
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`cors.ts does not exist: ${message}`);
   }
 });
 
@@ -40,7 +43,8 @@ Deno.test('structure: auth.ts utility exists', () => {
     const stat = Deno.statSync(authFile);
     assertExists(stat.isFile, 'auth.ts should be a file');
   } catch (e) {
-    throw new Error(`auth.ts does not exist: ${e.message}`);
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`auth.ts does not exist: ${message}`);
   }
 });
 

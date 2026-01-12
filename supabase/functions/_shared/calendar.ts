@@ -82,7 +82,7 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     ];
     
     // Check if any event matches a major holiday
-    return events.some(event => {
+    return events.some((event: any) => {
       const eventDesc = event.desc || event.render('en') || '';
       return majorHolidays.some(holiday => 
         eventDesc.toLowerCase().includes(holiday.toLowerCase())

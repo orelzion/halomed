@@ -123,19 +123,21 @@ This file tracks backend implementation tasks following TDD workflow:
   - Reference: TDD Section 6, scheduling.md
   - Note: Function implemented. Tests need function to be served: `supabase functions serve generate-schedule`
 
-- [ ] **Task 5.2**: Implement DAILY_WEEKDAYS_ONLY schedule type
+- [x] **Task 5.2**: Implement DAILY_WEEKDAYS_ONLY schedule type ✅ (2024-12-19)
   - Weekdays only, excludes Shabbat and Jewish holidays
-  - Tests written first (server-testing agent)
-  - Implementation (scheduling agent)
+  - Tests written: `scheduling.test.ts` ✅
+  - Implementation: Complete ✅ (using @hebcal/core via esm.sh)
   - Acceptance: Only weekdays are scheduled, holidays excluded
   - Reference: TDD Section 6.3, scheduling.md
+  - Note: ✅ Jewish holiday detection implemented with Hebrew calendar library
 
-- [ ] **Task 5.3**: Implement user track joining logic
+- [x] **Task 5.3**: Implement user track joining logic ✅ (2024-12-19)
   - Users can join tracks at any point
-  - Tests written first (server-testing agent)
-  - Implementation (scheduling agent)
+  - Tests written: `user-track-joining.test.ts` ✅
+  - Implementation: Complete ✅
   - Acceptance: User gets first scheduled unit from join date
   - Reference: TDD Section 6.2, scheduling.md
+  - Note: ✅ Content assignment starts from beginning for new users, continues sequentially
 
 ## Content Generation (Content Generation Agent)
 
