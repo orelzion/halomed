@@ -70,10 +70,13 @@ This file tracks backend implementation tasks following TDD workflow:
 
 ### Authentication
 
-- [ ] **Task 3.1**: Configure Supabase Auth for Anonymous login
+- [x] **Task 3.1**: Configure Supabase Auth for Anonymous login ✅ (2024-12-19)
   - Enable anonymous provider in config
+  - Configuration: `enable_anonymous_sign_ins = true` in config.toml
+  - Tests written: `anonymous.test.ts` (5 tests)
   - Acceptance: Can sign in anonymously, get persistent user_id
   - Reference: TDD Section 5, backend.md Section 5
+  - Note: ✅ All tests passing - anonymous auth working correctly
 
 - [ ] **Task 3.2**: Configure Supabase Auth for Google OAuth
   - Set up Google OAuth provider
