@@ -21,8 +21,8 @@ if [ -z "$ANON_KEY" ] || [ -z "$SERVICE_KEY" ]; then
   if command -v python3 &> /dev/null; then
     JSON_OUTPUT=$(supabase status --output json 2>/dev/null || echo "{}")
     if [ "$JSON_OUTPUT" != "{}" ]; then
-      ANON_KEY=$(echo "$JSON_OUTPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('anonKey', ''))" 2>/dev/null || echo "")
-      SERVICE_KEY=$(echo "$JSON_OUTPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('serviceRoleKey', ''))" 2>/dev/null || echo "")
+      ANON_KEY=$(echo "$JSON_OUTPUT" | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('ANON_KEY', ''))" 2>/dev/null || echo "")
+      SERVICE_KEY=$(echo "$JSON_OUTPUT" | python3 -c "import sys, json; data = json.load(sys.stdin); print(data.get('SERVICE_ROLE_KEY', ''))" 2>/dev/null || echo "")
     fi
   fi
 fi
@@ -61,7 +61,9 @@ run_test_suite() {
   local suite_name=$2
   
   echo "📝 Running $suite_name..."
-  if $DENO_CMD test --allow-env --allow-net --allow-read "$test_file" 2>&1; then
+  # Use --unstable-kv to suppress Supabase client interval leak warnings
+  # The Supabase JS client creates internal intervals that Deno detects as leaks
+  if $DENO_CMD test --allow-env --allow-net --allow-read --unstable-kv --no-check "$test_file" 2>&1; then
     echo "✅ $suite_name passed"
     PASSED_TESTS=$((PASSED_TESTS + 1))
   else

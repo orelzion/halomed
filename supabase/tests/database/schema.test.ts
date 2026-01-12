@@ -10,11 +10,24 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? 'eyJhbGc
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 
 // Use service role key to bypass RLS for schema tests
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Disable autoRefreshToken to prevent interval leaks in Deno tests
+const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+  },
+});
 
 // Helper to create a test user via auth
 async function createTestUser(): Promise<string> {
-  const anonClient = createClient(supabaseUrl, supabaseAnonKey);
+  const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
   const { data, error } = await anonClient.auth.signInAnonymously();
   if (error || !data.user) {
     throw new Error(`Failed to create test user: ${error?.message}`);

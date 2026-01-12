@@ -9,13 +9,25 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? 'http://localhost:54321';
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
 
+// Helper to create Supabase client with test configuration
+// Disables autoRefreshToken to prevent interval leaks in Deno tests
+function createTestClient(key: string) {
+  return createClient(supabaseUrl, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 // ============================================================================
 // TRACKS TABLE RLS TESTS
 // ============================================================================
 
 Deno.test('RLS: tracks table is readable by anonymous users', async () => {
   // Use anon key (not service role) to test RLS
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   const { data, error } = await supabase
     .from('tracks')
@@ -27,7 +39,7 @@ Deno.test('RLS: tracks table is readable by anonymous users', async () => {
 });
 
 Deno.test('RLS: tracks table is readable by authenticated users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   // Sign in anonymously to get authenticated user
   const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
@@ -44,7 +56,7 @@ Deno.test('RLS: tracks table is readable by authenticated users', async () => {
 });
 
 Deno.test('RLS: tracks table is not writable by anonymous users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   const { error } = await supabase
     .from('tracks')
@@ -57,7 +69,7 @@ Deno.test('RLS: tracks table is not writable by anonymous users', async () => {
 });
 
 Deno.test('RLS: tracks table is not writable by authenticated users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   // Sign in anonymously
   await supabase.auth.signInAnonymously();
@@ -77,7 +89,7 @@ Deno.test('RLS: tracks table is not writable by authenticated users', async () =
 // ============================================================================
 
 Deno.test('RLS: content_cache is not readable by anonymous users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   const { data, error } = await supabase
     .from('content_cache')
@@ -91,7 +103,7 @@ Deno.test('RLS: content_cache is not readable by anonymous users', async () => {
 });
 
 Deno.test('RLS: content_cache is readable by authenticated users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   // Sign in anonymously
   const { error: authError } = await supabase.auth.signInAnonymously();
@@ -107,7 +119,7 @@ Deno.test('RLS: content_cache is readable by authenticated users', async () => {
 });
 
 Deno.test('RLS: content_cache is not writable by authenticated users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   // Sign in anonymously
   await supabase.auth.signInAnonymously();
@@ -128,7 +140,7 @@ Deno.test('RLS: content_cache is not writable by authenticated users', async () 
 // ============================================================================
 
 Deno.test('RLS: user_study_log is not readable by anonymous users', async () => {
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createTestClient(supabaseAnonKey);
   
   const { data, error } = await supabase
     .from('user_study_log')
