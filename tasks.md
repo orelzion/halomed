@@ -116,10 +116,11 @@ This file tracks backend implementation tasks following TDD workflow:
 
 - [ ] **Task 5.1**: Implement `generate-schedule` Edge Function
   - Edge Function: `supabase/functions/generate-schedule/index.ts`
-  - Tests written first (server-testing agent)
-  - Implementation (scheduling agent)
+  - Tests written: `supabase/tests/edge-functions/generate-schedule.test.ts` ✅ (2024-12-19)
+  - Implementation (scheduling agent) - PENDING
   - Acceptance: Generates 14-day rolling window of scheduled units
   - Reference: TDD Section 6, scheduling.md
+  - Note: Tests written following TDD - will fail until function is implemented
 
 - [ ] **Task 5.2**: Implement DAILY_WEEKDAYS_ONLY schedule type
   - Weekdays only, excludes Shabbat and Jewish holidays
