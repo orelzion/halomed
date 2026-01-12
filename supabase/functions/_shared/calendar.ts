@@ -74,6 +74,7 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     
     // Major holidays that exclude study
     // Only actual holidays, NOT Erev (eve) days
+    // We check for specific patterns and explicitly exclude "erev" prefix
     const majorHolidayPatterns = [
       'pesach i',
       'pesach ii',
@@ -93,8 +94,16 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     ];
     
     // Check if any event matches a major holiday
+    // IMPORTANT: Exclude events that start with "erev" (eve of holiday)
     return events.some((event: any) => {
       const eventDesc = (event.desc || event.render('en') || '').toLowerCase();
+      
+      // Skip if this is an Erev (eve) day
+      if (eventDesc.startsWith('erev ')) {
+        return false;
+      }
+      
+      // Check if it matches any major holiday pattern
       return majorHolidayPatterns.some(pattern => 
         eventDesc.includes(pattern)
       );
