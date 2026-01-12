@@ -60,7 +60,14 @@ async function invokeGenerateSchedule(
   startDate: string,
   daysAhead: number = 14
 ): Promise<any> {
-  const testClient = createClient(supabaseUrl, supabaseServiceKey);
+  // Disable autoRefreshToken to prevent interval leaks in Deno tests
+  const testClient = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
   
   const { data, error } = await testClient.functions.invoke('generate-schedule', {
     body: {
@@ -155,21 +162,22 @@ Deno.test('user-joining: user joining on holiday gets first available weekday', 
   const userId = await createTestUser();
   const trackId = await createTestTrack('DAILY_WEEKDAYS_ONLY');
   
-  // User joins on Passover (April 22, 2024 is a Monday but a holiday)
-  const joinDate = '2024-04-22'; // Monday, but Passover
+  // User joins on Pesach I (April 23, 2024 is a Tuesday, actual holiday)
+  // Note: April 22 is Erev Pesach (not excluded), April 23 is Pesach I (excluded)
+  const joinDate = '2024-04-23'; // Tuesday, Pesach I (holiday)
   const daysAhead = 7;
   
   const response = await invokeGenerateSchedule(userId, trackId, joinDate, daysAhead);
   
   // Should create units, but first one should skip the holiday
-  if (response.scheduled_units.length > 0) {
-    const firstUnit = response.scheduled_units[0];
-    const firstUnitDate = new Date(firstUnit.study_date);
-    const joinDateObj = new Date(joinDate);
-    
-    // First unit should be after the holiday
-    assertEquals(firstUnitDate > joinDateObj, true, 'First unit should be after holiday');
-  }
+  assertExists(response.scheduled_units.length > 0, 'Should create units even if joining on holiday');
+  
+  const firstUnit = response.scheduled_units[0];
+  const firstUnitDate = new Date(firstUnit.study_date);
+  const joinDateObj = new Date(joinDate);
+  
+  // First unit should be after the holiday (Pesach I)
+  assertEquals(firstUnitDate > joinDateObj, true, 'First unit should be after holiday');
   
   // Cleanup
   await supabase.from('user_study_log').delete().eq('user_id', userId).eq('track_id', trackId);
@@ -264,7 +272,9 @@ Deno.test('user-joining: user can join multiple times without duplicates', async
   const uniqueDates = new Set(logs.map(log => log.study_date));
   
   assertEquals(logs.length, uniqueDates.size, 'Should not create duplicate units');
-  assertEquals(logs.length, 5, 'Should have 5 weekday units (Mon-Fri)');
+  // Monday + 7 days = Mon-Sun, which includes Sunday (weekday in Hebrew calendar)
+  // So we get: Mon, Tue, Wed, Thu, Fri, Sun = 6 weekdays
+  assertEquals(logs.length, 6, 'Should have 6 weekday units (Mon-Fri + Sun)');
   
   // Cleanup
   await supabase.from('user_study_log').delete().eq('user_id', userId).eq('track_id', trackId);

@@ -152,8 +152,8 @@ Deno.test('RLS: user_study_log is not readable by anonymous users', async () => 
 });
 
 Deno.test('RLS: authenticated user can only see own study logs', async () => {
-  const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseService = createTestClient(supabaseServiceKey);
+  const supabaseAnon = createTestClient(supabaseAnonKey);
   
   // Create test track
   const { data: track } = await supabaseService
@@ -168,7 +168,7 @@ Deno.test('RLS: authenticated user can only see own study logs', async () => {
   assertExists(userId1, 'Should have user ID');
   
   // Sign in as user 2
-  const supabaseAnon2 = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseAnon2 = createTestClient(supabaseAnonKey);
   const { data: authData2 } = await supabaseAnon2.auth.signInAnonymously();
   const userId2 = authData2.user?.id;
   assertExists(userId2, 'Should have user ID');
@@ -215,8 +215,8 @@ Deno.test('RLS: authenticated user can only see own study logs', async () => {
 });
 
 Deno.test('RLS: authenticated user can insert own study logs', async () => {
-  const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseService = createTestClient(supabaseServiceKey);
+  const supabaseAnon = createTestClient(supabaseAnonKey);
   
   // Create test track
   const { data: track } = await supabaseService
@@ -251,8 +251,8 @@ Deno.test('RLS: authenticated user can insert own study logs', async () => {
 });
 
 Deno.test('RLS: authenticated user cannot insert study logs for other users', async () => {
-  const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseService = createTestClient(supabaseServiceKey);
+  const supabaseAnon = createTestClient(supabaseAnonKey);
   
   // Create test track
   const { data: track } = await supabaseService
@@ -283,8 +283,8 @@ Deno.test('RLS: authenticated user cannot insert study logs for other users', as
 });
 
 Deno.test('RLS: authenticated user can update own study logs', async () => {
-  const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseService = createTestClient(supabaseServiceKey);
+  const supabaseAnon = createTestClient(supabaseAnonKey);
   
   // Create test track
   const { data: track } = await supabaseService
@@ -328,8 +328,8 @@ Deno.test('RLS: authenticated user can update own study logs', async () => {
 });
 
 Deno.test('RLS: authenticated user cannot update other users study logs', async () => {
-  const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
-  const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseService = createTestClient(supabaseServiceKey);
+  const supabaseAnon = createTestClient(supabaseAnonKey);
   
   // Create test track
   const { data: track } = await supabaseService
@@ -339,7 +339,7 @@ Deno.test('RLS: authenticated user cannot update other users study logs', async 
     .single();
   
   // Create another user via auth
-  const anonClient2 = createClient(supabaseUrl, supabaseAnonKey);
+  const anonClient2 = createTestClient(supabaseAnonKey);
   const { data: authData2 } = await anonClient2.auth.signInAnonymously();
   const otherUserId = authData2.user?.id;
   
