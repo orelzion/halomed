@@ -141,11 +141,12 @@ This file tracks backend implementation tasks following TDD workflow:
 
 ## Content Generation (Content Generation Agent)
 
-- [ ] **Task 6.1**: Implement Sefaria API integration
-  - Shared utility: `_shared/sefaria.ts`
-  - Tests written first (server-testing agent)
-  - Implementation (content-generation agent)
-  - Acceptance: Can fetch Mishnah text from Sefaria API
+- [x] **Task 6.1**: Implement Sefaria API integration ✅ (2024-12-19)
+  - Shared utility: `_shared/sefaria.ts` ✅
+  - Tests written: `sefaria.test.ts` (6 tests, all passing) ✅
+  - Implementation: Complete ✅
+  - Features: fetchText, fetchCommentaries, retry logic, rate limiting ✅
+  - Acceptance: Can fetch Mishnah text from Sefaria API ✅
   - Reference: TDD Section 7, content-generation.md
 
 - [ ] **Task 6.2**: Implement `generate-content` Edge Function
