@@ -1,5 +1,44 @@
 {
   "version": "5",
+  "specifiers": {
+    "npm:@hebcal/core@*": "6.0.8"
+  },
+  "npm": {
+    "@hebcal/core@6.0.8": {
+      "integrity": "sha512-UgH1OOD09dcvES5EgeF6VSYqWAIC2fq+EjNsCid9fl2RRlDhO931puRZp4AFCSZ6Mp6iO//XqZ7NfQ4ZUs3LFw==",
+      "dependencies": [
+        "@hebcal/hdate",
+        "@hebcal/noaa",
+        "quick-lru",
+        "temporal-polyfill",
+        "tslib"
+      ]
+    },
+    "@hebcal/hdate@0.21.1": {
+      "integrity": "sha512-YeDYuo29OUmAug1B3Jnnkn/s6AZ28V0mCChsi8HdcZKlTVi8VrKQ2Iryo6CKW4d+NkdNuAmnOzOI/bH2DxYckA=="
+    },
+    "@hebcal/noaa@0.9.2": {
+      "integrity": "sha512-pw6hixqxdgkhaxj/5aQgaBYevLUaerUvEIPNUSKYn2B77NOH4xZQF1A3YZlXel8MzGHyVbtB434uS4QAOMjZWQ==",
+      "dependencies": [
+        "temporal-polyfill"
+      ]
+    },
+    "quick-lru@7.3.0": {
+      "integrity": "sha512-k9lSsjl36EJdK7I06v7APZCbyGT2vMTsYSRX1Q2nbYmnkBqgUhRkAuzH08Ciotteu/PLJmIF2+tti7o3C/ts2g=="
+    },
+    "temporal-polyfill@0.3.0": {
+      "integrity": "sha512-qNsTkX9K8hi+FHDfHmf22e/OGuXmfBm9RqNismxBrnSmZVJKegQ+HYYXT+R7Ha8F/YSm2Y34vmzD4cxMu2u95g==",
+      "dependencies": [
+        "temporal-spec"
+      ]
+    },
+    "temporal-spec@0.3.0": {
+      "integrity": "sha512-n+noVpIqz4hYgFSMOSiINNOUOMFtV5cZQNCmmszA6GiVFVRt3G7AqVyhXjhCSmowvQn+NsGn+jMDMKJYHd3bSQ=="
+    },
+    "tslib@2.8.1": {
+      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="
+    }
+  },
   "redirects": {
     "https://esm.sh/@supabase/supabase-js@2": "https://esm.sh/@supabase/supabase-js@2.90.1",
     "https://esm.sh/iceberg-js@^0.8.1?target=denonext": "https://esm.sh/iceberg-js@0.8.1?target=denonext"

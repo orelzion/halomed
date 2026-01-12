@@ -61,8 +61,10 @@ export function isScheduledDaySync(date: Date, scheduleType: string): boolean {
  */
 export async function isJewishHoliday(date: Date): Promise<boolean> {
   try {
-    // Import hebcal/core via esm.sh (Deno-compatible)
-    const { HDate, HebrewCalendar } = await import('https://esm.sh/@hebcal/core@0.10.3');
+    // Import hebcal/core via npm specifier (Deno-compatible)
+    // Using npm: prefix for better Deno compatibility
+    const hebcal = await import('npm:@hebcal/core');
+    const { HDate, HebrewCalendar } = hebcal;
     
     // Convert Gregorian date to Hebrew date
     const hdate = new HDate(date);
