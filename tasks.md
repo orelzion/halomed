@@ -96,17 +96,21 @@ This file tracks backend implementation tasks following TDD workflow:
 
 ### Edge Functions Structure
 
-- [ ] **Task 4.1**: Create Edge Functions directory structure
+- [x] **Task 4.1**: Create Edge Functions directory structure ✅ (2024-12-19)
   - Create `supabase/functions/` with subdirectories
   - Create `_shared/` for common utilities
+  - Tests written: `structure.test.ts` (6 tests)
   - Acceptance: Directory structure matches backend.md Section 6
   - Reference: backend.md Section 6
+  - Note: ✅ All tests passing
 
-- [ ] **Task 4.2**: Create shared utilities (`_shared/cors.ts`, `_shared/auth.ts`)
+- [x] **Task 4.2**: Create shared utilities (`_shared/cors.ts`, `_shared/auth.ts`) ✅ (2024-12-19)
   - CORS handler for Edge Functions
   - Auth validation helper
+  - Tests written: `structure.test.ts` (verifies exports)
   - Acceptance: Utilities can be imported and used
   - Reference: backend.md Section 6
+  - Note: ✅ All tests passing
 
 ## Test Coverage
 
