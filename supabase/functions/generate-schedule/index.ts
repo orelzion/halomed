@@ -80,15 +80,18 @@ Deno.serve(async (req: Request) => {
     // For MVP, we'll skip explicit user validation and let the database foreign key handle it
     // If user doesn't exist, the foreign key constraint will catch it
 
-    // Get user's current position in track (count of completed units)
-    const { count: completedCount } = await supabase
+    // Get user's current position in track
+    // For new users joining: content starts from beginning (index 0)
+    // For existing users: continue from where they left off (total scheduled units)
+    const { count: totalScheduledCount } = await supabase
       .from('user_study_log')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', body.user_id)
-      .eq('track_id', body.track_id)
-      .eq('is_completed', true);
+      .eq('track_id', body.track_id);
 
-    const currentContentIndex = completedCount ?? 0;
+    // Content index is based on total scheduled units (not just completed)
+    // This ensures sequential content assignment from user's join point
+    const currentContentIndex = totalScheduledCount ?? 0;
 
     // Parse start date
     const startDate = parseDate(body.start_date);
