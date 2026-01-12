@@ -112,6 +112,45 @@ This file tracks backend implementation tasks following TDD workflow:
   - Reference: backend.md Section 6
   - Note: ✅ All tests passing
 
+## Track Scheduling (Scheduling Agent)
+
+- [ ] **Task 5.1**: Implement `generate-schedule` Edge Function
+  - Edge Function: `supabase/functions/generate-schedule/index.ts`
+  - Tests written first (server-testing agent)
+  - Implementation (scheduling agent)
+  - Acceptance: Generates 14-day rolling window of scheduled units
+  - Reference: TDD Section 6, scheduling.md
+
+- [ ] **Task 5.2**: Implement DAILY_WEEKDAYS_ONLY schedule type
+  - Weekdays only, excludes Shabbat and Jewish holidays
+  - Tests written first (server-testing agent)
+  - Implementation (scheduling agent)
+  - Acceptance: Only weekdays are scheduled, holidays excluded
+  - Reference: TDD Section 6.3, scheduling.md
+
+- [ ] **Task 5.3**: Implement user track joining logic
+  - Users can join tracks at any point
+  - Tests written first (server-testing agent)
+  - Implementation (scheduling agent)
+  - Acceptance: User gets first scheduled unit from join date
+  - Reference: TDD Section 6.2, scheduling.md
+
+## Content Generation (Content Generation Agent)
+
+- [ ] **Task 6.1**: Implement Sefaria API integration
+  - Shared utility: `_shared/sefaria.ts`
+  - Tests written first (server-testing agent)
+  - Implementation (content-generation agent)
+  - Acceptance: Can fetch Mishnah text from Sefaria API
+  - Reference: TDD Section 7, content-generation.md
+
+- [ ] **Task 6.2**: Implement `generate-content` Edge Function
+  - Edge Function: `supabase/functions/generate-content/index.ts`
+  - Tests written first (server-testing agent)
+  - Implementation (content-generation agent)
+  - Acceptance: Generates AI explanations and caches content
+  - Reference: TDD Section 7, content-generation.md
+
 ## Test Coverage
 
 Each task above must have corresponding tests written before implementation:
