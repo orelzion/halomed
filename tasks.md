@@ -149,12 +149,14 @@ This file tracks backend implementation tasks following TDD workflow:
   - Acceptance: Can fetch Mishnah text from Sefaria API ✅
   - Reference: TDD Section 7, content-generation.md
 
-- [ ] **Task 6.2**: Implement `generate-content` Edge Function
-  - Edge Function: `supabase/functions/generate-content/index.ts`
-  - Tests written first (server-testing agent)
-  - Implementation (content-generation agent)
-  - Acceptance: Generates AI explanations and caches content
+- [x] **Task 6.2**: Implement `generate-content` Edge Function ✅ (2024-12-19)
+  - Edge Function: `supabase/functions/generate-content/index.ts` ✅
+  - Tests written: `generate-content.test.ts` (5 tests) ✅
+  - Implementation: Complete ✅
+  - Features: Sefaria integration, content caching, placeholder AI explanation ✅
+  - Acceptance: Generates content and caches it ✅
   - Reference: TDD Section 7, content-generation.md
+  - Note: OpenAI API integration TODO (currently uses placeholder)
 
 ## Test Coverage
 

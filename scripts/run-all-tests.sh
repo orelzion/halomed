@@ -96,10 +96,12 @@ run_test_suite "supabase/tests/auth/apple-oauth.test.ts" "Apple OAuth tests"
 echo "5️⃣  Logic Tests"
 run_test_suite "supabase/tests/logic/scheduling.test.ts" "Scheduling logic tests"
 run_test_suite "supabase/tests/logic/user-track-joining.test.ts" "User track joining tests"
+run_test_suite "supabase/tests/logic/sefaria.test.ts" "Sefaria API integration tests"
 
-# 6. Edge Functions structure tests
-echo "6️⃣  Edge Functions Structure Tests"
+# 6. Edge Functions tests
+echo "6️⃣  Edge Functions Tests"
 run_test_suite "supabase/tests/edge-functions/structure.test.ts" "Edge Functions structure tests"
+run_test_suite "supabase/tests/edge-functions/generate-content.test.ts" "Generate content Edge Function tests"
 
 # Summary
 echo "=========================="
