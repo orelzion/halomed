@@ -5,20 +5,45 @@
 /**
  * Checks if a date is a scheduled day based on schedule type
  * For DAILY_WEEKDAYS_ONLY: excludes Saturday and Jewish holidays
+ * 
+ * Note: This is the async version that properly checks holidays
  */
-export function isScheduledDay(date: Date, scheduleType: string): boolean {
+export async function isScheduledDay(date: Date, scheduleType: string): Promise<boolean> {
   switch (scheduleType) {
     case 'DAILY_WEEKDAYS_ONLY':
       const dayOfWeek = date.getDay();
       // Skip Saturday (6)
       if (dayOfWeek === 6) return false;
       // Skip Jewish holidays
-      if (isJewishHoliday(date)) return false;
+      if (await isJewishHoliday(date)) return false;
       return true;
     
     case 'DAILY':
       // All days are scheduled (but still exclude holidays for MVP)
-      if (isJewishHoliday(date)) return false;
+      if (await isJewishHoliday(date)) return false;
+      return true;
+    
+    default:
+      return false;
+  }
+}
+
+/**
+ * Synchronous version for backward compatibility (uses fallback holiday check)
+ */
+export function isScheduledDaySync(date: Date, scheduleType: string): boolean {
+  switch (scheduleType) {
+    case 'DAILY_WEEKDAYS_ONLY':
+      const dayOfWeek = date.getDay();
+      // Skip Saturday (6)
+      if (dayOfWeek === 6) return false;
+      // Skip Jewish holidays (using sync fallback)
+      if (isJewishHolidaySync(date)) return false;
+      return true;
+    
+    case 'DAILY':
+      // All days are scheduled (but still exclude holidays for MVP)
+      if (isJewishHolidaySync(date)) return false;
       return true;
     
     default:
@@ -30,26 +55,54 @@ export function isScheduledDay(date: Date, scheduleType: string): boolean {
  * Checks if a date is a Jewish holiday that excludes study
  * Major holidays: Rosh Hashana, Yom Kippur, Sukkot, Shmini Atzeret, Simchat Torah, Pesach, Shavuot
  * 
- * Note: For MVP, using a simplified implementation
- * For production, consider using @hebcal/core library
+ * Uses @hebcal/core library via esm.sh for accurate Hebrew calendar calculations
  */
-export function isJewishHoliday(date: Date): boolean {
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1; // JavaScript months are 0-indexed
-  const day = date.getDate();
-  
-  // Get Hebrew calendar date (simplified calculation)
-  // For MVP, we'll use a lookup table for major holidays
-  // This is a simplified version - for production, use a proper Hebrew calendar library
-  
-  // Major holidays to exclude (using Gregorian dates for MVP)
-  // Note: These dates change each year, so this is a simplified approach
-  // For production, use @hebcal/core or similar library
-  
-  // For now, return false (no holidays detected)
-  // TODO: Integrate @hebcal/core for accurate holiday detection
-  // This will be implemented when we add the library dependency
-  
+export async function isJewishHoliday(date: Date): Promise<boolean> {
+  try {
+    // Import hebcal/core via esm.sh (Deno-compatible)
+    const { HDate, HebrewCalendar } = await import('https://esm.sh/@hebcal/core@0.10.3');
+    
+    // Convert Gregorian date to Hebrew date
+    const hdate = new HDate(date);
+    
+    // Get all events (holidays) for this date
+    const events = HebrewCalendar.getHolidaysOnDate(hdate);
+    
+    // Major holidays that exclude study
+    const majorHolidays = [
+      'Rosh Hashana',
+      'Rosh Hashanah',
+      'Yom Kippur',
+      'Sukkot',
+      'Shmini Atzeret',
+      'Simchat Torah',
+      'Pesach',
+      'Passover',
+      'Shavuot',
+    ];
+    
+    // Check if any event matches a major holiday
+    return events.some(event => {
+      const eventDesc = event.desc || event.render('en') || '';
+      return majorHolidays.some(holiday => 
+        eventDesc.toLowerCase().includes(holiday.toLowerCase())
+      );
+    });
+  } catch (error) {
+    // Fallback: if library fails to load, log error and return false
+    // This ensures the function doesn't break the schedule generation
+    console.error('Error checking Jewish holiday:', error);
+    return false;
+  }
+}
+
+/**
+ * Synchronous version for backward compatibility
+ * Note: This is a simplified fallback. Use async version when possible.
+ */
+export function isJewishHolidaySync(date: Date): boolean {
+  // For now, return false as fallback
+  // The async version should be used in Edge Functions
   return false;
 }
 

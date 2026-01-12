@@ -107,8 +107,8 @@ Deno.serve(async (req: Request) => {
       const date = addDays(startDate, i);
       const studyDate = formatDate(date);
 
-      // Check if this date is allowed by schedule type
-      if (isScheduledDay(date, track.schedule_type)) {
+      // Check if this date is allowed by schedule type (async to check holidays)
+      if (await isScheduledDay(date, track.schedule_type)) {
         // Get content reference for this index
         const contentRef = getContentRefForIndex(contentIndex);
 
