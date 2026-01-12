@@ -113,7 +113,7 @@ Deno.test('user-joining: user can join track on any date', async () => {
   await supabase.from('tracks').delete().eq('id', trackId);
 });
 
-Deno.test('user-joining: user joining on weekend gets first weekday unit', async () => {
+Deno.test('user-joining: user joining on Saturday gets first weekday unit', async () => {
   const userId = await createTestUser();
   const trackId = await createTestTrack('DAILY_WEEKDAYS_ONLY');
   
@@ -123,16 +123,15 @@ Deno.test('user-joining: user joining on weekend gets first weekday unit', async
   
   const response = await invokeGenerateSchedule(userId, trackId, joinDate, daysAhead);
   
-  // Should create units, but first one should be Monday (next weekday)
-  assertExists(response.scheduled_units.length > 0, 'Should create units even if joining on weekend');
+  // Should create units, but first one should be Sunday (next weekday in Hebrew calendar)
+  assertExists(response.scheduled_units.length > 0, 'Should create units even if joining on Saturday');
   
   const firstUnit = response.scheduled_units[0];
   const firstUnitDate = new Date(firstUnit.study_date);
   const dayOfWeek = firstUnitDate.getDay();
   
-  // First unit should be a weekday (Monday = 1)
-  assertEquals(dayOfWeek >= 1 && dayOfWeek <= 5, true, 'First unit should be on a weekday');
-  assertEquals(dayOfWeek === 1, true, 'First unit should be Monday (next weekday after Saturday)');
+  // First unit should be Sunday (0) - next weekday after Saturday in Hebrew calendar
+  assertEquals(dayOfWeek === 0, true, 'First unit should be Sunday (next weekday after Saturday in Hebrew calendar)');
   
   // Cleanup
   await supabase.from('user_study_log').delete().eq('user_id', userId).eq('track_id', trackId);
