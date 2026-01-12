@@ -66,17 +66,28 @@ async function invokeGenerateSchedule(
   startDate: string,
   daysAhead: number = 14
 ): Promise<any> {
-  // Note: In local development, Edge Functions are invoked via HTTP
-  // For now, we'll test the logic directly once the function is implemented
-  // This test structure will work once the function is deployed
+  // Use Supabase client to invoke Edge Function
+  // Create a client with service role key for testing
+  const testClient = createClient(supabaseUrl, supabaseServiceKey);
   
-  // TODO: Once Edge Function is implemented, use:
-  // const response = await anonClient.functions.invoke('generate-schedule', {
-  //   body: { user_id: userId, track_id: trackId, start_date: startDate, days_ahead: daysAhead }
-  // });
-  
-  // For now, return a placeholder that will fail tests until implementation
-  throw new Error('Edge Function not yet implemented - tests will pass once function is created');
+  const { data, error } = await testClient.functions.invoke('generate-schedule', {
+    body: {
+      user_id: userId,
+      track_id: trackId,
+      start_date: startDate,
+      days_ahead: daysAhead,
+    },
+  });
+
+  if (error) {
+    throw new Error(`Edge Function error: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error('Edge Function returned no data');
+  }
+
+  return data;
 }
 
 // Helper to get user_study_log entries for a user/track
