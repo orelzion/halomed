@@ -11,7 +11,7 @@ The Architect Agent is responsible for analyzing product requirements (PRD) and 
 
 ## Responsibilities
 
-- Read and analyze `halomed_prd.md` and `halomed_tdd.md`
+- Read and analyze `docs/halomed_prd.md` and `docs/halomed_tdd.md`
 - Break down product requirements into specific implementation tasks
 - Assign tasks to appropriate implementor agents (backend, android, ios, web, etc.)
 - Create detailed task lists for each implementor agent
@@ -26,15 +26,15 @@ The Architect Agent is responsible for analyzing product requirements (PRD) and 
 
 ## Dependencies
 
-- **Reads**: `halomed_prd.md`, `halomed_tdd.md`
+- **Reads**: `docs/halomed_prd.md`, `docs/halomed_tdd.md`
 - **Outputs to**: All implementor agents
 
 ## Key Documents
 
 | Document | Purpose |
 |----------|---------|
-| `halomed_prd.md` | Product requirements, user stories, MVP scope |
-| `halomed_tdd.md` | Technical architecture, database schema, API design |
+| `docs/halomed_prd.md` | Product requirements, user stories, MVP scope |
+| `docs/halomed_tdd.md` | Technical architecture, database schema, API design |
 
 ## Task Breakdown Process
 
@@ -263,5 +263,5 @@ When breaking down a feature, output should include:
 
 ## Reference Documents
 
-- **PRD**: `halomed_prd.md` - Sections 1-13
-- **TDD**: `halomed_tdd.md` - Sections 1-13
+- **PRD**: `docs/halomed_prd.md` - Sections 1-13
+- **TDD**: `docs/halomed_tdd.md` - Sections 1-13

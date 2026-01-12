@@ -106,8 +106,8 @@ HaLomeid uses a multi-agent architecture to develop an offline-first, multi-plat
 
 ## Reference Documents
 
-- **PRD**: `halomed_prd.md` - Product requirements
-- **TDD**: `halomed_tdd.md` - Technical design
+- **PRD**: `docs/halomed_prd.md` - Product requirements
+- **TDD**: `docs/halomed_tdd.md` - Technical design
 
 ## Agent Invocation
 

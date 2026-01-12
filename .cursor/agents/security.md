@@ -27,7 +27,7 @@ The Security Agent is responsible for preventing the accidental exposure of secr
 ## Dependencies
 
 - **Consulted by**: All agents before commits
-- **Integrates with**: commit_agent.py
+- **Integrates with**: scripts/commit_agent.py
 - **References**: TDD Section 11 (Security)
 
 ## Pre-Commit Hook Setup
@@ -143,7 +143,7 @@ GoogleService-Info.plist
 supabase/.env
 ```
 
-## Integration with commit_agent.py
+## Integration with scripts/commit_agent.py
 
 Add security scanning to the commit agent. The SecurityChecker class should:
 
