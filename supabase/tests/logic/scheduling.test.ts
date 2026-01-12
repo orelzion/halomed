@@ -15,10 +15,10 @@ Deno.test('scheduling: Saturday is not a scheduled day', async () => {
   assertEquals(result, false, 'Saturday should not be scheduled');
 });
 
-Deno.test('scheduling: Sunday is not a scheduled day (weekdays only)', async () => {
+Deno.test('scheduling: Sunday is a scheduled day (Hebrew calendar weekdays)', async () => {
   const sunday = new Date('2024-01-21'); // Sunday, Jan 21, 2024
   const result = await isScheduledDay(sunday, 'DAILY_WEEKDAYS_ONLY');
-  assertEquals(result, false, 'Sunday should not be scheduled for weekdays only');
+  assertEquals(result, true, 'Sunday should be scheduled (Hebrew calendar weekdays are Sun-Fri)');
 });
 
 Deno.test('scheduling: Monday is a scheduled day', async () => {

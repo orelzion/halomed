@@ -12,7 +12,8 @@ export async function isScheduledDay(date: Date, scheduleType: string): Promise<
   switch (scheduleType) {
     case 'DAILY_WEEKDAYS_ONLY':
       const dayOfWeek = date.getDay();
-      // Skip Saturday (6)
+      // Skip Saturday (6) - Shabbat
+      // In Hebrew calendar, weekdays are Sunday-Friday, so Sunday (0) is included
       if (dayOfWeek === 6) return false;
       // Skip Jewish holidays
       if (await isJewishHoliday(date)) return false;
@@ -35,7 +36,8 @@ export function isScheduledDaySync(date: Date, scheduleType: string): boolean {
   switch (scheduleType) {
     case 'DAILY_WEEKDAYS_ONLY':
       const dayOfWeek = date.getDay();
-      // Skip Saturday (6)
+      // Skip Saturday (6) - Shabbat
+      // In Hebrew calendar, weekdays are Sunday-Friday, so Sunday (0) is included
       if (dayOfWeek === 6) return false;
       // Skip Jewish holidays (using sync fallback)
       if (isJewishHolidaySync(date)) return false;
