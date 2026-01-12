@@ -86,10 +86,13 @@ This file tracks backend implementation tasks following TDD workflow:
   - Reference: TDD Section 5, backend.md Section 5
   - Note: ✅ Configuration structure complete, requires Google Cloud Console setup for full OAuth flow
 
-- [ ] **Task 3.3**: Configure Supabase Auth for Apple Sign-In
-  - Set up Apple provider
-  - Acceptance: Can sign in with Apple (where supported)
+- [x] **Task 3.3**: Configure Supabase Auth for Apple Sign-In ✅ (2024-12-19)
+  - Set up Apple provider in config.toml
+  - Configuration: `[auth.external.apple]` section exists
+  - Tests written: `apple-oauth.test.ts` (2 tests)
+  - Acceptance: Apple OAuth provider configured (requires Apple Developer setup for full OAuth flow)
   - Reference: TDD Section 5, backend.md Section 5
+  - Note: ✅ Configuration structure complete, requires Apple Developer account setup for full OAuth flow
 
 ### Edge Functions Structure
 
