@@ -1,0 +1,17 @@
+# Supabase
+.branches
+.temp
+
+# Environment files (security)
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Secret files
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+credentials.json
