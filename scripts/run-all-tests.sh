@@ -97,6 +97,7 @@ echo "5️⃣  Logic Tests"
 run_test_suite "supabase/tests/logic/scheduling.test.ts" "Scheduling logic tests"
 run_test_suite "supabase/tests/logic/user-track-joining.test.ts" "User track joining tests"
 run_test_suite "supabase/tests/logic/sefaria.test.ts" "Sefaria API integration tests"
+run_test_suite "supabase/tests/logic/openai.test.ts" "OpenAI API integration tests"
 
 # 6. Edge Functions tests
 echo "6️⃣  Edge Functions Tests"

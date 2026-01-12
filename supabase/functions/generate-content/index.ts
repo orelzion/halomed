@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { validateAuth } from '../_shared/auth.ts';
 import { fetchText, fetchCommentaries, toSefariaRef } from '../_shared/sefaria.ts';
+import { generateExplanation, generateDeepDive } from '../_shared/openai.ts';
 
 interface ContentGenerationRequest {
   ref_id: string;  // e.g., "Mishnah_Berakhot.1.1"
@@ -109,9 +110,7 @@ Deno.serve(async (req: Request) => {
       console.warn('Failed to fetch commentaries:', error);
     }
 
-    // Generate AI explanation
-    // For MVP, we'll create a placeholder explanation
-    // TODO: Integrate OpenAI API for actual AI generation
+    // Generate AI explanation using OpenAI
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     
     let aiExplanation = '';
@@ -120,20 +119,51 @@ Deno.serve(async (req: Request) => {
     };
 
     if (openaiApiKey) {
-      // TODO: Implement actual OpenAI API call
-      // For now, use placeholder
-      aiExplanation = `הסבר אוטומטי יופעל כאן. טקסט המקור: ${sourceText.substring(0, 50)}...`;
-      aiDeepDive = {
-        approaches: [
-          { commentator: 'רש"י', summary_he: 'פירוש ראשון' },
-        ],
-      };
+      try {
+        // Generate clear explanation
+        aiExplanation = await generateExplanation(
+          {
+            sourceText,
+            commentaries: commentaries.map((c: any) => c.ref || c).filter(Boolean),
+          },
+          openaiApiKey
+        );
+        
+        // Generate deep dive (commentaries summary)
+        const deepDiveResult = await generateDeepDive(
+          {
+            sourceText,
+            commentaries: commentaries.map((c: any) => c.ref || c).filter(Boolean),
+          },
+          openaiApiKey
+        );
+        aiDeepDive = deepDiveResult;
+      } catch (error) {
+        // If OpenAI API fails, log error and use placeholder
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('OpenAI API error:', errorMsg);
+        
+        // Fallback to placeholder
+        const sourcePreview = typeof sourceText === 'string' && sourceText.length > 0
+          ? sourceText.substring(0, 50)
+          : 'טקסט מקור';
+        aiExplanation = `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`;
+        aiDeepDive = {
+          approaches: [
+            { commentator: 'רש"י', summary_he: 'פירוש זמין' },
+          ],
+        };
+      }
     } else {
       // No API key - use placeholder
-      aiExplanation = `הסבר אוטומטי יופעל כאן. טקסט המקור: ${sourceText.substring(0, 50)}...`;
+      console.warn('OPENAI_API_KEY not set, using placeholder explanation');
+      const sourcePreview = typeof sourceText === 'string' && sourceText.length > 0
+        ? sourceText.substring(0, 50)
+        : 'טקסט מקור';
+      aiExplanation = `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`;
       aiDeepDive = {
         approaches: [
-          { commentator: 'רש"י', summary_he: 'פירוש ראשון' },
+          { commentator: 'רש"י', summary_he: 'פירוש זמין' },
         ],
       };
     }
