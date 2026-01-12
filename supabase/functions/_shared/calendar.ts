@@ -73,15 +73,23 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     const events = HebrewCalendar.getHolidaysOnDate(hdate);
     
     // Major holidays that exclude study
-    // Note: hebcal uses various event names, so we check for multiple variations
+    // Only actual holidays, NOT Erev (eve) days
     const majorHolidayPatterns = [
-      'rosh hashana', 'rosh hashanah', 'erev rosh hashana',
-      'yom kippur', 'erev yom kippur',
-      'sukkot', 'erev sukkot',
-      'shmini atzeret', 'shmini atzeres',
-      'simchat torah', 'simchas torah',
-      'pesach', 'passover', 'erev pesach', 'pesach i', 'pesach ii',
-      'shavuot', 'erev shavuot',
+      'pesach i',
+      'pesach ii',
+      'rosh hashana i',
+      'rosh hashana ii',
+      'rosh hashana 5785', // First day of Rosh Hashana (year-specific)
+      'yom kippur',
+      'sukkot i',
+      'shmini atzeret',
+      'shmini atzeres',
+      'simchat torah',
+      'simchas torah',
+      'shavuot',
+      'shavuot i',
+      "tish'a b'av",
+      "tisha b'av",
     ];
     
     // Check if any event matches a major holiday

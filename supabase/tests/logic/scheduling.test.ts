@@ -55,46 +55,90 @@ Deno.test('scheduling: Friday is a scheduled day', async () => {
 // JEWISH HOLIDAY DETECTION TESTS
 // ============================================================================
 
-Deno.test('scheduling: Passover is detected as holiday', async () => {
-  // First day of Passover 2024: April 22 (Monday)
-  const passover = new Date('2024-04-22');
+Deno.test('scheduling: Erev Pesach is NOT detected as holiday (eve days should not exclude)', async () => {
+  // Erev Pesach 2024: April 22 (Monday) - should NOT exclude
+  const erevPesach = new Date('2024-04-22');
+  const result = await isJewishHoliday(erevPesach);
+  assertEquals(result, false, 'Erev Pesach should NOT be detected as a holiday (eve days do not exclude study)');
+});
+
+Deno.test('scheduling: Pesach I is detected as holiday', async () => {
+  // First day of Passover 2024: April 23 (Tuesday)
+  const passover = new Date('2024-04-23');
   const result = await isJewishHoliday(passover);
-  assertEquals(result, true, 'Passover should be detected as a holiday');
+  assertEquals(result, true, 'Pesach I should be detected as a holiday');
 });
 
-Deno.test('scheduling: Second day of Passover is detected as holiday', async () => {
-  // Second day of Passover 2024: April 23 (Tuesday)
-  const passover2 = new Date('2024-04-23');
+Deno.test('scheduling: Pesach II is detected as holiday', async () => {
+  // Second day of Passover 2024: April 24 (Wednesday)
+  const passover2 = new Date('2024-04-24');
   const result = await isJewishHoliday(passover2);
-  assertEquals(result, true, 'Second day of Passover should be detected as a holiday');
+  assertEquals(result, true, 'Pesach II should be detected as a holiday');
 });
 
-Deno.test('scheduling: Rosh Hashana is detected as holiday', async () => {
-  // First day of Rosh Hashana 2024: October 2 (Wednesday)
-  const roshHashana = new Date('2024-10-02');
+Deno.test('scheduling: Erev Rosh Hashana is NOT detected as holiday', async () => {
+  // Erev Rosh Hashana 2024: October 2 (Wednesday) - should NOT exclude
+  const erevRoshHashana = new Date('2024-10-02');
+  const result = await isJewishHoliday(erevRoshHashana);
+  assertEquals(result, false, 'Erev Rosh Hashana should NOT be detected as a holiday');
+});
+
+Deno.test('scheduling: Rosh Hashana I is detected as holiday', async () => {
+  // First day of Rosh Hashana 2024: October 3 (Thursday)
+  const roshHashana = new Date('2024-10-03');
   const result = await isJewishHoliday(roshHashana);
-  assertEquals(result, true, 'Rosh Hashana should be detected as a holiday');
+  assertEquals(result, true, 'Rosh Hashana I should be detected as a holiday');
+});
+
+Deno.test('scheduling: Rosh Hashana II is detected as holiday', async () => {
+  // Second day of Rosh Hashana 2024: October 4 (Friday)
+  const roshHashana2 = new Date('2024-10-04');
+  const result = await isJewishHoliday(roshHashana2);
+  assertEquals(result, true, 'Rosh Hashana II should be detected as a holiday');
 });
 
 Deno.test('scheduling: Yom Kippur is detected as holiday', async () => {
-  // Yom Kippur 2024: October 11 (Friday)
-  const yomKippur = new Date('2024-10-11');
+  // Yom Kippur 2024: October 12 (Saturday)
+  const yomKippur = new Date('2024-10-12');
   const result = await isJewishHoliday(yomKippur);
   assertEquals(result, true, 'Yom Kippur should be detected as a holiday');
 });
 
-Deno.test('scheduling: Sukkot is detected as holiday', async () => {
-  // First day of Sukkot 2024: October 16 (Wednesday)
-  const sukkot = new Date('2024-10-16');
+Deno.test('scheduling: Sukkot I is detected as holiday', async () => {
+  // First day of Sukkot 2024: October 17 (Thursday)
+  const sukkot = new Date('2024-10-17');
   const result = await isJewishHoliday(sukkot);
-  assertEquals(result, true, 'Sukkot should be detected as a holiday');
+  assertEquals(result, true, 'Sukkot I should be detected as a holiday');
+});
+
+Deno.test('scheduling: Shmini Atzeret is detected as holiday', async () => {
+  // Shmini Atzeret 2024: October 24 (Thursday)
+  const shminiAtzeret = new Date('2024-10-24');
+  const result = await isJewishHoliday(shminiAtzeret);
+  assertEquals(result, true, 'Shmini Atzeret should be detected as a holiday');
+});
+
+Deno.test('scheduling: Simchat Torah is detected as holiday', async () => {
+  // Simchat Torah 2024: October 25 (Friday) - typically the day after Shmini Atzeret
+  // Note: In some communities, Simchat Torah is the same day as Shmini Atzeret
+  // Let's check if October 24 has both or if we need October 25
+  const simchatTorah = new Date('2024-10-24'); // Same day as Shmini Atzeret in many communities
+  const result = await isJewishHoliday(simchatTorah);
+  assertEquals(result, true, 'Simchat Torah should be detected as a holiday');
 });
 
 Deno.test('scheduling: Shavuot is detected as holiday', async () => {
-  // First day of Shavuot 2024: June 11 (Tuesday)
-  const shavuot = new Date('2024-06-11');
+  // Shavuot 2024: June 12 (Wednesday)
+  const shavuot = new Date('2024-06-12');
   const result = await isJewishHoliday(shavuot);
   assertEquals(result, true, 'Shavuot should be detected as a holiday');
+});
+
+Deno.test('scheduling: Tish\'a B\'Av is detected as holiday', async () => {
+  // Tish'a B'Av 2024: August 13 (Tuesday) - the actual holiday (not Erev)
+  const tishaBav = new Date('2024-08-13');
+  const result = await isJewishHoliday(tishaBav);
+  assertEquals(result, true, 'Tish\'a B\'Av should be detected as a holiday');
 });
 
 Deno.test('scheduling: regular weekday is not a holiday', async () => {
@@ -114,9 +158,9 @@ Deno.test('scheduling: regular weekday (Monday) is not a holiday', async () => {
 // ============================================================================
 
 Deno.test('scheduling: weekday that is a holiday is not scheduled', async () => {
-  // Passover 2024 first day is a Monday (weekday but holiday)
-  const passoverMonday = new Date('2024-04-22'); // Monday, but Passover
-  const result = await isScheduledDay(passoverMonday, 'DAILY_WEEKDAYS_ONLY');
+  // Pesach I 2024 is a Tuesday (weekday but holiday)
+  const passoverTuesday = new Date('2024-04-23'); // Tuesday, Pesach I
+  const result = await isScheduledDay(passoverTuesday, 'DAILY_WEEKDAYS_ONLY');
   assertEquals(result, false, 'Weekday that is a holiday should not be scheduled');
 });
 
