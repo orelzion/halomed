@@ -220,7 +220,7 @@ class CommitAgent:
         else:
             return "files"
     
-    def commit_and_push(self, message: Optional[str] = None, branch: Optional[str] = None) -> bool:
+    def commit_and_push(self, message: Optional[str] = None, branch: Optional[str] = None, skip_confirm: bool = False) -> bool:
         """Commit changes and push to remote"""
         # Verify SSH remote uses personal host
         self.check_ssh_remote()
@@ -263,11 +263,12 @@ class CommitAgent:
         print(f"\n📝 Commit message: {message}")
         print(f"🌿 Branch: {branch}\n")
         
-        # Confirm
-        response = input("Proceed with commit? [y/N]: ").strip().lower()
-        if response != 'y':
-            print("❌ Commit cancelled")
-            return False
+        # Confirm (unless skipped)
+        if not skip_confirm:
+            response = input("Proceed with commit? [y/N]: ").strip().lower()
+            if response != 'y':
+                print("❌ Commit cancelled")
+                return False
         
         # Commit
         try:
@@ -315,6 +316,11 @@ def main():
         action="store_true",
         help="Commit only, don't push"
     )
+    parser.add_argument(
+        "-y", "--yes",
+        action="store_true",
+        help="Skip confirmation prompt (non-interactive)"
+    )
     
     args = parser.parse_args()
     
@@ -340,16 +346,17 @@ def main():
         message = args.message or agent.analyze_changes()
         print(f"\n📝 Commit message: {message}\n")
         
-        response = input("Proceed with commit? [y/N]: ").strip().lower()
-        if response != 'y':
-            print("❌ Commit cancelled")
-            return
+        if not args.yes:
+            response = input("Proceed with commit? [y/N]: ").strip().lower()
+            if response != 'y':
+                print("❌ Commit cancelled")
+                return
         
         agent.run_git("commit", "-m", message)
         print("✓ Committed successfully")
     else:
         # Commit and push
-        success = agent.commit_and_push(message=args.message, branch=args.branch)
+        success = agent.commit_and_push(message=args.message, branch=args.branch, skip_confirm=args.yes)
         sys.exit(0 if success else 1)
 
 
