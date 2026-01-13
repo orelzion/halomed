@@ -1,0 +1,17 @@
+# PowerSync Environment Variables
+.env
+.env.local
+*.env
+
+# PowerSync Credentials
+*.key
+*.secret
+credentials.json
+
+# PowerSync Logs
+*.log
+logs/
+
+# PowerSync Cache
+.cache/
+*.cache

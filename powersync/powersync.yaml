@@ -1,0 +1,36 @@
+# PowerSync Sync Rules Configuration
+# Reference: sync.md Section 3, TDD Section 8.2
+# This file defines which data syncs to client applications
+
+bucket_definitions:
+  # User-specific study logs
+  # Syncs only the current user's study logs within 14-day rolling window
+  user_data:
+    parameters:
+      - user_id: token.user_id
+    data:
+      - SELECT id, user_id, track_id, study_date, content_id, is_completed, completed_at
+        FROM user_study_log
+        WHERE user_id = bucket.user_id
+          AND study_date >= CURRENT_DATE - INTERVAL '14 days'
+          AND study_date <= CURRENT_DATE + INTERVAL '14 days'
+
+  # Shared content (read-only)
+  # Syncs only content referenced by user's scheduled units within 14-day window
+  content:
+    data:
+      - SELECT id, ref_id, source_text_he, ai_explanation_json, created_at
+        FROM content_cache
+        WHERE id IN (
+          SELECT content_id FROM user_study_log 
+          WHERE user_id = bucket.user_id
+            AND study_date >= CURRENT_DATE - INTERVAL '14 days'
+            AND study_date <= CURRENT_DATE + INTERVAL '14 days'
+        )
+
+  # Track definitions (read-only)
+  # Syncs all tracks to all clients
+  tracks:
+    data:
+      - SELECT id, title, source_endpoint, schedule_type
+        FROM tracks
