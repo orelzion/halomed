@@ -5,6 +5,30 @@
 import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/testing/asserts.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Load .env.local if it exists (for GEMINI_API_KEY and other secrets)
+// This ensures edge functions invoked via HTTP have access to environment variables
+try {
+  let envFile: string;
+  try {
+    envFile = Deno.readTextFileSync('supabase/.env.local');
+  } catch {
+    envFile = Deno.readTextFileSync('supabase/env.local');
+  }
+  for (const line of envFile.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
+      const [key, ...valueParts] = trimmed.split('=');
+      const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+      // Only set if not already set (don't override existing env vars)
+      if (!Deno.env.get(key.trim())) {
+        Deno.env.set(key.trim(), value.trim());
+      }
+    }
+  }
+} catch {
+  // .env.local doesn't exist, that's okay - tests will fail if key is required
+}
+
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? 'http://localhost:54321';
 // Default keys for local Supabase development
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
@@ -83,10 +107,20 @@ Deno.test('generate-content: returns cached content if it exists', async () => {
   const testContent = {
     ref_id: testRefId,
     source_text_he: 'מאימתי קורין את שמע בערבית',
-    ai_explanation_he: 'זמן קריאת שמע של ערבית מתחיל מזמן שהכהנים נכנסים לאכול בתרומה',
-    ai_deep_dive_json: {
-      approaches: [
-        { commentator: 'רש"י', summary_he: 'פירוש ראשון' },
+    ai_explanation_json: {
+      summary: 'המשנה דנה בזמני קריאת שמע של ערבית',
+      halakha: 'הלכה כרבן גמליאל: זמן קריאת שמע של ערבית הוא מעת צאת הכוכבים ועד עמוד השחר',
+      opinions: [
+        {
+          source: 'רבי אליעזר (משנה, ברכות א:א)',
+          details: 'זמן קריאת שמע מסתיים בסוף האשמורה הראשונה',
+        },
+      ],
+      expansions: [
+        {
+          topic: 'מדוע משתמשים ב\'כהנים האוכלים בתרומה\' כסימן זמן?',
+          explanation: 'בעת העתיקה לא היו שעונים',
+        },
       ],
     },
   };
@@ -119,7 +153,7 @@ Deno.test('generate-content: returns cached content if it exists', async () => {
   assertExists(response.ref_id, `Response should have ref_id. Response keys: ${Object.keys(response || {})}`);
   assertEquals(response.ref_id, testRefId, 'Should return correct ref_id');
   assertEquals(response.source_text_he, testContent.source_text_he, 'Should return cached source text');
-  assertEquals(response.ai_explanation_he, testContent.ai_explanation_he, 'Should return cached explanation');
+  assertEquals(response.ai_explanation_json, testContent.ai_explanation_json, 'Should return cached explanation JSON');
   
   // Cleanup
   await supabase.from('content_cache').delete().eq('id', inserted.id);
@@ -142,8 +176,9 @@ Deno.test('generate-content: generates new content if not cached', async () => {
     assertEquals(response.ref_id, testRefId, 'Should return correct ref_id');
     assertExists(response.source_text_he, 'Should have source text');
     assertEquals(response.source_text_he.length > 0, true, 'Source text should not be empty');
-    assertExists(response.ai_explanation_he, 'Should have AI explanation');
-    assertEquals(response.ai_explanation_he.length > 0, true, 'AI explanation should not be empty');
+    assertExists(response.ai_explanation_json, 'Should have AI explanation JSON');
+    assertExists(response.ai_explanation_json.summary, 'Should have summary in explanation JSON');
+    assertExists(response.ai_explanation_json.halakha, 'Should have halakha in explanation JSON');
     
     // Verify it was cached
     const cached = await getCachedContent(testRefId);
@@ -193,12 +228,20 @@ Deno.test('generate-content: returns content with correct structure', async () =
   const testContent = {
     ref_id: testRefId,
     source_text_he: 'מאימתי קורין את שמע בשחרית',
-    ai_explanation_he: 'זמן קריאת שמע של שחרית',
-    ai_deep_dive_json: {
-      approaches: [
-        { commentator: 'רש"י', summary_he: 'פירוש ראשון' },
-        { commentator: 'רמב"ם', summary_he: 'פירוש שני' },
+    ai_explanation_json: {
+      summary: 'המשנה דנה בזמני קריאת שמע של שחרית',
+      halakha: 'הלכה: זמן קריאת שמע של שחרית',
+      opinions: [
+        {
+          source: 'רש"י',
+          details: 'פירוש ראשון',
+        },
+        {
+          source: 'רמב"ם',
+          details: 'פירוש שני',
+        },
       ],
+      expansions: [],
     },
   };
   
@@ -222,9 +265,11 @@ Deno.test('generate-content: returns content with correct structure', async () =
   assertExists(response.id, 'Should have id');
   assertExists(response.ref_id, 'Should have ref_id');
   assertExists(response.source_text_he, 'Should have source_text_he');
-  assertExists(response.ai_explanation_he, 'Should have ai_explanation_he');
-  assertExists(response.ai_deep_dive_json, 'Should have ai_deep_dive_json');
-  assertEquals(Array.isArray(response.ai_deep_dive_json.approaches), true, 'Deep dive should have approaches array');
+  assertExists(response.ai_explanation_json, 'Should have ai_explanation_json');
+  assertExists(response.ai_explanation_json.summary, 'Should have summary');
+  assertExists(response.ai_explanation_json.halakha, 'Should have halakha');
+  assertEquals(Array.isArray(response.ai_explanation_json.opinions), true, 'Should have opinions array');
+  assertEquals(Array.isArray(response.ai_explanation_json.expansions), true, 'Should have expansions array');
   
   // Cleanup
   await supabase.from('content_cache').delete().eq('id', inserted.id);
@@ -252,20 +297,23 @@ Deno.test('generate-content: idempotent - multiple calls return same content', a
   await supabase.from('content_cache').delete().eq('ref_id', testRefId);
 });
 
-Deno.test('generate-content: uses OpenAI API when key is available', async () => {
-  const testRefId = `Mishnah_Berakhot.1.1_openai_test_${Date.now()}`;
+Deno.test('generate-content: uses Gemini API when key is available', async () => {
+  const testRefId = `Mishnah_Berakhot.1.1_gemini_test_${Date.now()}`;
   
   // Ensure it doesn't exist
   await supabase.from('content_cache').delete().eq('ref_id', testRefId);
   
-  // Check if OpenAI API key is available
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+  // Check if Gemini API key is available in test process
+  const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
   
-  if (!openaiApiKey) {
-    console.log('⚠️  Skipping OpenAI integration test - API key not configured');
-    assertEquals(true, true, 'Test skipped - API key not configured');
-    return;
+  if (!geminiApiKey) {
+    throw new Error('GEMINI_API_KEY is required for integration tests. Set it in supabase/.env.local and run ./supabase/sync-env.sh, then restart Supabase');
   }
+  
+  // Note: The edge function runs in Supabase's runtime, which loads supabase/functions/.env
+  // If this test fails with placeholder content, ensure:
+  // 1. supabase/functions/.env exists with GEMINI_API_KEY
+  // 2. Supabase was restarted after creating/updating functions/.env
   
   try {
     const response = await invokeGenerateContent(testRefId);
@@ -275,55 +323,62 @@ Deno.test('generate-content: uses OpenAI API when key is available', async () =>
     assertExists(response.source_text_he, 'Should have source text');
     assertEquals(response.source_text_he.length > 0, true, 'Source text should not be empty');
     
-    // With OpenAI, explanation should be more than placeholder
-    assertExists(response.ai_explanation_he, 'Should have AI explanation');
-    assertEquals(response.ai_explanation_he.length > 30, true, 'AI explanation should be substantial (not placeholder)');
-    // Check for old placeholder text (if it contains this, OpenAI didn't run)
-    assertEquals(
-      response.ai_explanation_he.includes('הסבר אוטומטי יופעל כאן'),
-      false,
-      'Should not contain old placeholder text'
-    );
-    // New placeholder text also indicates fallback was used
-    assertEquals(
-      response.ai_explanation_he.includes('הסבר אוטומטי זמין') && response.ai_explanation_he.length < 100,
-      false,
-      'Should not contain new placeholder text (indicates OpenAI fallback)'
-    );
+    // With Gemini, explanation should be structured JSON
+    assertExists(response.ai_explanation_json, 'Should have AI explanation JSON');
+    assertExists(response.ai_explanation_json.summary, 'Should have summary');
     
-    // Deep dive should have proper structure
-    assertExists(response.ai_deep_dive_json, 'Should have deep dive JSON');
-    assertExists(response.ai_deep_dive_json.approaches, 'Should have approaches array');
-    assertEquals(Array.isArray(response.ai_deep_dive_json.approaches), true, 'Approaches should be array');
-    assertEquals(response.ai_deep_dive_json.approaches.length > 0, true, 'Should have at least one approach');
+    // Verify this is real content from Gemini, not a placeholder
+    // Placeholder content would be like "הסבר אוטומטי זמין. טקסט המקור: ..."
+    const isPlaceholder = response.ai_explanation_json.summary.includes('הסבר אוטומטי זמין') ||
+                          response.ai_explanation_json.summary.includes('טקסט המקור:');
+    if (isPlaceholder) {
+      throw new Error(
+        'Edge function returned placeholder content. This means GEMINI_API_KEY is not available to the edge function runtime.\n' +
+        'Solution: Run ./supabase/sync-env.sh and restart Supabase (supabase stop && supabase start)'
+      );
+    }
     
-    // Each approach should have required fields
-    response.ai_deep_dive_json.approaches.forEach((approach: any) => {
-      assertExists(approach.commentator, 'Approach should have commentator');
-      assertExists(approach.summary_he, 'Approach should have summary_he');
-      assertEquals(approach.summary_he.length > 0, true, 'Summary should not be empty');
+    assertEquals(response.ai_explanation_json.summary.length > 30, true, 'Summary should be substantial');
+    assertExists(response.ai_explanation_json.halakha, 'Should have halakha');
+    assertEquals(Array.isArray(response.ai_explanation_json.opinions), true, 'Should have opinions array');
+    assertEquals(Array.isArray(response.ai_explanation_json.expansions), true, 'Should have expansions array');
+    
+    // Each opinion should have required fields
+    response.ai_explanation_json.opinions.forEach((opinion: any) => {
+      assertExists(opinion.source, 'Opinion should have source');
+      assertExists(opinion.details, 'Opinion should have details');
+      assertEquals(opinion.source.length > 0, true, 'Source should not be empty');
+      assertEquals(opinion.details.length > 0, true, 'Details should not be empty');
+    });
+    
+    // Each expansion should have required fields
+    response.ai_explanation_json.expansions.forEach((expansion: any) => {
+      assertExists(expansion.topic, 'Expansion should have topic');
+      assertExists(expansion.explanation, 'Expansion should have explanation');
+      assertEquals(expansion.topic.length > 0, true, 'Topic should not be empty');
+      assertEquals(expansion.explanation.length > 0, true, 'Explanation should not be empty');
     });
     
     // Cleanup
     await supabase.from('content_cache').delete().eq('ref_id', testRefId);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    // If OpenAI API fails, that's a real error we should know about
-    throw new Error(`OpenAI integration failed: ${errorMsg}`);
+    // If Gemini API fails, that's a real error we should know about
+    throw new Error(`Gemini integration failed: ${errorMsg}`);
   }
 });
 
-Deno.test('generate-content: handles OpenAI API errors gracefully', async () => {
-  // This test verifies that if OpenAI API fails, we still return content with placeholder
+Deno.test('generate-content: handles Gemini API errors gracefully', async () => {
+  // This test verifies that if Gemini API fails, we still return content with placeholder
   // Note: This is hard to test without mocking, but we can test the error handling structure
   
   const testRefId = `Mishnah_Berakhot.1.2_error_test_${Date.now()}`;
   await supabase.from('content_cache').delete().eq('ref_id', testRefId);
   
-  // The function should handle OpenAI errors and fall back gracefully
-  // In practice, if OpenAI fails, we might want to:
+  // The function should handle Gemini errors and fall back gracefully
+  // In practice, if Gemini fails, we might want to:
   // 1. Log the error
-  // 2. Use a placeholder explanation
+  // 2. Use a placeholder explanation JSON
   // 3. Still cache the source text
   
   // For now, we'll just verify the function doesn't crash on API errors

@@ -141,7 +141,7 @@ Deno.test('schema: content_cache has unique ref_id constraint', async () => {
   const testContent = {
     ref_id: 'test_unique_ref_' + Date.now(),
     source_text_he: 'Test Mishnah',
-    ai_explanation_he: 'Test explanation',
+    ai_explanation_json: { summary: 'Test explanation' },
   };
   
   // Insert first record
@@ -175,8 +175,12 @@ Deno.test('schema: content_cache has required columns', async () => {
   const testContent = {
     ref_id: 'test_content_' + Date.now(),
     source_text_he: 'מאימתי קורין את שמע בערבית',
-    ai_explanation_he: 'זמן קריאת שמע של ערבית...',
-    ai_deep_dive_json: { approaches: [] },
+    ai_explanation_json: {
+      summary: 'זמן קריאת שמע של ערבית...',
+      halakha: 'Test halakha',
+      opinions: [],
+      expansions: [],
+    },
   };
   
   const { data, error } = await supabase
@@ -190,7 +194,8 @@ Deno.test('schema: content_cache has required columns', async () => {
   assertExists(data.id, 'content_cache should have id column (UUID)');
   assertEquals(data.ref_id, testContent.ref_id, 'content_cache should have ref_id column');
   assertEquals(data.source_text_he, testContent.source_text_he, 'content_cache should have source_text_he column');
-  assertEquals(data.ai_explanation_he, testContent.ai_explanation_he, 'content_cache should have ai_explanation_he column');
+  assertExists(data.ai_explanation_json, 'content_cache should have ai_explanation_json column');
+  assertEquals(data.ai_explanation_json.summary, testContent.ai_explanation_json.summary, 'ai_explanation_json should contain summary');
   assertExists(data.created_at, 'content_cache should have created_at column');
   
   // Cleanup
@@ -202,23 +207,34 @@ Deno.test('schema: content_cache source_text_he is required', async () => {
     .from('content_cache')
     .insert({
       ref_id: 'test_missing_' + Date.now(),
-      ai_explanation_he: 'Test',
+      ai_explanation_json: { summary: 'Test' },
       // Missing source_text_he
     });
   
   assertExists(error, 'Should fail when source_text_he is missing');
 });
 
-Deno.test('schema: content_cache ai_explanation_he is required', async () => {
-  const { error } = await supabase
+Deno.test('schema: content_cache ai_explanation_json is required', async () => {
+  const refId = 'test_missing_' + Date.now();
+  const { data, error } = await supabase
     .from('content_cache')
     .insert({
-      ref_id: 'test_missing_' + Date.now(),
+      ref_id: refId,
       source_text_he: 'Test',
-      // Missing ai_explanation_he
-    });
+      // Missing ai_explanation_json (but it has a default, so this should succeed)
+    })
+    .select()
+    .single();
   
-  assertExists(error, 'Should fail when ai_explanation_he is missing');
+  // ai_explanation_json has a default value of '{}'::jsonb, so this should succeed
+  // Verify the default is applied
+  assertEquals(error, null, 'Insert should succeed with default ai_explanation_json');
+  assertExists(data, 'Insert should return data');
+  assertExists(data.ai_explanation_json, 'ai_explanation_json should have default value');
+  assertEquals(typeof data.ai_explanation_json, 'object', 'ai_explanation_json should be an object');
+  
+  // Cleanup
+  await supabase.from('content_cache').delete().eq('ref_id', refId);
 });
 
 // ============================================================================

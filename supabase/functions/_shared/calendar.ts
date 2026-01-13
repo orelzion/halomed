@@ -72,6 +72,11 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     // Get all events (holidays) for this date
     const events = HebrewCalendar.getHolidaysOnDate(hdate);
     
+    // If no events, it's not a holiday
+    if (!events || events.length === 0) {
+      return false;
+    }
+    
     // Major holidays that exclude study
     // Only actual holidays, NOT Erev (eve) days
     // We check for specific patterns and explicitly exclude "erev" prefix

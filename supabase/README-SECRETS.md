@@ -7,21 +7,30 @@
    cp supabase/.env.local.example supabase/.env.local
    ```
 
-2. **Add your OpenAI API key** to `supabase/.env.local`:
+2. **Add your API keys** to `supabase/.env.local`:
    ```bash
    OPENAI_API_KEY=sk-your-actual-key-here
+   GEMINI_API_KEY=your-gemini-key-here
    ```
 
-3. **Serve functions with environment variables**:
+3. **Sync API keys to `supabase/functions/.env`** (required for edge functions invoked via HTTP):
    ```bash
-   supabase functions serve generate-content --env-file ./supabase/.env.local
+   # Run the sync script
+   ./supabase/sync-env.sh
+   
+   # Or manually:
+   grep -E "^(GEMINI_API_KEY|OPENAI_API_KEY)=" supabase/.env.local > supabase/functions/.env
    ```
 
-   Or set it in your shell before serving:
+4. **Restart Supabase** to load the new environment variables:
    ```bash
-   export OPENAI_API_KEY=sk-your-actual-key-here
-   supabase functions serve generate-content
+   supabase stop
+   supabase start
    ```
+
+   **Note**: When you invoke edge functions via HTTP (e.g., in tests), they run in Supabase's runtime which automatically loads `supabase/functions/.env`. The `supabase/.env.local` file is only used when manually serving functions with `supabase functions serve --env-file`.
+   
+   **For integration tests to work**: Make sure `supabase/functions/.env` exists and contains your API keys, then restart Supabase.
 
 ## Production (Remote Supabase Project)
 

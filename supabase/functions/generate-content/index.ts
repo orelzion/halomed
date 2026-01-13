@@ -6,8 +6,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { validateAuth } from '../_shared/auth.ts';
-import { fetchText, fetchCommentaries, toSefariaRef } from '../_shared/sefaria.ts';
-import { generateExplanation, generateDeepDive } from '../_shared/openai.ts';
+import { fetchText, fetchCommentaries, toSefariaRef, extractCommentatorName, fetchCommentaryText } from '../_shared/sefaria.ts';
+import { generateMishnahExplanation } from '../_shared/gemini.ts';
 
 interface ContentGenerationRequest {
   ref_id: string;  // e.g., "Mishnah_Berakhot.1.1"
@@ -17,11 +17,16 @@ interface ContentGenerationResponse {
   id: string;
   ref_id: string;
   source_text_he: string;
-  ai_explanation_he: string;
-  ai_deep_dive_json: {
-    approaches: Array<{
-      commentator: string;
-      summary_he: string;
+  ai_explanation_json: {
+    summary: string;
+    halakha: string;
+    opinions: Array<{
+      source: string;
+      details: string;
+    }>;
+    expansions: Array<{
+      topic: string;
+      explanation: string;
     }>;
   };
 }
@@ -73,8 +78,7 @@ Deno.serve(async (req: Request) => {
           id: existingContent.id,
           ref_id: existingContent.ref_id,
           source_text_he: existingContent.source_text_he,
-          ai_explanation_he: existingContent.ai_explanation_he,
-          ai_deep_dive_json: existingContent.ai_deep_dive_json,
+          ai_explanation_json: existingContent.ai_explanation_json,
         } as ContentGenerationResponse),
         { status: 200, headers: corsHeaders }
       );
@@ -101,70 +105,127 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Fetch commentaries (optional - for future AI generation)
-    let commentaries: any[] = [];
+    // Fetch classical commentaries from Sefaria (Bartenura, Mishnat Eretz Israel, Rambam)
+    // Use text from links response to avoid extra API calls
+    let commentaries: Array<{ name: string; text: string }> = [];
     try {
-      commentaries = await fetchCommentaries(sefariaRef);
+      const commentaryLinks = await fetchCommentaries(sefariaRef);
+      console.log(`Found ${commentaryLinks.length} commentary links for ${sefariaRef}`);
+      
+      // Group commentaries by commentator and combine all segments into one text
+      const commentariesByAuthor: Record<string, string[]> = {};
+      
+      for (const link of commentaryLinks) {
+        const commentatorName = extractCommentatorName(link.ref);
+        
+        // Use text from links response if available (avoids extra API call)
+        let commentaryText = '';
+        if (link.he && typeof link.he === 'string') {
+          // Remove HTML tags and clean up the text
+          commentaryText = link.he
+            .replace(/<[^>]+>/g, '') // Remove HTML tags
+            .replace(/&nbsp;/g, ' ') // Replace HTML entities
+            .replace(/&amp;/g, '&')
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        } else if (link.he && Array.isArray(link.he)) {
+          // If array, join with space
+          commentaryText = link.he
+            .map((item: any) => String(item).replace(/<[^>]+>/g, '').trim())
+            .filter((item: string) => item.length > 0)
+            .join(' ');
+        } else {
+          // Fallback: fetch separately if not in links response
+          try {
+            commentaryText = await fetchCommentaryText(link.ref);
+          } catch (error) {
+            console.warn(`Failed to fetch commentary text for ${link.ref}:`, error);
+            continue;
+          }
+        }
+        
+        if (commentaryText) {
+          if (!commentariesByAuthor[commentatorName]) {
+            commentariesByAuthor[commentatorName] = [];
+          }
+          commentariesByAuthor[commentatorName].push(commentaryText);
+        }
+      }
+      
+      // Combine all segments for each commentator into one text
+      for (const [name, texts] of Object.entries(commentariesByAuthor)) {
+        commentaries.push({
+          name: name,
+          text: texts.join(' '), // Combine all segments with space
+        });
+      }
+      
+      console.log(`Successfully processed ${commentaries.length} commentators for ${sefariaRef}`);
     } catch (error) {
-      // Commentaries are optional, so we continue even if this fails
+      // Commentaries are optional, so we continue if this fails
       console.warn('Failed to fetch commentaries:', error);
     }
 
-    // Generate AI explanation using OpenAI
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    // Generate AI explanation using Gemini API
+    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     
-    let aiExplanation = '';
-    let aiDeepDive = {
-      approaches: [] as Array<{ commentator: string; summary_he: string }>,
+    // Log for debugging (remove in production)
+    if (!geminiApiKey) {
+      console.warn('⚠️ GEMINI_API_KEY not found in edge function environment');
+      console.warn('Available env vars:', Object.keys(Deno.env.toObject()).filter(k => k.includes('API') || k.includes('KEY')).join(', '));
+    } else {
+      console.log('✅ GEMINI_API_KEY found, length:', geminiApiKey.length);
+    }
+    
+    let aiExplanationJson = {
+      summary: '',
+      halakha: '',
+      opinions: [] as Array<{ source: string; details: string }>,
+      expansions: [] as Array<{ topic: string; explanation: string }>,
     };
 
-    if (openaiApiKey) {
+    if (geminiApiKey) {
       try {
-        // Generate clear explanation
-        aiExplanation = await generateExplanation(
+        // Generate structured JSON explanation
+        const result = await generateMishnahExplanation(
           {
             sourceText,
-            commentaries: commentaries.map((c: any) => c.ref || c).filter(Boolean),
+            commentaries: commentaries.map((c: any) => ({
+              name: c.name,
+              text: c.text,
+            })),
           },
-          openaiApiKey
+          geminiApiKey
         );
         
-        // Generate deep dive (commentaries summary)
-        const deepDiveResult = await generateDeepDive(
-          {
-            sourceText,
-            commentaries: commentaries.map((c: any) => c.ref || c).filter(Boolean),
-          },
-          openaiApiKey
-        );
-        aiDeepDive = deepDiveResult;
+        aiExplanationJson = result;
       } catch (error) {
-        // If OpenAI API fails, log error and use placeholder
+        // If Gemini API fails, log error and use placeholder
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error('OpenAI API error:', errorMsg);
+        console.error('Gemini API error:', errorMsg);
         
-        // Fallback to placeholder
+        // Fallback to placeholder JSON structure
         const sourcePreview = typeof sourceText === 'string' && sourceText.length > 0
           ? sourceText.substring(0, 50)
           : 'טקסט מקור';
-        aiExplanation = `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`;
-        aiDeepDive = {
-          approaches: [
-            { commentator: 'רש"י', summary_he: 'פירוש זמין' },
-          ],
+        aiExplanationJson = {
+          summary: `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`,
+          halakha: 'הרחבה זמינה בקרוב.',
+          opinions: [],
+          expansions: [],
         };
       }
     } else {
       // No API key - use placeholder
-      console.warn('OPENAI_API_KEY not set, using placeholder explanation');
+      console.warn('GEMINI_API_KEY not set, using placeholder explanation');
       const sourcePreview = typeof sourceText === 'string' && sourceText.length > 0
         ? sourceText.substring(0, 50)
         : 'טקסט מקור';
-      aiExplanation = `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`;
-      aiDeepDive = {
-        approaches: [
-          { commentator: 'רש"י', summary_he: 'פירוש זמין' },
-        ],
+      aiExplanationJson = {
+        summary: `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`,
+        halakha: 'הרחבה זמינה בקרוב.',
+        opinions: [],
+        expansions: [],
       };
     }
 
@@ -174,8 +235,7 @@ Deno.serve(async (req: Request) => {
       .insert({
         ref_id: ref_id,
         source_text_he: sourceText,
-        ai_explanation_he: aiExplanation,
-        ai_deep_dive_json: aiDeepDive,
+        ai_explanation_json: aiExplanationJson,
       })
       .select()
       .single();
@@ -193,8 +253,7 @@ Deno.serve(async (req: Request) => {
         id: newContent.id,
         ref_id: newContent.ref_id,
         source_text_he: newContent.source_text_he,
-        ai_explanation_he: newContent.ai_explanation_he,
-        ai_deep_dive_json: newContent.ai_deep_dive_json,
+        ai_explanation_json: newContent.ai_explanation_json,
       } as ContentGenerationResponse),
       { status: 200, headers: corsHeaders }
     );
