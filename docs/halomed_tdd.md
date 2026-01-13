@@ -1,8 +1,9 @@
 # Technical Design Document (TDD)
 ## HaLomeid (הלומד)
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Status:** Ready for Implementation  
+**Last Updated:** 2025-01-13 (Schema verification and updates)  
 **Architecture:** Unified Backend, Offline-First Clients  
 **Platforms:** Android (Kotlin/Compose), iOS (Swift/SwiftUI), Web (Next.js/React)
 
@@ -41,7 +42,8 @@ All platforms:
 ### 2.4 Language (MVP)
 
 - **Hebrew only** — all content and UI
-- Content fields use `_he` suffix (e.g., `mishna_text_he`, `ai_explanation_he`)
+- Content fields use `_he` suffix (e.g., `source_text_he`)
+- AI explanations stored as structured JSONB (`ai_explanation_json`) with Hebrew content
 - Multi-language support is out of MVP scope but architecturally considered
 
 ---
@@ -98,10 +100,9 @@ Deduplicated content shared across all users.
 ```sql
 CREATE TABLE content_cache (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ref_id TEXT UNIQUE,
-  mishna_text_he TEXT NOT NULL,
-  ai_explanation_he TEXT NOT NULL,
-  ai_deep_dive_json JSONB,
+  ref_id TEXT UNIQUE NOT NULL,
+  source_text_he TEXT NOT NULL,
+  ai_explanation_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -110,9 +111,28 @@ CREATE TABLE content_cache (
 
 | Field | Description |
 |---|---|
-| `mishna_text_he` | Source text (Mishnah) — displayed bold and visually dominant |
-| `ai_explanation_he` | Clear Explanation — one coherent interpretation based on classical commentaries |
-| `ai_deep_dive_json` | Summary of Commentaries — expandable section (collapsed by default) presenting multiple interpretive approaches |
+| `source_text_he` | Source text (Mishnah) — displayed bold and visually dominant |
+| `ai_explanation_json` | Structured JSON output from Gemini API containing explanation, halakha, opinions, and expansions |
+
+**Structure of `ai_explanation_json`:**
+
+```typescript
+{
+  summary: string;        // תקציר המשנה בעברית מודרנית (Clear explanation)
+  halakha: string;         // ההלכה המעשית במידה וישנה (Practical halakha if applicable)
+  opinions: Array<{         // רשימת הדעות השונות של החכמים (Summary of commentaries)
+    source: string;         // מקור הדעה (Source: name of sage and source)
+    details: string;         // פרטי הדעה בעברית מודרנית (Opinion details in modern Hebrew)
+  }>;
+  expansions: Array<{        // הרחבות לנושאים שהקורא המודרני יצטרך הסבר נוסף (Expansions)
+    topic: string;          // נושא ההרחבה (Topic)
+    explanation: string;    // הסבר מפורט בעברית מודרנית (Detailed explanation)
+    source?: string;        // מקור ההרחבה (Source - optional)
+  }>;
+}
+```
+
+**Note:** The `ai_explanation_json` field consolidates what was previously separate `ai_explanation_he` (TEXT) and `ai_deep_dive_json` (JSONB) fields into a single structured JSONB column.
 
 ### 4.3 User Study Log
 
@@ -121,16 +141,20 @@ Represents scheduled units and completion state.
 ```sql
 CREATE TABLE user_study_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id),
-  track_id UUID REFERENCES tracks(id),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  track_id UUID REFERENCES tracks(id) ON DELETE CASCADE NOT NULL,
   study_date DATE NOT NULL,
-  content_id UUID REFERENCES content_cache(id),
-  is_completed BOOLEAN DEFAULT FALSE,
+  content_id UUID REFERENCES content_cache(id) ON DELETE SET NULL,
+  is_completed BOOLEAN DEFAULT FALSE NOT NULL,
+  completed_at TIMESTAMPTZ,
   UNIQUE(user_id, study_date, track_id)
 );
 ```
 
 A row exists only if a unit is scheduled for that user on that date.
+
+**Fields:**
+- `completed_at`: Timestamp when the unit was marked as completed. Used for streak calculation to determine if completion occurred on the scheduled day (see Section 8.4).
 
 **Note:** Dates are stored as DATE (date-only, no time component) in UTC. Clients interpret and display dates according to the device's local time zone.
 
@@ -271,10 +295,12 @@ Streaks are **derived data**, calculated on-demand from `user_study_log`.
 
 1. Query `user_study_log` for the track, ordered by `study_date` descending
 2. Starting from the most recent scheduled unit:
-   - If `is_completed = true` and was completed on the scheduled day → increment streak
+   - If `is_completed = true` and `completed_at` indicates completion on the scheduled day → increment streak
    - If `is_completed = false` → streak ends
    - Skip days without scheduled units (no row exists)
 3. Return streak count
+
+**Note:** The `completed_at` field is used to determine if completion occurred on the scheduled day. Retroactive completions (where `completed_at` date differs from `study_date`) do not contribute to the streak.
 
 ---
 

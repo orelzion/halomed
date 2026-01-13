@@ -36,6 +36,45 @@
             font-size: 14px;
         }
 
+        .header .controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .refresh-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .auto-refresh-toggle input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .last-refresh {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
         .board {
             display: flex;
             gap: 20px;
@@ -208,8 +247,16 @@
 </head>
 <body>
     <div class="header">
-        <h1>📋 HaLomeid Backend Tasks</h1>
+        <h1>📋 HaLomeid Implementation Tasks</h1>
         <div class="subtitle">Trello-style Board View</div>
+        <div class="controls">
+            <button class="refresh-btn" onclick="loadTasks(true)">🔄 Refresh Now</button>
+            <label class="auto-refresh-toggle">
+                <input type="checkbox" id="auto-refresh-toggle" checked onchange="toggleAutoRefresh()">
+                <span>Auto-refresh (5s)</span>
+            </label>
+            <span class="last-refresh" id="last-refresh-time">Loading...</span>
+        </div>
     </div>
 
     <div id="loading" class="loading">Loading tasks...</div>
@@ -218,22 +265,65 @@
     <div id="stats" class="stats" style="display: none;"></div>
 
     <script>
+        let refreshInterval = null;
+        let lastUpdateTime = null;
+
         // Parse markdown tasks.md and render as Trello board
-        async function loadTasks() {
+        async function loadTasks(showLoading = true) {
             try {
-                const response = await fetch('tasks.md');
+                // Add cache-busting query parameter
+                const cacheBuster = new Date().getTime();
+                const response = await fetch(`tasks.md?t=${cacheBuster}`, {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                });
                 if (!response.ok) {
                     throw new Error(`Failed to load tasks.md: ${response.status}`);
                 }
                 const text = await response.text();
                 const tasks = parseTasks(text);
+                
+                if (showLoading) {
+                    document.getElementById('loading').style.display = 'none';
+                }
+                document.getElementById('error').style.display = 'none';
+                
                 renderBoard(tasks);
                 renderStats(tasks);
+                
+                lastUpdateTime = new Date();
+                updateLastRefreshTime();
             } catch (error) {
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('error').style.display = 'block';
                 document.getElementById('error').textContent = 
                     `Error: ${error.message}. Make sure tasks.md is in the same directory and you're serving this file via a local server (e.g., python -m http.server 8000)`;
+            }
+        }
+
+        function updateLastRefreshTime() {
+            const timeElement = document.getElementById('last-refresh-time');
+            if (timeElement && lastUpdateTime) {
+                const timeStr = lastUpdateTime.toLocaleTimeString();
+                timeElement.textContent = `Last updated: ${timeStr}`;
+            }
+        }
+
+        function startAutoRefresh(intervalSeconds = 5) {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            refreshInterval = setInterval(() => {
+                loadTasks(false); // Don't show loading spinner on auto-refresh
+            }, intervalSeconds * 1000);
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
             }
         }
 
@@ -273,8 +363,8 @@
                     continue;
                 }
 
-                // Detect task items
-                const taskMatch = trimmed.match(/^- \[([ x])\] \*\*(Task \d+\.\d+)\*\*: (.+?)(?:\s+✅)?(?:\s+\((\d{4}-\d{2}-\d{2})\))?/);
+                // Detect task items (supports tasks with optional "a" suffix like 7.2a)
+                const taskMatch = trimmed.match(/^- \[([ x])\] \*\*(Task \d+\.\d+a?)\*\*: (.+?)(?:\s+✅)?(?:\s+\((\d{4}-\d{2}-\d{2})\))?/);
                 if (taskMatch) {
                     // Save previous task if exists
                     if (currentTask) {
@@ -356,9 +446,13 @@
             if (task.completed) {
                 tasks.done.push(task);
             } else {
-                // Check if task mentions "in progress" or has partial completion
+                // Check if task mentions "in progress", "ready to start", or has status indicators
                 const details = task.details.toLowerCase();
-                if (details.includes('in progress') || details.includes('pending')) {
+                const title = task.title.toLowerCase();
+                if (details.includes('in progress') || 
+                    details.includes('ready to start') || 
+                    details.includes('can start') ||
+                    title.includes('in progress')) {
                     tasks.inProgress.push(task);
                 } else {
                     tasks.todo.push(task);
@@ -369,6 +463,9 @@
         function renderBoard(tasks) {
             document.getElementById('loading').style.display = 'none';
             const board = document.getElementById('board');
+            
+            // Clear existing board content before rendering
+            board.innerHTML = '';
             board.style.display = 'flex';
 
             // Group done tasks by category
@@ -441,9 +538,13 @@
             const card = document.createElement('div');
             card.className = `card ${isCompleted ? 'completed' : ''}`;
 
+            // Check if this is a test-writing task (ends with 'a')
+            const isTestTask = task.id.match(/Task \d+\.\d+a$/);
+            const taskTypeBadge = isTestTask ? '<span class="badge test" style="background: #0052cc; color: white; margin-left: 4px;">TEST</span>' : '';
+
             const title = document.createElement('div');
             title.className = 'card-title';
-            title.innerHTML = `<strong>${task.id}</strong> - ${task.title}`;
+            title.innerHTML = `<strong>${task.id}</strong> - ${task.title}${taskTypeBadge}`;
             card.appendChild(title);
 
             if (task.details) {
@@ -509,8 +610,23 @@
             `;
         }
 
-        // Load tasks on page load
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('auto-refresh-toggle');
+            if (checkbox.checked) {
+                startAutoRefresh(5); // Refresh every 5 seconds
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        // Load tasks on page load and start auto-refresh
         loadTasks();
+        startAutoRefresh(5); // Auto-refresh every 5 seconds
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            stopAutoRefresh();
+        });
     </script>
 </body>
 </html>
