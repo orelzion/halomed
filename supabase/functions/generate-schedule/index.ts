@@ -5,7 +5,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { validateAuth } from '../_shared/auth.ts';
 import { isScheduledDay, addDays, formatDate, parseDate } from '../_shared/calendar.ts';
 import { getContentRefForIndex } from '../_shared/content-order.ts';
 
@@ -58,8 +57,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Validate authentication (optional for MVP - can be made required later)
-    // For now, we'll validate that the user_id exists
+    // Security: This function is deployed with --no-verify-jwt
+    // Authentication is handled by the API route (web/app/api/generate-schedule/route.ts)
+    // which validates the user's JWT before calling this function.
+    // The user_id in the request body is trusted because it comes from an authenticated API route.
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get track information
@@ -127,28 +128,82 @@ Deno.serve(async (req: Request) => {
         let contentId: string | null = null;
         if (existingContent) {
           contentId = existingContent.id;
+        } else {
+          try {
+            const contentResponse = await fetch(`${supabaseUrl}/functions/v1/generate-content`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                apikey: supabaseServiceKey,
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({ ref_id: contentRef }),
+            });
+            if (contentResponse.ok) {
+              const generated = await contentResponse.json();
+              contentId = generated?.id ?? null;
+            } else {
+              const errorText = await contentResponse.text();
+              console.warn('generate-content failed:', errorText);
+            }
+          } catch (error) {
+            console.warn('generate-content request error:', error);
+          }
         }
 
-        // Create or update user_study_log row (UPSERT to avoid duplicates)
-        const { data: logEntry, error: logError } = await supabase
+        // Check if log entry already exists
+        const { data: existingLog } = await supabase
           .from('user_study_log')
-          .upsert({
-            user_id: body.user_id,
-            track_id: body.track_id,
-            study_date: studyDate,
-            content_id: contentId,
-            is_completed: false,
-          }, {
-            onConflict: 'user_id,study_date,track_id',
-            ignoreDuplicates: false, // Update if exists
-          })
-          .select()
-          .single();
+          .select('id, content_id, is_completed, completed_at')
+          .eq('user_id', body.user_id)
+          .eq('track_id', body.track_id)
+          .eq('study_date', studyDate)
+          .maybeSingle();
 
-        if (logError) {
-          console.error('Error creating user_study_log:', logError);
-          // Continue with other dates even if one fails
-          continue;
+        let logEntry;
+        
+        if (existingLog) {
+          // Entry already exists - skip unless content is missing
+          // This preserves completion status and avoids unnecessary updates
+          if (existingLog.content_id === null && contentId !== null) {
+            // Only update if we have content to assign and entry is missing it
+            const { data, error } = await supabase
+              .from('user_study_log')
+              .update({ content_id: contentId })
+              .eq('id', existingLog.id)
+              .select()
+              .single();
+            
+            if (error) {
+              console.error('Error updating user_study_log content:', error);
+              // Continue with other dates even if one fails
+              continue;
+            }
+            logEntry = data;
+          } else {
+            // Entry exists with content (or no content available) - use existing entry
+            logEntry = existingLog;
+          }
+        } else {
+          // New entry - create with is_completed: false
+          const { data, error } = await supabase
+            .from('user_study_log')
+            .insert({
+              user_id: body.user_id,
+              track_id: body.track_id,
+              study_date: studyDate,
+              content_id: contentId,
+              is_completed: false,
+            })
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('Error creating user_study_log:', error);
+            // Continue with other dates even if one fails
+            continue;
+          }
+          logEntry = data;
         }
 
         if (logEntry) {

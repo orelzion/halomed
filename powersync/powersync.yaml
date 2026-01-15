@@ -32,5 +32,5 @@ bucket_definitions:
   # Syncs all tracks to all clients
   tracks:
     data:
-      - SELECT id, title, source_endpoint, schedule_type
+      - SELECT id, title, source_endpoint, schedule_type, start_date
         FROM tracks

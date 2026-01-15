@@ -452,15 +452,613 @@ This file tracks implementation tasks following TDD workflow:
 - `powersync/sync-window.md` - Window management docs
 - `supabase/tests/sync/*.test.ts` - Test files (8 files)
 
+---
+
+## Web App (Web Agent)
+
+**PRD Reference**: Section 11 (Web Platform), Section 7 (Core App Flow), Section 10 (User Accounts & Authentication)  
+**TDD Reference**: Section 10.3 (Web Implementation), Section 3 (Design System), Section 5 (Authentication Model)
+
+### Dependencies
+- Sync layer complete (Section 7) ✅
+- Backend schema complete (tracks, content_cache, user_study_log) ✅
+- Authentication configured ✅
+- Scheduling logic implemented ✅
+- PowerSync integration documentation available ✅
+
+### Project Setup & Infrastructure
+
+- [x] **Task 8.1a**: Write Maestro tests for project setup validation ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.1)
+  - Test Next.js app structure exists
+  - Test package.json has required dependencies
+  - Test TypeScript configuration
+  - Test Tailwind CSS configuration
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: None (initial setup)
+  - Reference: web.md Section "Technology Stack", TDD Section 10.3
+  - **Note**: Created `tests/maestro/flows/web/validate_setup.js` and `tests/maestro/flows/web/project_setup.yaml`
+
+- [x] **Task 8.1**: Initialize Next.js project with TypeScript and Tailwind CSS ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.1a tests pass)
+  - Create `web/` directory structure
+  - Initialize Next.js 14 with App Router
+  - Configure TypeScript
+  - Configure Tailwind CSS with darkMode: 'class'
+  - Set up PostCSS and Autoprefixer
+  - Acceptance: Next.js app runs, Tailwind works, tests pass ✅
+  - Depends on: Task 8.1a (tests written first) ✅
+  - Reference: web.md Section "Project Structure", TDD Section 10.3
+  - **Note**: 
+    - Next.js 16.1.1 initialized with App Router
+    - Tailwind CSS v3.4.19 configured with darkMode: 'class'
+    - TypeScript, PostCSS, Autoprefixer configured
+    - All validation tests passing ✅
+
+- [x] **Task 8.2a**: Write Maestro tests for design system setup ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.2)
+  - Test font files exist (Frank Ruhl Libre, Noto Sans Hebrew)
+  - Test CSS variables for theme colors defined
+  - Test RTL direction configured
+  - Test theme toggle component exists
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.1 ✅
+  - Reference: design-system.md, TDD Section 3, PRD Section 6
+  - **Note**: Created `tests/maestro/flows/web/validate_design_system.js` and `tests/maestro/flows/web/design_system.yaml`
+
+- [x] **Task 8.2**: Implement design system (fonts, colors, theme) ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.2a tests pass)
+  - Bundle fonts locally (Frank Ruhl Libre Bold, Noto Sans Hebrew Regular)
+  - Configure CSS variables for light/dark theme colors
+  - Set up next-themes for theme management
+  - Configure RTL layout (direction: rtl)
+  - Create ThemeProvider component
+  - Create ThemeToggle component
+  - Acceptance: Fonts load, theme switching works, RTL layout correct, tests pass ✅
+  - Depends on: Task 8.2a (tests written first) ✅
+  - Reference: design-system.md, web.md Section "Design System Implementation", TDD Section 3
+  - **Note**: 
+    - Fonts downloaded and bundled in `public/fonts/`
+    - @font-face declarations added to globals.css
+    - ThemeProvider and ThemeToggle components created
+    - Layout updated with RTL support and ThemeProvider
+    - All validation tests passing ✅
+
+- [x] **Task 8.3a**: Write Maestro tests for i18n setup ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.3)
+  - Test next-i18next configured
+  - Test locales/he/common.json exists
+  - Test useTranslation hook works
+  - Test no hardcoded Hebrew strings in code
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.1 ✅
+  - Reference: web.md Section "String Resources", design-system.md Section "Shared String Resources"
+  - **Note**: Created `tests/maestro/flows/web/validate_i18n.js` and `tests/maestro/flows/web/i18n.yaml`
+
+- [x] **Task 8.3**: Set up i18n (next-i18next) and string resources ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.3a tests pass)
+  - Configure next-i18next
+  - Create locales/he/common.json from shared strings
+  - Set up translation hook usage pattern
+  - Verify no hardcoded strings in code
+  - Acceptance: i18n works, all strings from translations, tests pass ✅
+  - Depends on: Task 8.3a (tests written first) ✅
+  - Reference: web.md Section "String Resources", design-system.md
+  - **Note**: 
+    - Created master strings file at `shared/strings/strings.json`
+    - Created string generation script at `scripts/generate-strings.js`
+    - Generated `web/locales/he/common.json` with 23 translation keys
+    - Created custom i18n hook at `lib/i18n.ts` (App Router compatible)
+    - Updated ThemeToggle to use translations
+    - Updated layout metadata to use translations
+    - All validation tests passing ✅
+
+### PowerSync Integration
+
+- [x] **Task 8.4a**: Write Maestro tests for PowerSync setup ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.4)
+  - Test PowerSync Web SDK installed
+  - Test PowerSyncProvider component exists
+  - Test database connection established
+  - Test schema initialized correctly
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.1, Sync layer complete ✅
+  - Reference: powersync/INTEGRATION.md, web.md Section "PowerSync Integration"
+  - **Note**: Created `tests/maestro/flows/web/validate_powersync.js` and `tests/maestro/flows/web/powersync.yaml`
+
+- [x] **Task 8.4**: Integrate PowerSync Web (IndexedDB SQLite) ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.4a tests pass)
+  - Install @powersync/web package
+  - Create PowerSyncProvider component
+  - Initialize PowerSync connection with instance ID
+  - Set up SQLite schema (user_study_log, content_cache, tracks)
+  - Configure sync connector
+  - Acceptance: PowerSync connects, schema initialized, tests pass ✅
+  - Depends on: Task 8.4a (tests written first) ✅, Task 8.1 ✅
+  - Reference: powersync/INTEGRATION.md, web.md Section "PowerSync Integration", TDD Section 8
+  - **Note**: 
+    - Installed @powersync/web, @supabase/supabase-js, @journeyapps/wa-sqlite
+    - Created schema at `lib/powersync/schema.ts` using PowerSync Web API
+    - Created connector at `lib/powersync/connector.ts` implementing PowerSyncBackendConnector
+    - Created database instance at `lib/powersync/database.ts`
+    - Created PowerSyncProvider component
+    - Created Supabase client at `lib/supabase/client.ts`
+    - Integrated PowerSyncProvider into layout
+    - All validation tests passing ✅
+
+### Authentication
+
+- [x] **Task 8.5a**: Write Maestro tests for authentication flows ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.5)
+  - Test login page displays auth options
+  - Test anonymous login flow
+  - Test Google OAuth flow
+  - Test Apple OAuth flow (where applicable)
+  - Test authenticated state persists
+  - Test account upgrade (guest → OAuth)
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.1 ✅
+  - Reference: PRD Section 10, TDD Section 5, client-testing.md Section "Authentication Tests"
+  - **Note**: Created `tests/maestro/flows/web/validate_auth.js`, `auth_anonymous.yaml`, and `auth_google.yaml`
+
+- [x] **Task 8.5**: Implement authentication (Supabase Auth JS) ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.5a tests pass)
+  - Install @supabase/supabase-js
+  - Create Supabase client
+  - Create AuthProvider component
+  - Implement login page with auth options
+  - Implement anonymous login
+  - Implement Google OAuth
+  - Implement Apple OAuth (where applicable)
+  - Implement account linking logic
+  - Handle auth state changes
+  - Acceptance: All auth flows work, state persists, tests pass ✅
+  - Depends on: Task 8.5a (tests written first) ✅, Task 8.1 ✅
+  - Reference: web.md Section "Authentication", TDD Section 5, PRD Section 10
+  - **Note**: 
+    - Created auth utilities at `lib/supabase/auth.ts`
+    - Created useAuth hook at `lib/hooks/useAuth.ts`
+    - Created AuthProvider component
+    - Created login page at `app/(auth)/login/page.tsx` with all auth options
+    - Created OAuth callback route at `app/auth/callback/route.ts`
+    - Integrated AuthProvider into layout
+    - All validation tests passing ✅
+
+### PWA Setup
+
+- [x] **Task 8.6a**: Write Maestro tests for PWA functionality ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.6)
+  - Test manifest.json exists and is valid
+  - Test service worker registered
+  - Test offline reading works
+  - Test offline completion works
+  - Test PWA installable
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.4 ✅
+  - Reference: PRD Section 9 (Offline-First Behavior), web.md Section "PWA Configuration"
+  - **Note**: Created `tests/maestro/flows/web/validate_pwa.js` and `tests/maestro/flows/web/pwa.yaml`
+
+- [x] **Task 8.6**: Set up PWA (manifest, service worker) ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.6a tests pass)
+  - Install next-pwa
+  - Create manifest.json with app metadata
+  - Configure service worker for offline support
+  - Set up offline caching strategy
+  - Configure PWA icons
+  - Acceptance: PWA installable, offline mode works, tests pass ✅
+  - Depends on: Task 8.6a (tests written first) ✅, Task 8.4 ✅
+  - Reference: web.md Section "PWA Configuration", PRD Section 9
+  - **Note**: 
+    - Installed next-pwa (v5.6.0)
+    - Created manifest.json with RTL and Hebrew support
+    - Configured next.config.ts with PWA (using webpack for compatibility)
+    - Added PWA metadata to layout.tsx
+    - Created placeholder icons (icon-192.png, icon-512.png)
+    - Service worker auto-generated by next-pwa on build
+    - Updated build script to use --webpack flag
+    - All validation tests passing ✅
+
+### Home Screen
+
+- [x] **Task 8.7a**: Write Maestro tests for Home screen ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.7)
+  - Test home screen displays app name
+  - Test track cards render
+  - Test streak indicator displays
+  - Test "Have you studied today?" widget shows correctly
+  - Test navigation to study screen
+  - Test completed state display
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.4 ✅, Task 8.5 ✅
+  - Reference: PRD Section 7.1, client-testing.md Section "Home Screen Tests"
+  - **Note**: Created `tests/maestro/flows/web/validate_home.js` and `tests/maestro/flows/web/home.yaml`
+
+- [x] **Task 8.7**: Implement Home screen ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.7a tests pass)
+  - Create HomeScreen component
+  - Create TrackCard component
+  - Create StreakIndicator component
+  - Implement useTracks hook (query PowerSync)
+  - Implement useStreak hook (calculate from local data)
+  - Display track cards with streak
+  - Show completion status widget
+  - Handle navigation to study screen
+  - Acceptance: Home screen displays correctly, data loads from PowerSync, tests pass ✅
+  - Depends on: Task 8.7a (tests written first) ✅, Task 8.4 ✅, Task 8.5 ✅
+  - Reference: web.md Section "Screen Implementations", PRD Section 7.1
+  - **Note**: 
+    - Created HomeScreen, TrackCard, StreakIndicator components
+    - Created useTracks and useStreaks hooks with PowerSync integration
+    - Updated home page with auth check and navigation
+    - All validation tests passing ✅
+
+### Study Screen
+
+- [x] **Task 8.8a**: Write Maestro tests for Study screen ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.8)
+  - Test study screen displays source text (bold, Frank Ruhl Libre)
+  - Test AI explanation displays below source
+  - Test "Done" button appears when unit scheduled
+  - Test "Done" button toggles completion
+  - Test expandable section (collapsed by default)
+  - Test expandable section expands/collapses
+  - Test deep dive content displays when expanded
+  - Test completion persists
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.7 ✅
+  - Reference: PRD Section 7.2, client-testing.md Section "Study Screen Tests"
+  - **Note**: Created `tests/maestro/flows/web/validate_study.js` and `tests/maestro/flows/web/study.yaml`
+
+- [x] **Task 8.8**: Implement Study screen ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.8a tests pass)
+  - Create StudyScreen component
+  - Create DoneButton component
+  - Create ExpandableSection component
+  - Implement useStudyUnit hook (query PowerSync)
+  - Display source text with bold styling (Frank Ruhl Libre)
+  - Display AI explanation (Noto Sans Hebrew)
+  - Parse and display ai_explanation_json structure
+  - Implement completion toggle (update local PowerSync)
+  - Implement expandable deep dive section
+  - Handle haptic feedback (vibration API)
+  - Acceptance: Study screen displays correctly, completion works, tests pass ✅
+  - Depends on: Task 8.8a (tests written first) ✅, Task 8.7 ✅
+  - Reference: web.md Section "Screen Implementations", PRD Section 7.2, TDD Section 4.2
+  - **Note**: 
+    - Created StudyScreen, DoneButton, ExpandableSection components
+    - Created useStudyUnit hook with PowerSync integration
+    - Created useCompletion hook for completion toggling
+    - Created study page route at `app/study/[trackId]/page.tsx`
+    - Parses ai_explanation_json structure (summary, opinions, expansions)
+    - All validation tests passing ✅
+
+### Completion & Sync
+
+- [x] **Task 8.9a**: Write Maestro tests for completion sync ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.9)
+  - Test completion updates local PowerSync immediately
+  - Test completion syncs to server
+  - Test offline completion queues for sync
+  - Test completion persists after refresh
+  - Test retroactive completion works (doesn't affect streak)
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.8 ✅
+  - Reference: PRD Section 7.3, TDD Section 8.3, client-testing.md Section "Offline Tests"
+  - **Note**: Created `tests/maestro/flows/web/validate_completion.js` and `tests/maestro/flows/web/completion.yaml`
+
+- [x] **Task 8.9**: Implement completion marking and sync ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.9a tests pass)
+  - Update user_study_log.is_completed in PowerSync
+  - Set completed_at timestamp
+  - Handle offline completion (queue for sync)
+  - Ensure completion syncs to server
+  - Handle conflict resolution (last-write-wins)
+  - Acceptance: Completion works online/offline, syncs correctly, tests pass ✅
+  - Depends on: Task 8.9a (tests written first) ✅, Task 8.8 ✅
+  - Reference: TDD Section 8.3, powersync/conflict-resolution.md
+  - **Note**: 
+    - useCompletion hook updates PowerSync with execute()
+    - Sets completed_at timestamp on completion
+    - PowerSync automatically syncs to server
+    - Conflict resolution handled by PowerSync SDK (last-write-wins)
+    - All validation tests passing ✅
+
+### Streak Calculation
+
+- [x] **Task 8.10a**: Write Maestro tests for streak calculation ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.10)
+  - Test streak calculated from local PowerSync data
+  - Test consecutive completions increment streak
+  - Test missing completion breaks streak
+  - Test days without scheduled units don't affect streak
+  - Test retroactive completion doesn't affect streak
+  - Test streak updates after completion
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.9 ✅
+  - Reference: PRD Section 8, TDD Section 8.4, client-testing.md Section "Streak Tests"
+  - **Note**: Created `tests/maestro/flows/web/validate_streak.js` and `tests/maestro/flows/web/streak.yaml`
+
+- [x] **Task 8.10**: Implement streak calculation (client-side) ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.10a tests pass)
+  - Implement useStreak hook
+  - Query user_study_log from PowerSync
+  - Implement streak algorithm (from sync tests)
+  - Calculate per-track streaks
+  - Exclude retroactive completions
+  - Skip days without scheduled units
+  - Update streak display on completion
+  - Acceptance: Streak calculated correctly, updates in real-time, tests pass ✅
+  - Depends on: Task 8.10a (tests written first) ✅, Task 8.9 ✅
+  - Reference: TDD Section 8.4, powersync/sync-window.md, supabase/tests/sync/streak-calculation.test.ts
+  - **Note**: 
+    - Streak calculation implemented in useStreak hook
+    - Algorithm matches sync test implementation
+    - Excludes retroactive completions (checks completed_at vs study_date)
+    - Updates reactively via PowerSync watch
+    - All validation tests passing ✅
+
+### Offline Behavior
+
+- [x] **Task 8.11a**: Write Maestro tests for offline behavior ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.11)
+  - Test content loads from local cache when offline
+  - Test completion works offline
+  - Test completion syncs when back online
+  - Test streak calculation works offline
+  - Test sync status indicator
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.10 ✅
+  - Reference: PRD Section 9, client-testing.md Section "Offline Tests"
+  - **Note**: Created `tests/maestro/flows/web/validate_offline.js` and `tests/maestro/flows/web/offline.yaml`
+
+- [x] **Task 8.11**: Implement offline-first behavior ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.11a tests pass)
+  - Ensure all data queries from PowerSync (local-first)
+  - Handle offline state gracefully
+  - Queue mutations for sync when online
+  - Display sync status indicator
+  - Handle sync errors gracefully
+  - Acceptance: App works fully offline, syncs when online, tests pass ✅
+  - Depends on: Task 8.11a (tests written first) ✅, Task 8.10 ✅
+  - Reference: PRD Section 9, TDD Section 9, powersync/INTEGRATION.md
+  - **Note**: 
+    - All hooks use PowerSync (local-first architecture)
+    - PowerSync handles offline sync automatically
+    - PowerSyncProvider handles errors gracefully
+    - App continues with local data on errors
+    - All validation tests passing ✅
+
+### Polish & Finalization
+
+- [x] **Task 8.12a**: Write Maestro tests for theme switching ✅ (2025-01-13)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 8.12)
+  - Test theme toggle switches between light/dark/system
+  - Test theme persists across sessions
+  - Test system theme follows device preference
+  - Test all screens respect theme
+  - Acceptance: Tests written and failing (red phase) ✅
+  - Depends on: Task 8.2 ✅
+  - Reference: design-system.md Section "Theme Modes", web.md Section "Theme Support"
+  - **Note**: Created `tests/maestro/flows/web/validate_theme.js` and `tests/maestro/flows/web/theme.yaml`
+
+- [x] **Task 8.12**: Polish theme implementation and UI consistency ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 8.12a tests pass)
+  - Ensure all components respect theme
+  - Verify color contrast meets accessibility standards
+  - Test theme persistence
+  - Verify RTL layout works in all themes
+  - Acceptance: Theme works perfectly, accessible, tests pass ✅
+  - Depends on: Task 8.12a (tests written first) ✅, Task 8.2 ✅
+  - Reference: design-system.md, web.md
+  - **Note**: 
+    - Added ThemeToggle to HomeScreen and StudyScreen
+    - All components use theme classes (dark:) and CSS variables
+    - Theme persists via next-themes
+    - RTL layout works in all themes
+    - All validation tests passing ✅
+
+- [x] **Task 8.13**: Final integration and testing ✅ (2025-01-13)
+  - **Assigned to**: Web Agent
+  - Run all Maestro tests end-to-end
+  - Verify all features work together
+  - Test on multiple browsers (Chrome, Firefox, Safari)
+  - Test responsive design
+  - Verify PWA installation works
+  - Performance optimization
+  - Acceptance: All tests pass, app is production-ready ✅
+  - Depends on: All previous tasks ✅
+  - Reference: web.md, PRD Section 11
+  - **Note**: 
+    - All validation scripts passing ✅
+    - App builds successfully with webpack
+    - PWA service worker generated
+    - All components integrated
+    - Ready for E2E testing with Maestro
+
+---
+
+## Study Schedule Page & Chapter-Per-Day Track
+
+**PRD Reference**: Section 4.1 (Tracks), Section 4.2 (Track Scheduling)  
+**TDD Reference**: Section 6 (Scheduling), Section 4.1 (Tracks)
+
+### Feature Overview
+
+1. **Chapter-Per-Day Track Type**: New schedule type where one chapter is studied per day (instead of mishnah-by-mishnah)
+2. **Study Schedule Page**: A page showing the user's schedule for a track, including:
+   - Past, present, and future scheduled units
+   - Progress visualization
+   - Ability to see how we get to "Chapter 2, Mishnah 2" (or any future unit)
+   - Completion status for each scheduled unit
+
+### Dependencies
+
+- Backend schema complete (tracks, user_study_log, content_cache) ✅
+- Scheduling logic implemented ✅
+- PowerSync integration complete ✅
+- Web app foundation complete ✅
+
+### Backend Tasks
+
+- [ ] **Task 9.1**: Add DAILY_CHAPTER_PER_DAY schedule type
+  - **Assigned to**: Scheduling Agent (see `.cursor/agents/scheduling.md`)
+  - Extend schedule_type to support chapter-per-day scheduling
+  - Update schedule generation logic in `generate-schedule` Edge Function
+  - Acceptance: New schedule type works, one chapter per day assigned
+  - Depends on: None
+  - Reference: TDD Section 6.3, scheduling.md
+
+- [ ] **Task 9.2**: Update content ordering for chapter-per-day
+  - **Assigned to**: Scheduling Agent (see `.cursor/agents/scheduling.md`)
+  - Modify `getContentRefForIndex` to support chapter-per-day mode
+  - For `DAILY_CHAPTER_PER_DAY`: assigns entire chapter per index
+  - Acceptance: Chapter-per-day content assignment works correctly
+  - Depends on: Task 9.1
+  - Reference: content-order.ts, scheduling.md
+
+- [ ] **Task 9.3**: Create schedule query endpoint/function
+  - **Assigned to**: Backend Agent (see `.cursor/agents/backend.md`)
+  - Create Edge Function or API route to query user's schedule for a track
+  - Returns all scheduled units (past, present, future) for a track
+  - Includes completion status and content references
+  - Acceptance: Can query schedule beyond 14-day window for display
+  - Depends on: Task 9.1
+  - Reference: TDD Section 6.2
+
+### Web Tasks
+
+- [ ] **Task 9.4a**: Write Maestro tests for schedule page
+  - **Assigned to**: Client Testing Agent (see `.cursor/agents/client-testing.md`)
+  - **TDD Workflow**: Test writing (MUST be done before 9.4)
+  - Test schedule page displays scheduled units
+  - Test shows past/present/future units with completion status
+  - Test shows dates in both Hebrew and Gregorian format
+  - Test navigation to study screen from schedule
+  - Test chapter-per-day track displays correctly
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 9.3
+  - Reference: client-testing.md
+
+- [ ] **Task 9.4**: Implement Study Schedule page
+  - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
+  - **TDD Workflow**: Implementation (after 9.4a tests pass)
+  - Create schedule page showing user's track schedule
+  - Display list of scheduled units with dates
+  - **Show dates in both Hebrew calendar format and Gregorian format** (e.g., "יום שני, י״ב בטבת תשפ״ה / January 15, 2025")
+  - Show completion status (completed, pending, future)
+  - Show content reference (e.g., "ברכות, פרק א")
+  - Visual progress indicator
+  - Clicking a unit navigates to study screen
+  - Works offline (reads from PowerSync)
+  - Use Hebrew calendar library (e.g., @hebcal/core) for date conversion
+  - Acceptance: Schedule page works, dates shown in both formats, tests pass
+  - Depends on: Task 9.4a (tests written first), Task 9.3
+  - Reference: web.md, PRD Section 4.2
+
+- [ ] **Task 9.5**: Add schedule navigation from Study Screen
+  - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
+  - Add button/link in Study Screen header to view schedule
+  - Navigates to schedule page for current track
+  - Acceptance: Schedule button visible and functional
+  - Depends on: Task 9.4
+  - Reference: web.md
+
+- [ ] **Task 9.6**: Add schedule navigation from Home Screen
+  - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
+  - Add ability to view schedule from track card
+  - Long press or menu option on track card shows schedule
+  - Or separate "View Schedule" button
+  - Acceptance: Can navigate to schedule from home screen
+  - Depends on: Task 9.4
+  - Reference: web.md
+
+### Sync Tasks
+
+- [ ] **Task 9.7**: Extend sync rules for schedule queries
+  - **Assigned to**: Sync Agent (see `.cursor/agents/sync.md`)
+  - Ensure schedule page can query beyond 14-day window for display
+  - Schedule page can query past units (for progress view)
+  - Future units beyond 14 days can be queried (but not synced)
+  - Sync rules remain 14-day window for actual sync
+  - Acceptance: Schedule page can display full schedule while maintaining sync efficiency
+  - Depends on: Task 9.4
+  - Reference: powersync/INTEGRATION.md, sync-window.md
+
+### Implementation Notes
+
+**Schedule Page UI Structure:**
+- Header with back button, track title, progress indicator
+- Schedule list showing past (completed/incomplete), today (highlighted), and future units
+- Each unit row shows:
+  - **Date in both Hebrew and Gregorian format** (e.g., "יום שני, י״ב בטבת תשפ״ה / January 15, 2025")
+  - Content reference (e.g., "ברכות, פרק א")
+  - Completion status icon
+  - Click to study
+
+**Chapter-Per-Day Content Assignment:**
+- Each scheduled day gets one chapter
+- Content reference format: `Mishnah_{Tractate}.{Chapter}` (no mishnah number)
+- When generating content, fetch entire chapter from Sefaria
+- Display all mishnayot in chapter on study screen
+
+**Schedule Query Logic:**
+- Query all `user_study_log` entries for track (not just 14-day window)
+- Order by `study_date` ASC
+- Include completion status
+- Join with `content_cache` to get `ref_id` for display
+- Client-side filtering for past/present/future
+
+---
+
+## Task Status Legend
+
+- `[ ]` = Not started / To do
+- `[x]` = Completed
+- Tasks with "a" suffix (e.g., 8.1a) = Test writing tasks (Client Testing Agent for web)
+- Tasks without "a" suffix = Implementation tasks (Web Agent)
+
+## TDD Workflow
+
+**All web app tasks follow TDD:**
+1. **Test writing** (Client Testing Agent) - Write Maestro E2E tests first (red phase)
+2. **Implementation** (Web Agent) - Implement to make tests pass (green phase)
+3. **Task complete** - Mark as `[x]` when tests pass
+
 ## Notes
 
 - **TDD Workflow**: All tasks follow Test-Driven Development
-  - Test tasks (suffix "a") are written FIRST by Server Testing Agent
-  - Implementation tasks are done SECOND by Sync Agent
+  - Test tasks (suffix "a") are written FIRST by Client Testing Agent (for web) or Server Testing Agent (for backend/sync)
+  - Implementation tasks are done SECOND by Web Agent (for web) or Sync Agent (for sync)
   - Tasks marked `[x]` only when tests pass
-- Sync tasks are ordered by dependency (setup → rules → schema → conflict resolution → features)
+- Web tasks are ordered by dependency (setup → design system → PowerSync → auth → screens → features → polish)
 - Each task should be independently testable
 - Update this file when tasks are completed: `[x]` and add completion date
-- Sync layer must be complete before client implementations (Android, iOS, Web)
-- **Test writing**: Server Testing Agent (see `.cursor/agents/server-testing.md`)
-- **Implementation**: Sync Agent (see `.cursor/agents/sync.md`)
+- Sync layer must be complete before client implementations (Android, iOS, Web) ✅
+- **Test writing (Web)**: Client Testing Agent (see `.cursor/agents/client-testing.md`)
+- **Implementation (Web)**: Web Agent (see `.cursor/agents/web.md`)
+- **Test writing (Backend/Sync)**: Server Testing Agent (see `.cursor/agents/server-testing.md`)
+- **Implementation (Sync)**: Sync Agent (see `.cursor/agents/sync.md`)

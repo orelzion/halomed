@@ -12,7 +12,7 @@ export interface CorsOptions {
 const DEFAULT_OPTIONS: CorsOptions = {
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  headers: ['Content-Type', 'Authorization'],
+  headers: ['Content-Type', 'Authorization', 'apikey', 'x-client-info'],
   credentials: false,
 };
 
