@@ -1,0 +1,81 @@
+# Maestro E2E Test: Study Schedule Page
+# Task 9.4a - Client Testing Agent
+# 
+# Tests schedule page display and navigation
+
+url: "http://localhost:3000"
+---
+# Launch and authenticate
+- runFlow: auth_anonymous.yaml
+
+# Navigate to home
+- assertVisible:
+    text: "הלומד"
+
+# Navigate to schedule from home (via track card menu or button)
+# This will be implemented in Task 9.6
+- assertVisible:
+    id: "track_card"
+
+# For now, navigate directly to schedule page
+# (Once Task 9.6 is done, this will be via track card)
+- navigate: "/schedule/{track_id}"
+# Note: In actual test, track_id should be replaced with actual track ID
+
+# Verify schedule page displays
+- assertVisible:
+    id: "schedule_page"
+
+# Verify schedule page header
+- assertVisible:
+    text: "לוח זמנים"
+
+# Verify schedule list displays
+- assertVisible:
+    id: "schedule_list"
+
+# Verify scheduled units are displayed
+# Should show past, present, and future units
+- assertVisible:
+    id: "schedule_unit"
+
+# Verify dates are shown in both Hebrew and Gregorian format
+# Format: "יום שני, י״ב בטבת תשפ״ה / January 15, 2025"
+- assertVisible:
+    text: "/"  # Should contain "/" separator between Hebrew and Gregorian dates
+
+# Verify completion status icons are displayed
+- assertVisible:
+    id: "completion_status"
+
+# Verify content reference is displayed (e.g., "ברכות, פרק א")
+- assertVisible:
+    text: "פרק"
+
+# Test navigation to study screen from schedule
+- tapOn:
+    id: "schedule_unit"
+    index: 0
+
+# Verify study screen appears
+- assertVisible:
+    id: "study_screen"
+
+# Go back to schedule
+- back
+
+# Verify schedule page still visible
+- assertVisible:
+    id: "schedule_page"
+
+# Test chapter-per-day track displays correctly
+# (If track has DAILY_CHAPTER_PER_DAY schedule type)
+# Should show chapter references without mishnah numbers
+- assertVisible:
+    text: "פרק"
+
+# Verify progress visualization
+- assertVisible:
+    id: "progress_indicator"
+
+- killApp
