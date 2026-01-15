@@ -71,8 +71,55 @@ Deno.serve(async (req: Request) => {
       .eq('ref_id', ref_id)
       .single();
 
-    if (existingContent && !fetchError) {
+    // If content exists and has he_ref, return cached content
+    if (existingContent && !fetchError && existingContent.he_ref) {
       // Return cached content
+      return new Response(
+        JSON.stringify({
+          id: existingContent.id,
+          ref_id: existingContent.ref_id,
+          source_text_he: existingContent.source_text_he,
+          ai_explanation_json: existingContent.ai_explanation_json,
+        } as ContentGenerationResponse),
+        { status: 200, headers: corsHeaders }
+      );
+    }
+    
+    // If content exists but missing he_ref, we need to update it
+    // Fetch he_ref from Sefaria and update the existing entry
+    if (existingContent && !fetchError && !existingContent.he_ref) {
+      const sefariaRef = toSefariaRef(ref_id);
+      try {
+        const sefariaText = await fetchText(sefariaRef);
+        const heRef = sefariaText.heRef || null;
+        
+        if (heRef) {
+          // Update existing content with he_ref
+          const { data: updatedContent, error: updateError } = await supabase
+            .from('content_cache')
+            .update({ he_ref: heRef })
+            .eq('id', existingContent.id)
+            .select()
+            .single();
+          
+          if (!updateError && updatedContent) {
+            return new Response(
+              JSON.stringify({
+                id: updatedContent.id,
+                ref_id: updatedContent.ref_id,
+                source_text_he: updatedContent.source_text_he,
+                ai_explanation_json: updatedContent.ai_explanation_json,
+              } as ContentGenerationResponse),
+              { status: 200, headers: corsHeaders }
+            );
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch he_ref for existing content:', error);
+        // Fall through to return existing content without he_ref
+      }
+      
+      // If update failed, return existing content anyway
       return new Response(
         JSON.stringify({
           id: existingContent.id,
@@ -90,9 +137,11 @@ Deno.serve(async (req: Request) => {
 
     // Fetch source text from Sefaria
     let sourceText: string;
+    let heRef: string | null = null;
     try {
       const sefariaText = await fetchText(sefariaRef);
       sourceText = sefariaText.he;
+      heRef = sefariaText.heRef || null;
       
       if (!sourceText || sourceText.length === 0) {
         throw new Error('Sefaria API returned empty Hebrew text');
@@ -236,6 +285,7 @@ Deno.serve(async (req: Request) => {
         ref_id: ref_id,
         source_text_he: sourceText,
         ai_explanation_json: aiExplanationJson,
+        he_ref: heRef,
       })
       .select()
       .single();

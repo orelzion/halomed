@@ -26,6 +26,7 @@ const content_cache = new Table({
   ref_id: column.text,
   source_text_he: column.text,
   ai_explanation_json: column.text,
+  he_ref: column.text,
   created_at: column.text,
 }, {
   indexes: {

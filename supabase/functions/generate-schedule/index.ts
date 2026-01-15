@@ -81,19 +81,6 @@ Deno.serve(async (req: Request) => {
     // For MVP, we'll skip explicit user validation and let the database foreign key handle it
     // If user doesn't exist, the foreign key constraint will catch it
 
-    // Get user's current position in track
-    // For new users joining: content starts from beginning (index 0)
-    // For existing users: continue from where they left off (total scheduled units)
-    const { count: totalScheduledCount } = await supabase
-      .from('user_study_log')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', body.user_id)
-      .eq('track_id', body.track_id);
-
-    // Content index is based on total scheduled units (not just completed)
-    // This ensures sequential content assignment from user's join point
-    const currentContentIndex = totalScheduledCount ?? 0;
-
     // Parse start date
     const startDate = parseDate(body.start_date);
     if (isNaN(startDate.getTime())) {
@@ -103,18 +90,90 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Get user's track start date to calculate content index for the requested date
+    // We need to find what content index corresponds to the start_date
+    const { data: trackWithStart } = await supabase
+      .from('tracks')
+      .select('start_date')
+      .eq('id', body.track_id)
+      .single();
+
+    const trackStartDate = trackWithStart?.start_date 
+      ? parseDate(trackWithStart.start_date)
+      : null;
+
+    // Calculate content index for the start_date
+    // Count how many scheduled days occurred before the start_date
+    let contentIndexForStartDate = 0;
+    
+    if (trackStartDate && !isNaN(trackStartDate.getTime())) {
+      // Count scheduled days from track start to (but not including) start_date
+      let currentDate = new Date(trackStartDate);
+      const targetDate = new Date(startDate);
+      
+      while (currentDate < targetDate) {
+        if (await isScheduledDay(currentDate, track.schedule_type)) {
+          contentIndexForStartDate++;
+        }
+        currentDate = addDays(currentDate, 1);
+      }
+    } else {
+      // If no track start date, count existing scheduled units before start_date
+      const { count: unitsBeforeStart } = await supabase
+        .from('user_study_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', body.user_id)
+        .eq('track_id', body.track_id)
+        .lt('study_date', body.start_date);
+      
+      contentIndexForStartDate = unitsBeforeStart ?? 0;
+    }
+
     // Generate schedule
     const scheduledUnits: ScheduledUnit[] = [];
-    let contentIndex = currentContentIndex;
+    let contentIndex = contentIndexForStartDate;
 
     for (let i = 0; i < body.days_ahead; i++) {
       const date = addDays(startDate, i);
       const studyDate = formatDate(date);
 
       // Check if this date is allowed by schedule type (async to check holidays)
-      if (await isScheduledDay(date, track.schedule_type)) {
-        // Get content reference for this index
-        const contentRef = getContentRefForIndex(contentIndex);
+      const isScheduled = await isScheduledDay(date, track.schedule_type);
+      if (!isScheduled) {
+        // Debug: Log why date is excluded
+        const dayOfWeek = date.getDay();
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        console.log(`Skipping ${studyDate} (${dayNames[dayOfWeek]}) - not a scheduled day for schedule_type: ${track.schedule_type}`);
+      }
+      if (isScheduled) {
+        // Calculate content index for this specific date
+        // This ensures that each date gets the correct content, regardless of when generation is triggered
+        let dateContentIndex: number;
+        
+        if (trackStartDate && !isNaN(trackStartDate.getTime())) {
+          // Count scheduled days from track start to this date
+          let countDate = new Date(trackStartDate);
+          let countIndex = 0;
+          while (countDate < date) {
+            if (await isScheduledDay(countDate, track.schedule_type)) {
+              countIndex++;
+            }
+            countDate = addDays(countDate, 1);
+          }
+          dateContentIndex = countIndex;
+        } else {
+          // Fallback: count existing scheduled units before this date
+          const { count: unitsBefore } = await supabase
+            .from('user_study_log')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', body.user_id)
+            .eq('track_id', body.track_id)
+            .lt('study_date', studyDate);
+          dateContentIndex = unitsBefore ?? 0;
+        }
+
+        // Get content reference for this index (pass schedule_type for chapter-per-day support)
+        const contentRef = getContentRefForIndex(dateContentIndex, track.schedule_type);
 
         // Check if content exists in cache, if not, we'll create a placeholder
         // For MVP, we'll create the user_study_log row without content_id
@@ -144,11 +203,34 @@ Deno.serve(async (req: Request) => {
               contentId = generated?.id ?? null;
             } else {
               const errorText = await contentResponse.text();
-              console.warn('generate-content failed:', errorText);
+              let errorData: any = {};
+              try {
+                errorData = JSON.parse(errorText);
+              } catch {
+                errorData = { error: errorText };
+              }
+              
+              // If content doesn't exist (404 or similar), log and skip this date
+              // This can happen if the content reference is invalid (e.g., mishnah doesn't exist)
+              if (contentResponse.status === 404 || contentResponse.status === 500) {
+                console.warn(`Content generation failed for ${contentRef} (${studyDate}):`, errorData.error || errorText);
+                // Skip this date - don't create a user_study_log entry
+                continue;
+              } else {
+                console.warn('generate-content failed:', errorText);
+              }
             }
           } catch (error) {
             console.warn('generate-content request error:', error);
+            // Skip this date if content generation fails
+            continue;
           }
+        }
+        
+        // If we still don't have contentId after trying to generate, skip this date
+        if (!contentId) {
+          console.warn(`No content available for ${contentRef} (${studyDate}), skipping date`);
+          continue;
         }
 
         // Check if log entry already exists
@@ -163,13 +245,36 @@ Deno.serve(async (req: Request) => {
         let logEntry;
         
         if (existingLog) {
-          // Entry already exists - skip unless content is missing
-          // This preserves completion status and avoids unnecessary updates
-          if (existingLog.content_id === null && contentId !== null) {
-            // Only update if we have content to assign and entry is missing it
+          // Entry already exists - check if content is missing and regenerate if needed
+          let needsContentUpdate = false;
+          let finalContentId = existingLog.content_id;
+          
+          // Check if content_id is null or points to missing content
+          if (existingLog.content_id === null) {
+            // No content assigned - use the generated contentId
+            needsContentUpdate = true;
+            finalContentId = contentId;
+          } else {
+            // Content_id exists - verify the content actually exists in cache
+            const { data: contentCheck } = await supabase
+              .from('content_cache')
+              .select('id')
+              .eq('id', existingLog.content_id)
+              .single();
+            
+            if (!contentCheck) {
+              // Content was deleted - regenerate it
+              console.log(`Content missing for ref_id: ${contentRef}, regenerating...`);
+              finalContentId = contentId;
+              needsContentUpdate = true;
+            }
+          }
+          
+          if (needsContentUpdate && finalContentId !== null) {
+            // Update with new content_id
             const { data, error } = await supabase
               .from('user_study_log')
-              .update({ content_id: contentId })
+              .update({ content_id: finalContentId })
               .eq('id', existingLog.id)
               .select()
               .single();
@@ -181,7 +286,7 @@ Deno.serve(async (req: Request) => {
             }
             logEntry = data;
           } else {
-            // Entry exists with content (or no content available) - use existing entry
+            // Entry exists with valid content - use existing entry
             logEntry = existingLog;
           }
         } else {

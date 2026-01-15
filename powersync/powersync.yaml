@@ -19,7 +19,7 @@ bucket_definitions:
   # Syncs only content referenced by user's scheduled units within 14-day window
   content:
     data:
-      - SELECT id, ref_id, source_text_he, ai_explanation_json, created_at
+      - SELECT id, ref_id, source_text_he, ai_explanation_json, he_ref, created_at
         FROM content_cache
         WHERE id IN (
           SELECT content_id FROM user_study_log 

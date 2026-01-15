@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { StudyScreen } from '@/components/screens/StudyScreen';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
@@ -8,7 +8,9 @@ import { useEffect } from 'react';
 
 export default function StudyPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const trackId = params.trackId as string;
+  const studyDate = searchParams.get('date') || undefined;
   const { user, loading } = useAuthContext();
   const router = useRouter();
 
@@ -31,5 +33,5 @@ export default function StudyPage() {
     return null;
   }
 
-  return <StudyScreen trackId={trackId} />;
+  return <StudyScreen trackId={trackId} studyDate={studyDate} />;
 }

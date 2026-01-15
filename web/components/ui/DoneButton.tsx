@@ -25,9 +25,50 @@ export function DoneButton({ isCompleted, onClick, disabled }: DoneButtonProps) 
       data-testid="done_button"
       onClick={handleClick}
       disabled={disabled}
-      className="w-full py-4 px-6 bg-desert-oasis-accent hover:bg-desert-oasis-accent/90 text-white rounded-xl font-explanation text-lg transition-transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+      className={`
+        w-full rounded-2xl overflow-hidden
+        transition-all duration-300 shadow-sm hover:shadow-md
+        active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
+        flex
+        ${isCompleted
+          ? 'bg-gradient-to-br from-desert-oasis-card to-desert-oasis-accent/10 dark:from-desert-oasis-dark-card dark:to-desert-oasis-accent/20 ring-2 ring-desert-oasis-accent/30'
+          : 'bg-desert-oasis-card dark:bg-desert-oasis-dark-card'
+        }
+      `}
     >
-      {t(isCompleted ? 'done_completed' : 'done_button')}
+      {/* Checkmark Section */}
+      <div className="flex items-center justify-center px-3 py-3 border-l border-desert-oasis-muted/50 dark:border-gray-600/30">
+        <div
+          className={`
+            flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 shadow-sm
+            ${isCompleted 
+              ? 'bg-desert-oasis-accent/20 dark:bg-desert-oasis-accent/30' 
+              : 'bg-desert-oasis-muted/20 dark:bg-gray-700/30'
+            }
+          `}
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-all duration-300 ${isCompleted ? 'text-desert-oasis-accent' : 'text-[var(--text-secondary)] opacity-30'}`}
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Text Section */}
+      <div className="flex-1 flex items-center justify-center py-3 px-4">
+        <span className={`font-explanation text-base font-semibold ${isCompleted ? 'text-desert-oasis-accent' : 'text-[var(--text-primary)]'}`}>
+          {t(isCompleted ? 'done_completed' : 'done_button')}
+        </span>
+      </div>
     </button>
   );
 }

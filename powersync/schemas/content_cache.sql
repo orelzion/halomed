@@ -13,5 +13,6 @@ CREATE TABLE content_cache (
   ref_id TEXT UNIQUE NOT NULL,
   source_text_he TEXT NOT NULL,
   ai_explanation_json TEXT NOT NULL,
+  he_ref TEXT,
   created_at TEXT
 );

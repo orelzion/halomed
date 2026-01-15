@@ -156,9 +156,22 @@ export function StudyScreen({ trackId, studyDate }: StudyScreenProps) {
   const isCompleted = studyUnit.log.is_completed === 1;
   const sourceText = studyUnit.content?.source_text_he || '';
   const explanation = explanationData?.summary || '';
+  const halakha = explanationData?.halakha || '';
 
   // Determine header title: use study title if available, otherwise track title
   const headerTitle = studyTitle || studyUnit?.track?.title || '';
+
+  // Convert ref_id to Sefaria URL
+  // Format: "Mishnah_Berakhot.1.1" -> "https://www.sefaria.org/Mishnah_Berakhot.1.1"
+  const getSefariaUrl = (refId: string | null): string => {
+    if (!refId) return 'https://www.sefaria.org';
+    // Sefaria URLs use the ref format with underscores replaced by spaces in the URL path
+    // "Mishnah_Berakhot.1.1" -> "Mishnah Berakhot.1.1" -> "https://www.sefaria.org/Mishnah_Berakhot.1.1"
+    // Actually, Sefaria accepts both formats, but the underscore format works
+    return `https://www.sefaria.org/${refId}`;
+  };
+
+  const sefariaUrl = getSefariaUrl(studyUnit.content?.ref_id || null);
 
   return (
     <div
@@ -166,7 +179,7 @@ export function StudyScreen({ trackId, studyDate }: StudyScreenProps) {
       data-testid="study_screen"
       className="min-h-screen bg-desert-oasis-primary dark:bg-desert-oasis-dark-primary pb-20"
     >
-      <StudyHeader title={headerTitle} />
+      <StudyHeader title={headerTitle} trackId={trackId} />
       <div className="max-w-2xl mx-auto p-6 space-y-6">
         {/* Source Text (Mishnah) */}
         {sourceText && (
@@ -187,6 +200,33 @@ export function StudyScreen({ trackId, studyDate }: StudyScreenProps) {
             className="text-lg font-explanation text-[var(--text-secondary)] leading-relaxed"
           >
             {explanation}
+          </div>
+        )}
+
+        {/* Halakha Section */}
+        {halakha && halakha.trim() && (
+          <div className="space-y-3">
+            <h2 className="text-xl font-source font-bold text-[var(--text-primary)]">
+              הלכה מעשית
+            </h2>
+            <div className="text-lg font-explanation text-[var(--text-secondary)] leading-relaxed">
+              {halakha}
+            </div>
+            {/* AI Warning */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-r-4 border-yellow-400 dark:border-yellow-600 p-4 rounded-lg">
+              <p className="text-sm font-explanation text-[var(--text-secondary)] mb-2">
+                <span className="font-bold">⚠️ אזהרה:</span> תוכן זה נוצר על ידי בינה מלאכותית. מומלץ לבדוק את המקור המקורי ב-
+                <a
+                  href={sefariaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-desert-oasis-accent underline hover:text-desert-oasis-accent/80"
+                >
+                  Sefaria
+                </a>
+                .
+              </p>
+            </div>
           </div>
         )}
 
@@ -230,18 +270,19 @@ export function StudyScreen({ trackId, studyDate }: StudyScreenProps) {
             </div>
           </ExpandableSection>
         )}
+        {/* Spacer */}
+        <div className="h-12"/>
+        {/* Done Button */}
+        {studyUnit.log && (
+          <div className="mt-16">
+            <DoneButton
+              isCompleted={isCompleted}
+              onClick={handleDone}
+              disabled={isToggling}
+            />
+          </div>
+        )}
       </div>
-
-      {/* Done Button - Fixed at bottom */}
-      {studyUnit.log && (
-        <div className="fixed bottom-0 left-0 right-0 z-10 p-4 bg-desert-oasis-primary dark:bg-desert-oasis-dark-primary">
-          <DoneButton
-            isCompleted={isCompleted}
-            onClick={handleDone}
-            disabled={isToggling}
-          />
-        </div>
-      )}
     </div>
   );
 }

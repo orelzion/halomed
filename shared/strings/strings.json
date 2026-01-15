@@ -1,7 +1,7 @@
 {
   "app_name": "הלומד",
   "done_button": "סיימתי",
-  "done_completed": "✓ סיימתי",
+  "done_completed": "סיימתי",
   "have_you_studied_today": "האם למדת היום?",
   "studied_today": "למדת היום ✓",
   "summary_of_commentaries": "סיכום פרשנויות",
@@ -21,5 +21,15 @@
   "settings": "הגדרות",
   "theme_light": "בהיר",
   "theme_dark": "כהה",
-  "theme_system": "לפי המערכת"
+  "theme_system": "לפי המערכת",
+  "schedule_title": "לוח זמנים",
+  "view_schedule": "צפה בלוח זמנים",
+  "schedule_empty": "אין לימודים מתוכננים",
+  "schedule_past": "עבר",
+  "schedule_today": "היום",
+  "schedule_future": "עתיד",
+  "schedule_completed": "הושלם",
+  "schedule_pending": "ממתין",
+  "schedule_future_unit": "עתידי",
+  "loading_content": "טוען תוכן..."
 }

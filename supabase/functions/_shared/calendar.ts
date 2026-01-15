@@ -14,13 +14,27 @@ export async function isScheduledDay(date: Date, scheduleType: string): Promise<
       const dayOfWeek = date.getDay();
       // Skip Saturday (6) - Shabbat
       // In Hebrew calendar, weekdays are Sunday-Friday, so Sunday (0) is included
-      if (dayOfWeek === 6) return false;
+      if (dayOfWeek === 6) {
+        console.log(`Date ${date.toISOString().split('T')[0]} is Saturday (Shabbat), excluded`);
+        return false;
+      }
       // Skip Jewish holidays
-      if (await isJewishHoliday(date)) return false;
+      const isHoliday = await isJewishHoliday(date);
+      if (isHoliday) {
+        console.log(`Date ${date.toISOString().split('T')[0]} is a Jewish holiday, excluded`);
+        return false;
+      }
       return true;
     
     case 'DAILY':
       // All days are scheduled (but still exclude holidays for MVP)
+      if (await isJewishHoliday(date)) return false;
+      return true;
+    
+    case 'DAILY_CHAPTER_PER_DAY':
+      // Chapter-per-day: same as DAILY_WEEKDAYS_ONLY (weekdays only, exclude holidays)
+      const dayOfWeekChapter = date.getDay();
+      if (dayOfWeekChapter === 6) return false;
       if (await isJewishHoliday(date)) return false;
       return true;
     
@@ -48,6 +62,13 @@ export function isScheduledDaySync(date: Date, scheduleType: string): boolean {
       if (isJewishHolidaySync(date)) return false;
       return true;
     
+    case 'DAILY_CHAPTER_PER_DAY':
+      // Chapter-per-day: same as DAILY_WEEKDAYS_ONLY (weekdays only, exclude holidays)
+      const dayOfWeekChapter = date.getDay();
+      if (dayOfWeekChapter === 6) return false;
+      if (isJewishHolidaySync(date)) return false;
+      return true;
+    
     default:
       return false;
   }
@@ -72,21 +93,27 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     // Get all events (holidays) for this date
     const events = HebrewCalendar.getHolidaysOnDate(hdate);
     
+    // Debug: Log events for troubleshooting
+    if (events && events.length > 0) {
+      const eventDescs = events.map((e: any) => e.desc || e.render('en') || '').join(', ');
+      console.log(`Date ${date.toISOString().split('T')[0]} (${hdate.toString()}): Events found: ${eventDescs}`);
+    }
+    
     // If no events, it's not a holiday
     if (!events || events.length === 0) {
       return false;
     }
     
     // Major holidays that exclude study
-    // Only actual holidays, NOT Erev (eve) days
-    // We check for specific patterns and explicitly exclude "erev" prefix
+    // Only actual holidays, NOT Erev (eve) days, NOT minor observances like "Yom Kippur Katan"
+    // We check for specific patterns and explicitly exclude "erev" prefix and "katan" suffix
     const majorHolidayPatterns = [
       'pesach i',
       'pesach ii',
       'rosh hashana i',
       'rosh hashana ii',
       'rosh hashana 5785', // First day of Rosh Hashana (year-specific)
-      'yom kippur',
+      'yom kippur', // But NOT "yom kippur katan" (minor monthly observance)
       'sukkot i',
       'shmini atzeret',
       'shmini atzeres',
@@ -100,11 +127,17 @@ export async function isJewishHoliday(date: Date): Promise<boolean> {
     
     // Check if any event matches a major holiday
     // IMPORTANT: Exclude events that start with "erev" (eve of holiday)
+    // IMPORTANT: Exclude "Yom Kippur Katan" and other minor observances
     return events.some((event: any) => {
       const eventDesc = (event.desc || event.render('en') || '').toLowerCase();
       
       // Skip if this is an Erev (eve) day
       if (eventDesc.startsWith('erev ')) {
+        return false;
+      }
+      
+      // Skip "Yom Kippur Katan" - it's a minor monthly observance, not a major holiday
+      if (eventDesc.includes('yom kippur katan')) {
         return false;
       }
       

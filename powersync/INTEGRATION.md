@@ -81,6 +81,16 @@ See `conflict-resolution.md` for details.
 
 See `sync-window.md` for details.
 
+### Schedule Page Queries
+
+The schedule page displays all scheduled units for a track (past, present, and future), not just the 14-day window. This is achieved by:
+
+1. **Sync Rules**: Remain limited to 14-day window for efficient sync
+2. **Schedule Query**: Uses Edge Function (`query-schedule`) to query all `user_study_log` entries from Supabase directly (not from PowerSync)
+3. **Display**: Schedule page queries server-side for full schedule, while PowerSync continues to sync only the 14-day window
+
+**Important**: The schedule page queries beyond the sync window for display purposes only. The actual sync rules remain optimized for the 14-day window to maintain efficient local storage and sync performance.
+
 ## Client Integration
 
 ### Initialization

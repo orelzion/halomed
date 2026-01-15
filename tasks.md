@@ -924,34 +924,37 @@ This file tracks implementation tasks following TDD workflow:
 
 ### Backend Tasks
 
-- [ ] **Task 9.1**: Add DAILY_CHAPTER_PER_DAY schedule type
+- [x] **Task 9.1**: Add DAILY_CHAPTER_PER_DAY schedule type ✅ (2025-01-15)
   - **Assigned to**: Scheduling Agent (see `.cursor/agents/scheduling.md`)
   - Extend schedule_type to support chapter-per-day scheduling
   - Update schedule generation logic in `generate-schedule` Edge Function
   - Acceptance: New schedule type works, one chapter per day assigned
   - Depends on: None
   - Reference: TDD Section 6.3, scheduling.md
+  - **Note**: Added DAILY_CHAPTER_PER_DAY to calendar.ts isScheduledDay functions
 
-- [ ] **Task 9.2**: Update content ordering for chapter-per-day
+- [x] **Task 9.2**: Update content ordering for chapter-per-day ✅ (2025-01-15)
   - **Assigned to**: Scheduling Agent (see `.cursor/agents/scheduling.md`)
   - Modify `getContentRefForIndex` to support chapter-per-day mode
   - For `DAILY_CHAPTER_PER_DAY`: assigns entire chapter per index
   - Acceptance: Chapter-per-day content assignment works correctly
-  - Depends on: Task 9.1
+  - Depends on: Task 9.1 ✅
   - Reference: content-order.ts, scheduling.md
+  - **Note**: Updated getContentRefForIndex to accept scheduleType parameter and return chapter format for DAILY_CHAPTER_PER_DAY
 
-- [ ] **Task 9.3**: Create schedule query endpoint/function
+- [x] **Task 9.3**: Create schedule query endpoint/function ✅ (2025-01-15)
   - **Assigned to**: Backend Agent (see `.cursor/agents/backend.md`)
   - Create Edge Function or API route to query user's schedule for a track
   - Returns all scheduled units (past, present, future) for a track
   - Includes completion status and content references
   - Acceptance: Can query schedule beyond 14-day window for display
-  - Depends on: Task 9.1
+  - Depends on: Task 9.1 ✅
   - Reference: TDD Section 6.2
+  - **Note**: Created query-schedule Edge Function and /api/query-schedule route
 
 ### Web Tasks
 
-- [ ] **Task 9.4a**: Write Maestro tests for schedule page
+- [x] **Task 9.4a**: Write Maestro tests for schedule page ✅ (2025-01-15)
   - **Assigned to**: Client Testing Agent (see `.cursor/agents/client-testing.md`)
   - **TDD Workflow**: Test writing (MUST be done before 9.4)
   - Test schedule page displays scheduled units
@@ -960,10 +963,11 @@ This file tracks implementation tasks following TDD workflow:
   - Test navigation to study screen from schedule
   - Test chapter-per-day track displays correctly
   - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 9.3
+  - Depends on: Task 9.3 ✅
   - Reference: client-testing.md
+  - **Note**: Created schedule.yaml and validate_schedule.js test files
 
-- [ ] **Task 9.4**: Implement Study Schedule page
+- [x] **Task 9.4**: Implement Study Schedule page ✅ (2025-01-15)
   - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
   - **TDD Workflow**: Implementation (after 9.4a tests pass)
   - Create schedule page showing user's track schedule
@@ -976,37 +980,46 @@ This file tracks implementation tasks following TDD workflow:
   - Works offline (reads from PowerSync)
   - Use Hebrew calendar library (e.g., @hebcal/core) for date conversion
   - Acceptance: Schedule page works, dates shown in both formats, tests pass
-  - Depends on: Task 9.4a (tests written first), Task 9.3
+  - Depends on: Task 9.4a (tests written first) ✅, Task 9.3 ✅
   - Reference: web.md, PRD Section 4.2
+  - **Note**: 
+    - Created ScheduleScreen component with Hebrew/Gregorian date formatting
+    - Created useSchedule hook
+    - Created schedule page route at /schedule/[trackId]
+    - Installed @hebcal/core for Hebrew calendar support
+    - Added date formatting utilities
 
-- [ ] **Task 9.5**: Add schedule navigation from Study Screen
+- [x] **Task 9.5**: Add schedule navigation from Study Screen ✅ (2025-01-15)
   - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
   - Add button/link in Study Screen header to view schedule
   - Navigates to schedule page for current track
   - Acceptance: Schedule button visible and functional
-  - Depends on: Task 9.4
+  - Depends on: Task 9.4 ✅
   - Reference: web.md
+  - **Note**: Added schedule button to StudyHeader component
 
-- [ ] **Task 9.6**: Add schedule navigation from Home Screen
+- [x] **Task 9.6**: Add schedule navigation from Home Screen ✅ (2025-01-15)
   - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
   - Add ability to view schedule from track card
   - Long press or menu option on track card shows schedule
   - Or separate "View Schedule" button
   - Acceptance: Can navigate to schedule from home screen
-  - Depends on: Task 9.4
+  - Depends on: Task 9.4 ✅
   - Reference: web.md
+  - **Note**: Added "View Schedule" button to TrackCard component
 
 ### Sync Tasks
 
-- [ ] **Task 9.7**: Extend sync rules for schedule queries
+- [x] **Task 9.7**: Extend sync rules for schedule queries ✅ (2025-01-15)
   - **Assigned to**: Sync Agent (see `.cursor/agents/sync.md`)
   - Ensure schedule page can query beyond 14-day window for display
   - Schedule page can query past units (for progress view)
   - Future units beyond 14 days can be queried (but not synced)
   - Sync rules remain 14-day window for actual sync
   - Acceptance: Schedule page can display full schedule while maintaining sync efficiency
-  - Depends on: Task 9.4
+  - Depends on: Task 9.4 ✅
   - Reference: powersync/INTEGRATION.md, sync-window.md
+  - **Note**: Updated INTEGRATION.md with schedule page query documentation
 
 ### Implementation Notes
 

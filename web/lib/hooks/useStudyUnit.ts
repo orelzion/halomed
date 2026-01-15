@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import type { Database } from '@/lib/powersync/schema';
+import { formatContentRef } from '@/lib/utils/date-format';
 
 type UserStudyLogRecord = Database['user_study_log'];
 type ContentCacheRecord = Database['content_cache'];
@@ -104,6 +105,26 @@ export function useStudyUnit(trackId: string, studyDate?: string) {
           );
           const contents = normalizeRows<ContentCacheRecord>(contentResult);
           content = contents[0] ?? null;
+
+          // If he_ref is missing from PowerSync (e.g., content synced before he_ref was added),
+          // fetch it directly from Supabase as a fallback
+          if (content && !content.he_ref) {
+            try {
+              const { supabase } = await import('@/lib/supabase/client');
+              const { data: serverContent } = await supabase
+                .from('content_cache')
+                .select('he_ref')
+                .eq('id', log.content_id)
+                .single();
+              
+              if (serverContent?.he_ref) {
+                // Update local content with he_ref from server
+                content = { ...content, he_ref: serverContent.he_ref };
+              }
+            } catch (error) {
+              console.warn('Failed to fetch he_ref from server:', error);
+            }
+          }
 
           // Parse explanation JSON
           if (content?.ai_explanation_json && isMounted) {
@@ -216,38 +237,12 @@ export function useStudyUnit(trackId: string, studyDate?: string) {
     };
   }, [trackId, studyDate]);
 
-  // Format study title from ref_id (e.g., "Mishnah_Berakhot.1.1" -> "ברכות, פרק א")
-  const formatStudyTitle = (refId: string | null | undefined): string => {
-    if (!refId) return '';
-    
-    // Parse format: Mishnah_{Tractate}.{Chapter}.{Mishnah}
-    const match = refId.match(/Mishnah_(\w+)\.(\d+)\.(\d+)/);
-    if (!match) return refId;
-    
-    const [, tractate, chapter, mishnah] = match;
-    
-    // Map tractate names to Hebrew
-    const tractateMap: Record<string, string> = {
-      'Berakhot': 'ברכות',
-      'Shabbat': 'שבת',
-      'Eruvin': 'עירובין',
-      'Pesachim': 'פסחים',
-      // Add more as needed
-    };
-    
-    const tractateHebrew = tractateMap[tractate] || tractate;
-    
-    // Convert chapter number to Hebrew (1 -> א, 2 -> ב, etc.)
-    const hebrewNumbers = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'יא', 'יב', 'יג', 'יד', 'טו', 'טז', 'יז', 'יח', 'יט', 'כ'];
-    const chapterNum = parseInt(chapter, 10);
-    const chapterHebrew = chapterNum <= hebrewNumbers.length 
-      ? hebrewNumbers[chapterNum - 1] 
-      : chapter;
-    
-    return `${tractateHebrew}, פרק ${chapterHebrew}`;
-  };
-
-  const studyTitle = formatStudyTitle(studyUnit?.content?.ref_id);
+  // Format study title using he_ref from Sefaria if available, otherwise parse ref_id
+  // This ensures consistent formatting with the schedule page
+  const studyTitle = formatContentRef(
+    studyUnit?.content?.ref_id || null,
+    studyUnit?.content?.he_ref || null
+  );
 
   return { studyUnit, explanationData, loading, studyTitle };
 }

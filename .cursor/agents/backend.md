@@ -173,10 +173,14 @@ supabase/
     generate-content/
       index.ts
       tests/
+    query-schedule/
+      index.ts
     _shared/
       cors.ts
       auth.ts
       sefaria.ts
+      calendar.ts
+      content-order.ts
 ```
 
 ### Edge Function: generate-schedule
@@ -186,6 +190,13 @@ See `scheduling.md` for detailed implementation.
 ### Edge Function: generate-content
 
 See `content-generation.md` for detailed implementation.
+
+### Edge Function: query-schedule
+
+Queries user's schedule for a track (all scheduled units, not limited to 14-day window).
+- Accessed via `/api/query-schedule` API route
+- Validates JWT authentication
+- Returns all scheduled units with completion status and content references
 
 ## Key Files/Components
 
@@ -200,17 +211,23 @@ See `content-generation.md` for detailed implementation.
 
 ### Creating a New Migration
 
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
+
 ```bash
 supabase migration new [migration_name]
 ```
 
 ### Deploying Edge Functions
 
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
+
 ```bash
-supabase functions deploy [function_name]
+supabase functions deploy [function_name] --use-api
 ```
 
 ### Local Development
+
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
 
 ```bash
 # Start local Supabase
@@ -244,3 +261,30 @@ Required secrets (store in Supabase Dashboard > Settings > Edge Functions):
 - **TDD Section 4**: Database schema
 - **TDD Section 5**: Authentication model
 - **TDD Section 11**: Security policies
+
+## Edge Function Deployment (Updated)
+
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag to bundle functions server-side without using Docker.
+
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
+
+```bash
+supabase functions deploy [function_name] --use-api
+```
+
+**Deployment Pattern:**
+- Edge Functions are accessed through Next.js API routes (not directly from client)
+- API routes handle authentication and call Edge Functions with user's JWT token
+- Edge Functions validate JWT using `validateAuth` from `_shared/auth.ts`
+- Use `--use-api` flag for all deployments to avoid Docker requirements
+
+**Example:**
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
+
+```bash
+# Deploy query-schedule function
+supabase functions deploy query-schedule --use-api
+
+# Deploy generate-schedule function (if using --no-verify-jwt, still use --use-api)
+supabase functions deploy generate-schedule --use-api --no-verify-jwt
+```
