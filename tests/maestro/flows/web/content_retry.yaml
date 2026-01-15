@@ -1,0 +1,18 @@
+# Maestro E2E Test: Content Retry
+# Task M1.4 - Client Testing Agent
+#
+# Tests retry UI when content generation fails
+
+url: "http://localhost:3000"
+---
+- runFlow: auth_anonymous.yaml
+
+# Navigate to study
+- tapOn:
+    id: "track_card"
+
+# Retry button should appear on failure
+- assertVisible:
+    text: "נסה שוב"
+
+- killApp

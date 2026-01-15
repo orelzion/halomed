@@ -1,0 +1,35 @@
+# Maestro E2E Test: Home Screen
+# Task 8.7a - Client Testing Agent
+# 
+# Tests home screen display and navigation
+
+url: "http://localhost:3000"
+---
+# Launch and authenticate
+# Wait (handled by assertions)
+- runFlow: auth_anonymous.yaml
+
+# Wait for data to load
+# Wait (handled by assertions)
+
+# Verify home screen elements
+- assertVisible:
+    text: "הלומד"
+
+# Verify track card exists
+- assertVisible:
+    id: "track_card"
+
+# Verify streak indicator
+- assertVisible:
+    id: "streak_indicator"
+
+# Test navigation to study screen
+- tapOn:
+    id: "track_card"
+
+# Verify study screen appears
+- assertVisible:
+    id: "study_screen"
+
+- killApp

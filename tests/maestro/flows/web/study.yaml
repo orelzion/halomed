@@ -1,0 +1,51 @@
+# Maestro E2E Test: Study Screen
+# Task 8.8a - Client Testing Agent
+# 
+# Tests study screen display and interactions
+
+url: "http://localhost:3000"
+---
+# Launch and navigate to study
+# Wait (handled by assertions)
+- runFlow: home.yaml
+
+# Verify study screen elements
+- assertVisible:
+    id: "study_screen"
+
+# Content generation loading state (when content is missing)
+- assertVisible:
+    text: "טוען תוכן..."
+
+# Verify source text (Mishnah) is displayed
+- assertVisible:
+    id: "mishna_text"
+
+# Verify AI explanation is displayed
+- assertVisible:
+    id: "explanation_text"
+
+# Verify done button exists
+- assertVisible:
+    id: "done_button"
+
+# Test done button toggle
+- tapOn:
+    id: "done_button"
+
+# Verify completed state
+- assertVisible:
+    text: "✓ סיימתי"
+
+# Test expandable section
+- assertVisible:
+    text: "סיכום פרשנויות"
+
+- tapOn:
+    text: "סיכום פרשנויות"
+
+# Verify expanded content
+- assertVisible:
+    id: "deep_dive_content"
+
+- killApp

@@ -1,0 +1,33 @@
+# Maestro E2E Test: Google OAuth Authentication
+# Task 8.5a - Client Testing Agent
+# 
+# Tests Google OAuth login flow
+
+url: "http://localhost:3000"
+---
+- launchApp
+
+# Wait for app to load
+# Wait (handled by assertions)
+
+# Verify login page
+- assertVisible:
+    text: "התחבר"
+
+# Verify Google login option exists
+- assertVisible:
+    text: "Google"
+
+# Tap on Google login
+- tapOn:
+    text: "Google"
+
+# Note: OAuth flow is handled by browser/system
+# Wait for redirect back
+# Wait (handled by assertions)
+
+# Verify user is authenticated
+- assertVisible:
+    text: "הלומד"
+
+- killApp

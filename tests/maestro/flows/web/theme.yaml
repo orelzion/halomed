@@ -1,0 +1,23 @@
+# Maestro E2E Test: Theme Switching
+# Task 8.12a - Client Testing Agent
+# 
+# Tests theme switching functionality
+
+url: "http://localhost:3000"
+---
+# Launch app
+# Wait (handled by assertions)
+- runFlow: auth_anonymous.yaml
+
+# Verify theme toggle exists
+- assertVisible:
+    id: "theme_toggle"
+
+# Tap theme toggle to test switching
+- tapOn:
+    id: "theme_toggle"
+
+# Note: Theme changes are validated by visual appearance
+# Detailed theme testing requires manual verification or browser DevTools
+
+- killApp

@@ -1,0 +1,29 @@
+# Maestro E2E Test: Streak Calculation
+# Task 8.10a - Client Testing Agent
+# 
+# Tests streak display and updates
+
+url: "http://localhost:3000"
+---
+# Navigate to home
+# Wait (handled by assertions)
+- runFlow: auth_anonymous.yaml
+
+# Verify streak indicator exists
+- assertVisible:
+    id: "streak_indicator"
+
+# Complete today's study
+- runFlow: study.yaml
+
+# Go back to home
+- back
+
+# Wait for sync
+# Wait (handled by assertions)
+
+# Verify streak indicator still visible after update
+- assertVisible:
+    id: "streak_indicator"
+
+- killApp

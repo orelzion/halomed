@@ -1,0 +1,22 @@
+# Maestro E2E Test: Content Loading State
+# Task M1.3 - Client Testing Agent
+#
+# Tests loading UI while content is generating
+
+url: "http://localhost:3000"
+---
+- runFlow: auth_anonymous.yaml
+
+# Navigate to study
+- tapOn:
+    id: "track_card"
+
+# Loading state should be visible
+- assertVisible:
+    text: "טוען תוכן..."
+
+# Should not show "no study today" while loading
+- assertNotVisible:
+    text: "אין לימוד מתוכנן להיום"
+
+- killApp

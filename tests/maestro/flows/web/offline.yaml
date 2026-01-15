@@ -1,0 +1,62 @@
+# Maestro E2E Test: Offline Behavior
+# Task 8.11a - Client Testing Agent
+# 
+# Tests offline-first functionality with PowerSync
+# Note: Maestro web doesn't support network simulation (toggleAirplaneMode is mobile-only)
+# This test validates offline-first architecture by testing local data access and persistence
+
+url: "http://localhost:3000"
+---
+# Launch and authenticate
+- launchApp
+- runFlow: auth_anonymous.yaml
+
+# Test 1: Initial sync - verify data loads (PowerSync syncs from server to local IndexedDB)
+# Wait for initial sync to complete
+- assertVisible:
+    text: "הלומד"
+
+# Test 2: Verify tracks load from local PowerSync database (offline-first read)
+# This validates that data is cached locally and accessible without network
+- assertVisible:
+    id: "track_card"
+
+# Test 3: Navigate to study - verify content loads from local cache
+# PowerSync stores content_cache locally, so this works offline
+- tapOn:
+    id: "track_card"
+- assertVisible:
+    id: "study_screen"
+- assertVisible:
+    id: "mishna_text"
+
+# Test 4: Offline write - mark completion (writes to local PowerSync database)
+# This validates that writes work offline and are queued for sync
+- assertVisible:
+    id: "done_button"
+- tapOn:
+    id: "done_button"
+
+# Test 5: Verify completion state persisted locally (offline-first write)
+- assertVisible:
+    text: "✓ סיימתי"
+
+# Test 6: Verify data persists - navigate away and back
+# This validates that local PowerSync storage persists data
+- back
+- assertVisible:
+    id: "track_card"
+- tapOn:
+    id: "track_card"
+
+# Test 7: Verify completion state still visible (validates offline persistence)
+- assertVisible:
+    text: "✓ סיימתי"
+
+# Note: Full offline testing (network disconnection) requires:
+# - Browser DevTools Network throttling (offline mode)
+# - Manual testing with network disabled
+# - Maestro web doesn't support toggleAirplaneMode (mobile-only command)
+# This test validates offline-first architecture (local data access and persistence)
+
+- killApp

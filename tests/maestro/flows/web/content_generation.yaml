@@ -1,0 +1,22 @@
+# Maestro E2E Test: Content Generation
+# Task M1.1 - Client Testing Agent
+#
+# Tests that content is generated when missing
+
+url: "http://localhost:3000"
+---
+- runFlow: auth_anonymous.yaml
+
+# Navigate to study
+- tapOn:
+    id: "track_card"
+
+# Content generation should start
+- assertVisible:
+    text: "טוען תוכן..."
+
+# Content should eventually render
+- assertVisible:
+    id: "mishna_text"
+
+- killApp

@@ -1,0 +1,38 @@
+# Maestro E2E Test: Anonymous Authentication
+# Task 8.5a - Client Testing Agent
+# 
+# Tests anonymous login flow
+# 
+# NOTE: This test will FAIL if:
+# - NEXT_PUBLIC_SUPABASE_URL is not set (uses placeholder)
+# - NEXT_PUBLIC_SUPABASE_ANON_KEY is not set (uses placeholder)
+# - Anonymous auth is not enabled in Supabase
+
+url: "http://localhost:3000"
+---
+- launchApp
+
+# Verify login page is displayed
+- assertVisible:
+    text: "התחבר"
+
+# Verify anonymous login option exists
+- assertVisible:
+    text: "המשך כאורח"
+
+# Tap on anonymous login
+- tapOn:
+    text: "המשך כאורח"
+
+# Wait for navigation (either success or error)
+- waitForAnimationToEnd
+
+# Verify user is authenticated (home screen should appear)
+# This will FAIL if:
+# 1. Supabase credentials are invalid (placeholder values)
+# 2. Anonymous auth fails
+# 3. Navigation doesn't happen after login
+- assertVisible:
+    text: "הלומד"
+
+- killApp

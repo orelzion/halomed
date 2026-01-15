@@ -1,0 +1,38 @@
+# Maestro E2E Test: Completion Sync
+# Task 8.9a - Client Testing Agent
+# 
+# Tests completion marking and sync
+
+url: "http://localhost:3000"
+---
+# Navigate to study screen
+# Wait (handled by assertions)
+- runFlow: home.yaml
+
+# Verify done button is visible
+- assertVisible:
+    id: "done_button"
+
+# Tap done button
+- tapOn:
+    id: "done_button"
+
+# Wait for update
+# Wait (handled by assertions)
+
+# Verify completed state
+- assertVisible:
+    text: "✓ סיימתי"
+
+# Toggle back
+- tapOn:
+    id: "done_button"
+
+# Wait for update
+# Wait (handled by assertions)
+
+# Verify toggled back
+- assertVisible:
+    text: "סיימתי"
+
+- killApp
