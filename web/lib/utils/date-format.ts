@@ -1,6 +1,100 @@
 // Utility functions for date formatting with Hebrew calendar support
 import { HDate, HebrewCalendar } from '@hebcal/core';
 
+// Map common tractate names to Hebrew and chapter count
+const tractateData: Record<string, { hebrew: string; chapters: number }> = {
+  'Berakhot': { hebrew: 'ברכות', chapters: 9 },
+  'Peah': { hebrew: 'פאה', chapters: 8 },
+  'Demai': { hebrew: 'דמאי', chapters: 7 },
+  'Kilayim': { hebrew: 'כלאים', chapters: 9 },
+  'Sheviit': { hebrew: 'שביעית', chapters: 10 },
+  'Terumot': { hebrew: 'תרומות', chapters: 11 },
+  'Maasrot': { hebrew: 'מעשרות', chapters: 5 },
+  'Maaser Sheni': { hebrew: 'מעשר שני', chapters: 5 },
+  'Challah': { hebrew: 'חלה', chapters: 4 },
+  'Orlah': { hebrew: 'ערלה', chapters: 3 },
+  'Bikkurim': { hebrew: 'ביכורים', chapters: 4 },
+  'Shabbat': { hebrew: 'שבת', chapters: 24 },
+  'Eruvin': { hebrew: 'עירובין', chapters: 10 },
+  'Pesachim': { hebrew: 'פסחים', chapters: 10 },
+  'Shekalim': { hebrew: 'שקלים', chapters: 8 },
+  'Yoma': { hebrew: 'יומא', chapters: 8 },
+  'Sukkah': { hebrew: 'סוכה', chapters: 5 },
+  'Beitzah': { hebrew: 'ביצה', chapters: 5 },
+  'Rosh Hashanah': { hebrew: 'ראש השנה', chapters: 4 },
+  'Taanit': { hebrew: 'תענית', chapters: 4 },
+  'Megillah': { hebrew: 'מגילה', chapters: 4 },
+  'Moed Katan': { hebrew: 'מועד קטן', chapters: 3 },
+  'Chagigah': { hebrew: 'חגיגה', chapters: 3 },
+  'Yevamot': { hebrew: 'יבמות', chapters: 16 },
+  'Ketubot': { hebrew: 'כתובות', chapters: 13 },
+  'Nedarim': { hebrew: 'נדרים', chapters: 11 },
+  'Nazir': { hebrew: 'נזיר', chapters: 9 },
+  'Sotah': { hebrew: 'סוטה', chapters: 9 },
+  'Gittin': { hebrew: 'גיטין', chapters: 9 },
+  'Kiddushin': { hebrew: 'קידושין', chapters: 4 },
+  'Bava Kamma': { hebrew: 'בבא קמא', chapters: 10 },
+  'Bava Metzia': { hebrew: 'בבא מציעא', chapters: 10 },
+  'Bava Batra': { hebrew: 'בבא בתרא', chapters: 10 },
+  'Sanhedrin': { hebrew: 'סנהדרין', chapters: 11 },
+  'Makkot': { hebrew: 'מכות', chapters: 3 },
+  'Shevuot': { hebrew: 'שבועות', chapters: 8 },
+  'Eduyot': { hebrew: 'עדויות', chapters: 8 },
+  'Avodah Zarah': { hebrew: 'עבודה זרה', chapters: 5 },
+  'Avot': { hebrew: 'אבות', chapters: 6 },
+  'Horayot': { hebrew: 'הוריות', chapters: 3 },
+  'Zevachim': { hebrew: 'זבחים', chapters: 14 },
+  'Menachot': { hebrew: 'מנחות', chapters: 13 },
+  'Chullin': { hebrew: 'חולין', chapters: 12 },
+  'Bekhorot': { hebrew: 'בכורות', chapters: 9 },
+  'Arakhin': { hebrew: 'ערכין', chapters: 9 },
+  'Temurah': { hebrew: 'תמורה', chapters: 7 },
+  'Keritot': { hebrew: 'כריתות', chapters: 6 },
+  'Meilah': { hebrew: 'מעילה', chapters: 6 },
+  'Tamid': { hebrew: 'תמיד', chapters: 7 },
+  'Middot': { hebrew: 'מידות', chapters: 5 },
+  'Kinnim': { hebrew: 'קינים', chapters: 3 },
+  'Kelim': { hebrew: 'כלים', chapters: 30 },
+  'Oholot': { hebrew: 'אהלות', chapters: 18 },
+  'Negaim': { hebrew: 'נגעים', chapters: 14 },
+  'Parah': { hebrew: 'פרה', chapters: 12 },
+  'Tohorot': { hebrew: 'טהרות', chapters: 10 },
+  'Mikvaot': { hebrew: 'מקואות', chapters: 10 },
+  'Niddah': { hebrew: 'נדה', chapters: 10 },
+  'Machshirin': { hebrew: 'מכשירין', chapters: 6 },
+  'Zavim': { hebrew: 'זבים', chapters: 5 },
+  'Tevul Yom': { hebrew: 'טבול יום', chapters: 4 },
+  'Yadayim': { hebrew: 'ידים', chapters: 4 },
+  'Uktzin': { hebrew: 'עוקצין', chapters: 3 },
+};
+
+// Legacy map for backward compatibility
+const tractateMap: Record<string, string> = Object.fromEntries(
+  Object.entries(tractateData).map(([key, value]) => [key, value.hebrew])
+);
+
+/**
+ * Converts English tractate name to Hebrew
+ */
+export function getTractateHebrew(tractate: string): string | undefined {
+  return tractateData[tractate]?.hebrew;
+}
+
+/**
+ * Gets the total number of chapters in a tractate
+ */
+export function getTractateChapterCount(tractate: string): number | undefined {
+  return tractateData[tractate]?.chapters;
+}
+
+/**
+ * Checks if the given chapter is the last chapter in the tractate
+ */
+export function isLastChapter(tractate: string, chapter: number): boolean {
+  const totalChapters = tractateData[tractate]?.chapters;
+  return totalChapters !== undefined && chapter === totalChapters;
+}
+
 /**
  * Formats a date in both Hebrew and Gregorian formats
  * Format: "שישי, כ״ז טבת / 16.01.2026"
@@ -58,7 +152,7 @@ export function formatDateDual(dateString: string): string {
 /**
  * Formats a number in Hebrew numerals (with gershayim)
  */
-function formatHebrewNumber(num: number): string {
+export function formatHebrewNumber(num: number): string {
   const hebrewNumerals: Record<number, string> = {
     1: 'א׳', 2: 'ב׳', 3: 'ג׳', 4: 'ד׳', 5: 'ה׳',
     6: 'ו׳', 7: 'ז׳', 8: 'ח׳', 9: 'ט׳', 10: 'י׳',
@@ -124,48 +218,7 @@ export function formatContentRef(refId: string | null, heRef?: string | null): s
   
   const [, tractate, chapter, mishnah] = match;
   
-  // Map common tractate names to Hebrew
-  const tractateMap: Record<string, string> = {
-    'Berakhot': 'ברכות',
-    'Shabbat': 'שבת',
-    'Eruvin': 'עירובין',
-    'Pesachim': 'פסחים',
-    'Rosh Hashanah': 'ראש השנה',
-    'Yoma': 'יומא',
-    'Sukkah': 'סוכה',
-    'Beitzah': 'ביצה',
-    'Taanit': 'תענית',
-    'Megillah': 'מגילה',
-    'Moed Katan': 'מועד קטן',
-    'Chagigah': 'חגיגה',
-    'Yevamot': 'יבמות',
-    'Ketubot': 'כתובות',
-    'Nedarim': 'נדרים',
-    'Nazir': 'נזיר',
-    'Sotah': 'סוטה',
-    'Gittin': 'גיטין',
-    'Kiddushin': 'קידושין',
-    'Bava Kamma': 'בבא קמא',
-    'Bava Metzia': 'בבא מציעא',
-    'Bava Batra': 'בבא בתרא',
-    'Sanhedrin': 'סנהדרין',
-    'Makkot': 'מכות',
-    'Shevuot': 'שבועות',
-    'Avodah Zarah': 'עבודה זרה',
-    'Horayot': 'הוריות',
-    'Zevachim': 'זבחים',
-    'Menachot': 'מנחות',
-    'Chullin': 'חולין',
-    'Bekhorot': 'בכורות',
-    'Arakhin': 'ערכין',
-    'Temurah': 'תמורה',
-    'Keritot': 'כריתות',
-    'Meilah': 'מעילה',
-    'Tamid': 'תמיד',
-    'Niddah': 'נדה',
-  };
-  
-  const tractateHebrew = tractateMap[tractate];
+  const tractateHebrew = getTractateHebrew(tractate);
   
   // If tractate not found in map, return empty to avoid showing English
   // Content should be regenerated to get proper he_ref from Sefaria
