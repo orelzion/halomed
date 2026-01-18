@@ -1450,6 +1450,202 @@ Transform HaloMed into a Duolingo-style Jewish learning app with:
 
 ---
 
+## Full Shas Path Generation
+
+**PRD Reference**: Section 4 (Tracks), Section 7 (Core App Flow)  
+**TDD Reference**: Section 6 (Scheduling)  
+**Architect Notes**: Expand learning path from Berakhot-only MVP to complete Mishnah (63 tractates, ~4,192 mishnayot)
+
+### Overview
+
+The current path generation only includes Berakhot (9 chapters, 57 mishnayot). This feature expands it to the complete Mishnah covering all six orders (Sedarim):
+
+| Seder | Hebrew | Tractates | Total Chapters |
+|-------|--------|-----------|----------------|
+| Zeraim | זרעים | 11 | 74 |
+| Moed | מועד | 12 | 88 |
+| Nashim | נשים | 7 | 71 |
+| Nezikin | נזיקין | 10 | 76 |
+| Kodashim | קדשים | 11 | 91 |
+| Tohorot | טהרות | 12 | 126 |
+| **Total** | | **63** | **526 chapters, ~4,192 mishnayot** |
+
+### Dependencies
+
+- Learning path infrastructure complete (Tasks 10.1-10.5) ✅
+- Path generation function exists ✅
+- React pagination implemented ✅
+
+### Backend Tasks
+
+- [ ] **Task 11.1**: Create complete Mishnah structure data file
+  - **Assigned to**: Backend Agent
+  - Create `supabase/functions/_shared/mishnah-structure.ts`
+  - Define all 63 tractates with chapters and mishnayot counts
+  - Organize by Seder (Zeraim, Moed, Nashim, Nezikin, Kodashim, Tohorot)
+  - Include Hebrew names for each tractate
+  - Export helper functions: `getTotalMishnayot()`, `getTractateAtIndex()`, `getChapterAtIndex()`
+  - Acceptance: Complete data structure validated against Sefaria, helper functions work
+  - Depends on: None
+  - Reference: https://www.sefaria.org/texts/Mishnah
+
+- [ ] **Task 11.2**: Update content-order.ts to use full Shas
+  - **Assigned to**: Backend Agent
+  - Import Mishnah structure from new data file
+  - Update `getContentRefForIndex()` to iterate through all tractates
+  - Update `TOTAL_CHAPTERS` and `TOTAL_MISHNAYOT` constants
+  - Add `getCurrentTractate(index)` helper for dividers
+  - Add `isChapterEnd(index)` helper for chapter dividers
+  - Add `isTractateEnd(index)` helper for tractate dividers
+  - Acceptance: Function correctly returns refs for any index 0 to ~4192
+  - Depends on: Task 11.1
+  - Reference: TDD Section 6
+
+- [ ] **Task 11.3**: Update generate-path to support full Shas
+  - **Assigned to**: Backend Agent (or Scheduling Agent)
+  - Remove `MAX_CHAPTERS` and `MAX_CONTENT_ITEMS` limitations
+  - Use dynamic limits from mishnah-structure.ts
+  - Update tractate tracking to handle tractate transitions
+  - Add tractate completion dividers (special celebration nodes)
+  - Update quiz node generation for all content
+  - Acceptance: Path generates for all 63 tractates, dividers appear correctly
+  - Depends on: Tasks 11.1, 11.2
+  - Reference: Plan Section "Implementation Phases"
+
+- [ ] **Task 11.4**: Add tractate completion celebration data
+  - **Assigned to**: Backend Agent
+  - Update divider node_type to distinguish chapter vs tractate completion
+  - Or add `is_tractate_complete` flag to divider nodes
+  - Ensure PathScreen can detect and show special celebration
+  - Acceptance: Tractate completions distinguishable from chapter completions
+  - Depends on: Task 11.3
+  - Reference: PathScreen tractate celebration UI (already implemented)
+
+### Testing Tasks
+
+- [ ] **Task 11.5a**: Write tests for Mishnah structure data
+  - **Assigned to**: Server Testing Agent
+  - Test total mishnayot count equals expected (~4,192)
+  - Test total chapters count equals 526
+  - Test all 63 tractates are present
+  - Test tractate order matches traditional Shas order
+  - Test each tractate's chapter/mishnah counts against Sefaria
+  - Acceptance: Tests written and passing
+  - Depends on: Task 11.1
+  - Reference: server-testing.md
+
+- [ ] **Task 11.5b**: Write tests for content-order with full Shas
+  - **Assigned to**: Server Testing Agent
+  - Test first index returns "Mishnah_Berakhot.1.1"
+  - Test last index returns "Mishnah_Uktzin.3.12" (last Mishna in Shas)
+  - Test index at tractate boundary returns correct tractate
+  - Test helper functions for tractate/chapter detection
+  - Acceptance: Tests written and passing
+  - Depends on: Task 11.2
+  - Reference: server-testing.md
+
+- [ ] **Task 11.6**: Performance testing for large path
+  - **Assigned to**: Server Testing Agent
+  - Test path generation time for full Shas (~4,192+ nodes)
+  - Test PowerSync sync performance with large dataset
+  - Test React rendering performance with pagination
+  - Identify and document any bottlenecks
+  - Acceptance: Path generates in <30s, UI renders smoothly
+  - Depends on: Tasks 11.3, React pagination ✅
+  - Reference: TDD performance requirements
+
+### Web Tasks
+
+- [ ] **Task 11.7**: Update date-format.ts tractate map
+  - **Assigned to**: Web Agent
+  - Verify all 63 tractates have Hebrew names in tractateData
+  - Add any missing tractates (Zeraim order likely incomplete)
+  - Ensure chapter counts match mishnah-structure.ts
+  - Acceptance: All tractates display Hebrew names correctly
+  - Depends on: Task 11.1
+  - Reference: web/lib/utils/date-format.ts
+
+### Data Reference
+
+Mishnah structure by Seder (for Task 11.1):
+
+**Seder Zeraim (11 tractates):**
+1. Berakhot (9 chapters, 57 mishnayot)
+2. Peah (8 chapters, 69 mishnayot)
+3. Demai (7 chapters, 53 mishnayot)
+4. Kilayim (9 chapters, 76 mishnayot)
+5. Sheviit (10 chapters, 89 mishnayot)
+6. Terumot (11 chapters, 109 mishnayot)
+7. Maasrot (5 chapters, 44 mishnayot)
+8. Maaser Sheni (5 chapters, 51 mishnayot)
+9. Challah (4 chapters, 38 mishnayot)
+10. Orlah (3 chapters, 42 mishnayot)
+11. Bikkurim (4 chapters, 26 mishnayot)
+
+**Seder Moed (12 tractates):**
+1. Shabbat (24 chapters)
+2. Eruvin (10 chapters)
+3. Pesachim (10 chapters)
+4. Shekalim (8 chapters)
+5. Yoma (8 chapters)
+6. Sukkah (5 chapters)
+7. Beitzah (5 chapters)
+8. Rosh Hashanah (4 chapters)
+9. Taanit (4 chapters)
+10. Megillah (4 chapters)
+11. Moed Katan (3 chapters)
+12. Chagigah (3 chapters)
+
+**Seder Nashim (7 tractates):**
+1. Yevamot (16 chapters)
+2. Ketubot (13 chapters)
+3. Nedarim (11 chapters)
+4. Nazir (9 chapters)
+5. Sotah (9 chapters)
+6. Gittin (9 chapters)
+7. Kiddushin (4 chapters)
+
+**Seder Nezikin (10 tractates):**
+1. Bava Kamma (10 chapters)
+2. Bava Metzia (10 chapters)
+3. Bava Batra (10 chapters)
+4. Sanhedrin (11 chapters)
+5. Makkot (3 chapters)
+6. Shevuot (8 chapters)
+7. Eduyot (8 chapters)
+8. Avodah Zarah (5 chapters)
+9. Avot (6 chapters)
+10. Horayot (3 chapters)
+
+**Seder Kodashim (11 tractates):**
+1. Zevachim (14 chapters)
+2. Menachot (13 chapters)
+3. Chullin (12 chapters)
+4. Bekhorot (9 chapters)
+5. Arakhin (9 chapters)
+6. Temurah (7 chapters)
+7. Keritot (6 chapters)
+8. Meilah (6 chapters)
+9. Tamid (7 chapters)
+10. Middot (5 chapters)
+11. Kinnim (3 chapters)
+
+**Seder Tohorot (12 tractates):**
+1. Kelim (30 chapters)
+2. Oholot (18 chapters)
+3. Negaim (14 chapters)
+4. Parah (12 chapters)
+5. Tohorot (10 chapters)
+6. Mikvaot (10 chapters)
+7. Niddah (10 chapters)
+8. Machshirin (6 chapters)
+9. Zavim (5 chapters)
+10. Tevul Yom (4 chapters)
+11. Yadayim (4 chapters)
+12. Uktzin (3 chapters)
+
+---
+
 ## Task Status Legend
 
 - `[ ]` = Not started / To do

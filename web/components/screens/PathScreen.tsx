@@ -1,12 +1,75 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePath } from '@/lib/hooks/usePath';
 import { usePathStreak } from '@/lib/hooks/usePathStreak';
 import { useTranslation } from '@/lib/i18n';
 import { useRouter } from 'next/navigation';
 import { formatContentRef, formatHebrewNumber, getTractateHebrew, isLastChapter } from '@/lib/utils/date-format';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+
+/**
+ * Get week range (Sunday to Thursday) for a weekly quiz date
+ */
+function getWeekRangeForQuiz(contentRef: string): { start: string; end: string } | null {
+  // Parse weekly_quiz_YYYY-MM-DD or weekly_quiz_YYYY-MM-DD+YYYY-MM-DD...
+  const match = contentRef.match(/^weekly_quiz_(\d{4}-\d{2}-\d{2})/);
+  if (!match) return null;
+  
+  const quizDate = new Date(match[1]);
+  const dayOfWeek = quizDate.getDay();
+  
+  // Calculate days to go back to reach Sunday
+  const daysToSunday = dayOfWeek === 5 ? 5 : dayOfWeek === 4 ? 4 : dayOfWeek;
+  
+  const sunday = new Date(quizDate);
+  sunday.setDate(quizDate.getDate() - daysToSunday);
+  
+  const thursday = new Date(quizDate);
+  thursday.setDate(quizDate.getDate() - (dayOfWeek === 5 ? 1 : dayOfWeek === 4 ? 1 : 0));
+  
+  return {
+    start: sunday.toISOString().split('T')[0],
+    end: thursday.toISOString().split('T')[0],
+  };
+}
+
+/**
+ * Get the Mishnayot range covered by a weekly quiz
+ */
+function getWeeklyQuizMishnayot(
+  contentRef: string, 
+  allNodes: Array<{ node_type: string; content_ref: string | null; unlock_date: string }>
+): string {
+  const weekRange = getWeekRangeForQuiz(contentRef);
+  if (!weekRange) return '';
+  
+  // Find learning nodes in this week's date range
+  const weekLearningNodes = allNodes.filter(n => 
+    n.node_type === 'learning' && 
+    n.content_ref &&
+    n.unlock_date >= weekRange.start && 
+    n.unlock_date <= weekRange.end
+  );
+  
+  if (weekLearningNodes.length === 0) return '';
+  
+  // Get first and last content_ref
+  const firstRef = weekLearningNodes[0].content_ref;
+  const lastRef = weekLearningNodes[weekLearningNodes.length - 1].content_ref;
+  
+  if (!firstRef || !lastRef) return '';
+  
+  // Format the range
+  const firstFormatted = formatContentRef(firstRef);
+  const lastFormatted = formatContentRef(lastRef);
+  
+  if (firstFormatted === lastFormatted) {
+    return firstFormatted;
+  }
+  
+  return `${firstFormatted} - ${lastFormatted}`;
+}
 
 // Icon components for different study types
 function BookOpenIcon({ className = '' }: { className?: string }) {
@@ -18,32 +81,25 @@ function BookOpenIcon({ className = '' }: { className?: string }) {
   );
 }
 
-function RepeatIcon({ className = '' }: { className?: string }) {
+// Brain icon for review/memory recall
+function BrainIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m17 2 4 4-4 4" />
-      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
-      <path d="m7 22-4-4 4-4" />
-      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+      <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+      <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+      <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
+      <path d="M12 18v-5" />
     </svg>
   );
 }
 
-function QuizIcon({ className = '' }: { className?: string }) {
+// Clipboard checklist icon for quiz
+function ClipboardCheckIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-function LockIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="m9 14 2 2 4-4" />
     </svg>
   );
 }
@@ -60,6 +116,20 @@ function FlameIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+    </svg>
+  );
+}
+
+// Shabbat candles icon
+function CandlesIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      {/* Left candle */}
+      <rect x="5" y="10" width="4" height="10" rx="1" />
+      <path d="M7 10 C7 8 6 6 7 4 C8 6 7 8 7 10" fill="currentColor" />
+      {/* Right candle */}
+      <rect x="15" y="10" width="4" height="10" rx="1" />
+      <path d="M17 10 C17 8 16 6 17 4 C18 6 17 8 17 10" fill="currentColor" />
     </svg>
   );
 }
@@ -85,6 +155,17 @@ function StarIcon({ className = '' }: { className?: string }) {
   );
 }
 
+// User/Profile icon
+function UserCircleIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" />
+    </svg>
+  );
+}
+
 function SparklesIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -97,6 +178,9 @@ function SparklesIcon({ className = '' }: { className?: string }) {
   );
 }
 
+const INITIAL_VISIBLE_COUNT = 20;
+const LOAD_MORE_COUNT = 15;
+
 export function PathScreen() {
   const { nodes, loading, currentNodeIndex } = usePath();
   const { streak } = usePathStreak();
@@ -105,6 +189,41 @@ export function PathScreen() {
   const currentRef = useRef<HTMLDivElement>(null);
   const { session } = useAuthContext();
   const hasEnsuredContent = useRef(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  
+  // Pagination state
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
+  
+  // Path generation state
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  
+  // Reset visible count when nodes change significantly
+  useEffect(() => {
+    if (nodes.length > 0 && currentNodeIndex !== null) {
+      // Show at least up to current node + some buffer
+      const minVisible = Math.min(currentNodeIndex + 10, nodes.length);
+      setVisibleCount(Math.max(INITIAL_VISIBLE_COUNT, minVisible));
+    }
+  }, [nodes.length, currentNodeIndex]);
+
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < nodes.length) {
+          setVisibleCount(prev => Math.min(prev + LOAD_MORE_COUNT, nodes.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+    
+    observer.observe(loadMoreRef.current);
+    
+    return () => observer.disconnect();
+  }, [visibleCount, nodes.length]);
 
   // Ensure content for next 14 days when path loads
   useEffect(() => {
@@ -156,15 +275,74 @@ export function PathScreen() {
     );
   }
 
+  const handleGeneratePath = async () => {
+    if (isGenerating) return;
+    
+    setIsGenerating(true);
+    setGenerateError(null);
+    
+    try {
+      const response = await fetch('/api/generate-path', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ 
+          force: false, // Don't force if path exists
+          dev_offset_days: 4, // Start 4 days ago in dev mode
+        }),
+      });
+      
+      const result = await response.json();
+      console.log('Path generation response:', { status: response.status, result });
+      
+      if (response.ok) {
+        alert(`Path generated! ${result.message || 'Refresh the page to see your learning path.'}`);
+        window.location.reload();
+      } else {
+        console.error('Path generation error:', result);
+        setGenerateError(result.error || result.details || result.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Path generation error:', error);
+      setGenerateError(error instanceof Error ? error.message : 'Unknown error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (nodes.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-desert-oasis-primary to-desert-oasis-secondary dark:from-desert-oasis-dark-primary dark:to-desert-oasis-dark-secondary">
-        <div className="text-center p-8">
+        <div className="text-center p-8 max-w-md">
           <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-desert-oasis-muted/30 flex items-center justify-center">
             <BookOpenIcon className="text-desert-oasis-accent" />
           </div>
           <p className="text-[var(--text-primary)] text-xl font-source mb-2">אין דרך לימוד עדיין</p>
-          <p className="text-[var(--text-secondary)] text-sm font-explanation">השלם את ההרשמה כדי להתחיל</p>
+          <p className="text-[var(--text-secondary)] text-sm font-explanation mb-6">
+            {session ? 'צור דרך לימוד כדי להתחיל' : 'השלם את ההרשמה כדי להתחיל'}
+          </p>
+          
+          {session && (
+            <div className="space-y-3">
+              <button
+                onClick={handleGeneratePath}
+                disabled={isGenerating}
+                className="w-full px-6 py-3 bg-desert-oasis-accent hover:bg-desert-oasis-accent/90 text-white rounded-xl font-explanation font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isGenerating ? 'יוצר דרך לימוד...' : 'צור דרך לימוד'}
+              </button>
+              
+              {generateError && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                  <p className="text-red-700 dark:text-red-300 text-sm font-explanation">
+                    שגיאה: {generateError}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -173,7 +351,7 @@ export function PathScreen() {
   const handleNodeClick = (node: typeof nodes[0]) => {
     if (node.isLocked) return;
     
-    if (node.node_type === 'quiz') {
+    if (node.node_type === 'quiz' || node.node_type === 'weekly_quiz') {
       router.push(`/quiz/${node.id}`);
     } else if (node.content_ref) {
       router.push(`/study/path/${node.id}`);
@@ -187,20 +365,69 @@ export function PathScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-desert-oasis-primary to-desert-oasis-secondary dark:from-desert-oasis-dark-primary dark:to-desert-oasis-dark-secondary">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-desert-oasis-primary/95 dark:bg-desert-oasis-dark-primary/95 backdrop-blur-sm border-b border-desert-oasis-muted/20 dark:border-gray-700/30">
+      <div className="sticky top-0 z-20 bg-desert-oasis-primary/95 dark:bg-desert-oasis-dark-primary/95 backdrop-blur-sm border-b border-desert-oasis-muted/20 dark:border-gray-700/30">
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-source font-bold text-[var(--text-primary)]">
               {t('path_title')}
             </h1>
-            {streak > 0 && (
-              <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 dark:from-orange-500/30 dark:to-red-500/30 px-4 py-2 rounded-full">
-                <FlameIcon className="text-orange-500" />
-                <span className="text-orange-600 dark:text-orange-400 font-explanation font-bold">
-                  {streak}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {streak > 0 && (
+                <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 dark:from-orange-500/30 dark:to-red-500/30 px-4 py-2 rounded-full">
+                  <FlameIcon className="text-orange-500" />
+                  <span className="text-orange-600 dark:text-orange-400 font-explanation font-bold">
+                    {streak}
+                  </span>
+                </div>
+              )}
+              {/* Dev: Regenerate path button - always show in dev */}
+              <button
+                onClick={async () => {
+                  if (!confirm('Regenerate path with full Shas? This will delete your current path and all progress.')) {
+                    return;
+                  }
+                  try {
+                      const response = await fetch('/api/generate-path', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session?.access_token}`,
+                        },
+                        body: JSON.stringify({ 
+                          force: true,
+                          dev_offset_days: 4, // Start 4 days ago in dev mode
+                        }),
+                      });
+                    const result = await response.json();
+                    console.log('Path regeneration response:', { status: response.status, result });
+                    if (response.ok) {
+                      alert(`Path regenerated! ${result.message || 'Refresh the page to see changes.'}`);
+                      window.location.reload();
+                    } else {
+                      console.error('Path regeneration error:', result);
+                      const errorMsg = result.error || result.details || result.message || `HTTP ${response.status}`;
+                      alert(`Error: ${errorMsg}\n\nMake sure the generate-path Edge Function is deployed with the latest code.`);
+                    }
+                  } catch (error) {
+                    console.error('Path regeneration error:', error);
+                    alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                  }
+                }}
+                className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full font-explanation"
+                title="Regenerate learning path with full Shas (all 63 tractates)"
+              >
+                🔄 Regenerate
+              </button>
+              
+              {/* Profile button */}
+              <button
+                onClick={() => router.push('/profile')}
+                className="p-2 -m-1 rounded-full hover:bg-desert-oasis-muted/20 dark:hover:bg-gray-700/30 transition-colors"
+                title="פרופיל"
+              >
+                <UserCircleIcon className="text-[var(--text-primary)]" />
+              </button>
+            </div>
           </div>
           
           {/* Progress bar */}
@@ -230,20 +457,61 @@ export function PathScreen() {
           <div className="absolute right-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-desert-oasis-accent/50 via-desert-oasis-muted/30 to-transparent dark:from-desert-oasis-accent/30 dark:via-gray-600/30" />
           
           <div className="space-y-4">
-            {nodes.map((node, idx) => {
+            {nodes.slice(0, visibleCount).map((node, idx) => {
               const isDivider = node.is_divider === 1;
               const isCompleted = node.completed_at !== null;
               const isCurrent = node.isCurrent;
               const isLocked = node.isLocked;
               
+              // Check if we need a date separator (use full nodes array for prev check)
+              const prevNode = idx > 0 ? nodes[idx - 1] : null;
+              const showDateSeparator = !isDivider && (!prevNode || prevNode.unlock_date !== node.unlock_date || prevNode.is_divider === 1);
+              
+              // Format date for separator
+              const formatDateSeparator = (dateStr: string) => {
+                const today = new Date().toISOString().split('T')[0];
+                const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                
+                if (dateStr === today) return 'היום';
+                if (dateStr === tomorrow) return 'מחר';
+                if (dateStr === yesterday) return 'אתמול';
+                
+                return new Date(dateStr).toLocaleDateString('he-IL', { 
+                  weekday: 'long', 
+                  day: 'numeric', 
+                  month: 'long' 
+                });
+              };
+              
               if (isDivider) {
+                // Debug: Log divider info
+                console.log('[PathScreen] Divider node:', {
+                  id: node.id,
+                  tractate: node.tractate,
+                  chapter: node.chapter,
+                  unlock_date: node.unlock_date,
+                  node_index: node.node_index,
+                  idx: idx,
+                });
+                
                 // Convert tractate to Hebrew and chapter to Hebrew numeral
                 const tractateHebrew = node.tractate ? getTractateHebrew(node.tractate) || node.tractate : '';
                 const chapterHebrew = node.chapter ? formatHebrewNumber(node.chapter) : '';
                 const isTractateComplete = node.tractate && node.chapter && isLastChapter(node.tractate, node.chapter);
                 
-                // Special celebration for completing an entire tractate
-                if (isTractateComplete) {
+                // Check if this is the first tractate completion divider for this tractate
+                // (to avoid showing duplicate banners)
+                const isFirstTractateCompletionDivider = isTractateComplete && 
+                  !nodes.slice(0, idx).some(n => 
+                    n.is_divider === 1 && 
+                    n.tractate === node.tractate && 
+                    n.chapter === node.chapter &&
+                    isLastChapter(n.tractate!, n.chapter!)
+                  );
+                
+                // Special celebration for completing an entire tractate (only show once)
+                if (isTractateComplete && isFirstTractateCompletionDivider) {
                   return (
                     <div
                       key={node.id}
@@ -287,7 +555,11 @@ export function PathScreen() {
                   );
                 }
                 
-                // Regular chapter completion
+                // Regular chapter completion (skip if this is a tractate completion - already shown above)
+                if (isTractateComplete) {
+                  return null; // Don't show chapter banner for tractate completion
+                }
+                
                 return (
                   <div
                     key={node.id}
@@ -319,9 +591,18 @@ export function PathScreen() {
                   };
                 }
                 if (isLocked) {
+                  // Show regular icon but greyed out (card already has opacity-60)
+                  const lockedIcon = node.node_type === 'quiz' 
+                    ? <ClipboardCheckIcon className="text-gray-400 dark:text-gray-500" />
+                    : node.node_type === 'weekly_quiz'
+                      ? <TrophyIcon className="text-gray-400 dark:text-gray-500 w-7 h-7" />
+                      : node.node_type === 'review'
+                        ? <BrainIcon className="text-gray-400 dark:text-gray-500" />
+                        : <BookOpenIcon className="text-gray-400 dark:text-gray-500" />;
+                  
                   return {
-                    icon: <LockIcon className="text-gray-400 dark:text-gray-500" />,
-                    iconBg: 'bg-gray-200 dark:bg-gray-700',
+                    icon: lockedIcon,
+                    iconBg: 'bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary',
                     cardBg: 'bg-gray-100/80 dark:bg-gray-800/50',
                     ring: '',
                     badge: null,
@@ -329,7 +610,7 @@ export function PathScreen() {
                 }
                 if (node.node_type === 'quiz') {
                   return {
-                    icon: <QuizIcon className={isCurrent ? 'text-white' : 'text-purple-600 dark:text-purple-400'} />,
+                    icon: <ClipboardCheckIcon className={isCurrent ? 'text-white' : 'text-purple-600 dark:text-purple-400'} />,
                     iconBg: isCurrent 
                       ? 'bg-gradient-to-br from-purple-500 to-purple-700 shadow-lg shadow-purple-500/30' 
                       : 'bg-purple-100 dark:bg-purple-900/30',
@@ -338,14 +619,30 @@ export function PathScreen() {
                       : 'bg-white/80 dark:bg-gray-800/50',
                     ring: isCurrent ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-desert-oasis-primary dark:ring-offset-desert-oasis-dark-primary' : '',
                     badge: <span className="inline-flex items-center gap-1 text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-semibold">
-                      <QuizIcon className="w-3 h-3" />
+                      <ClipboardCheckIcon className="w-3 h-3" />
                       {t('path_node_quiz')}
+                    </span>,
+                  };
+                }
+                if (node.node_type === 'weekly_quiz') {
+                  return {
+                    icon: <TrophyIcon className={isCurrent ? 'text-white w-7 h-7' : 'text-amber-600 dark:text-amber-400 w-7 h-7'} />,
+                    iconBg: isCurrent 
+                      ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg shadow-amber-500/30' 
+                      : 'bg-amber-100 dark:bg-amber-900/30',
+                    cardBg: isCurrent 
+                      ? 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/20' 
+                      : 'bg-white/80 dark:bg-gray-800/50',
+                    ring: isCurrent ? 'ring-2 ring-amber-500 ring-offset-2 ring-offset-desert-oasis-primary dark:ring-offset-desert-oasis-dark-primary' : '',
+                    badge: <span className="inline-flex items-center gap-1 text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold">
+                      <TrophyIcon className="w-3 h-3" />
+                      מבחן שבועי
                     </span>,
                   };
                 }
                 if (node.node_type === 'review') {
                   return {
-                    icon: <RepeatIcon className={isCurrent ? 'text-white' : 'text-blue-600 dark:text-blue-400'} />,
+                    icon: <BrainIcon className={isCurrent ? 'text-white' : 'text-blue-600 dark:text-blue-400'} />,
                     iconBg: isCurrent 
                       ? 'bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-500/30' 
                       : 'bg-blue-100 dark:bg-blue-900/30',
@@ -354,7 +651,7 @@ export function PathScreen() {
                       : 'bg-white/80 dark:bg-gray-800/50',
                     ring: isCurrent ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-desert-oasis-primary dark:ring-offset-desert-oasis-dark-primary' : '',
                     badge: <span className="inline-flex items-center gap-1 text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-semibold">
-                      <RepeatIcon className="w-3 h-3" />
+                      <BrainIcon className="w-3 h-3" />
                       {t('path_node_review')}
                     </span>,
                   };
@@ -379,22 +676,45 @@ export function PathScreen() {
               const style = getNodeStyle();
 
               return (
-                <div
-                  key={node.id}
-                  ref={isCurrent ? currentRef : null}
-                  onClick={() => handleNodeClick(node)}
-                  className={`
-                    relative flex items-start gap-4 transition-all duration-300
-                    ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:scale-[1.02]'}
-                  `}
-                >
+                <div key={node.id}>
+                  {/* Date separator */}
+                  {showDateSeparator && (
+                    <div className="flex items-center gap-3 mb-4 mr-8">
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-desert-oasis-muted/20 dark:bg-gray-700/30 rounded-full">
+                        <svg className="w-4 h-4 text-[var(--text-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                          <line x1="16" x2="16" y1="2" y2="6" />
+                          <line x1="8" x2="8" y1="2" y2="6" />
+                          <line x1="3" x2="21" y1="10" y2="10" />
+                        </svg>
+                        <span className="font-explanation text-sm font-semibold text-[var(--text-secondary)]">
+                          {formatDateSeparator(node.unlock_date)}
+                        </span>
+                      </div>
+                      <div className="h-px flex-1 bg-desert-oasis-muted/30 dark:bg-gray-600/30" />
+                    </div>
+                  )}
+                  
+                  {/* Node card */}
+                  <div
+                    ref={isCurrent ? currentRef : null}
+                    onClick={() => handleNodeClick(node)}
+                    className={`
+                      relative flex items-start gap-4 transition-all duration-300
+                      ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:scale-[1.02]'}
+                    `}
+                  >
                   {/* Icon circle on the timeline */}
-                  <div className={`
-                    relative z-10 flex-shrink-0 w-16 h-16 rounded-2xl flex items-center justify-center
-                    transition-all duration-300 ${style.iconBg}
-                    ${isCurrent ? 'animate-pulse' : ''}
-                  `}>
-                    {style.icon}
+                  <div className="relative z-10 flex-shrink-0">
+                    {/* Solid background to cover the path line */}
+                    <div className="absolute inset-0 rounded-2xl bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary" />
+                    <div className={`
+                      relative w-16 h-16 rounded-2xl flex items-center justify-center
+                      transition-all duration-300 ${style.iconBg}
+                      ${isCurrent ? 'animate-pulse' : ''}
+                    `}>
+                      {style.icon}
+                    </div>
                   </div>
 
                   {/* Card content */}
@@ -418,23 +738,67 @@ export function PathScreen() {
                       )}
                     </div>
                     
-                    {node.content_ref && (
+                    {node.node_type === 'weekly_quiz' && node.content_ref ? (
+                      <div>
+                        <p className={`font-source text-lg mb-1 ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-primary)]'}`}>
+                          {getWeeklyQuizMishnayot(node.content_ref, nodes)}
+                        </p>
+                        <p className={`font-explanation text-sm ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-secondary)]'}`}>
+                          סקירה על כל מה שלמדת השבוע
+                        </p>
+                      </div>
+                    ) : node.content_ref && (
                       <p className={`font-source text-xl mb-1 ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-primary)]'}`}>
                         {formatContentRef(node.content_ref)}
                       </p>
                     )}
                     
-                    <p className={`font-explanation text-sm ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-secondary)]'}`}>
-                      {new Date(node.unlock_date).toLocaleDateString('he-IL', { 
-                        weekday: 'long', 
-                        day: 'numeric', 
-                        month: 'long' 
-                      })}
-                    </p>
                   </div>
                 </div>
+                
+                {/* Shabbat Shalom separator after weekly quiz */}
+                {node.node_type === 'weekly_quiz' && (
+                  <div className="mt-6 mb-2 mr-8">
+                    <div className="flex items-center gap-3 justify-center">
+                      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-desert-oasis-accent/50" />
+                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-desert-oasis-accent/20 to-orange-400/20 dark:from-desert-oasis-accent/30 dark:to-orange-400/30 rounded-full">
+                        <CandlesIcon className="text-desert-oasis-accent w-5 h-5" />
+                        <span className="font-source text-desert-oasis-accent font-semibold">
+                          שבת שלום
+                        </span>
+                      </div>
+                      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-desert-oasis-accent/50" />
+                    </div>
+                  </div>
+                )}
+              </div>
               );
             })}
+            
+            {/* Load more indicator */}
+            {visibleCount < nodes.length && (
+              <div 
+                ref={loadMoreRef}
+                className="flex flex-col items-center justify-center py-8 mr-8"
+              >
+                <div className="w-8 h-8 rounded-full border-3 border-desert-oasis-accent/30 border-t-desert-oasis-accent animate-spin mb-3" />
+                <p className="text-sm font-explanation text-[var(--text-secondary)]">
+                  טוען עוד... ({nodes.length - visibleCount} נותרו)
+                </p>
+              </div>
+            )}
+            
+            {/* End of path indicator */}
+            {visibleCount >= nodes.length && nodes.length > 0 && (
+              <div className="flex flex-col items-center justify-center py-8 mr-8 text-center">
+                <div className="w-12 h-12 rounded-full bg-desert-oasis-muted/20 dark:bg-gray-700/30 flex items-center justify-center mb-3">
+                  <CheckIcon className="w-6 h-6 text-desert-oasis-accent" />
+                </div>
+                <p className="text-sm font-explanation text-[var(--text-secondary)]">
+                  סוף דרך הלימוד ({nodes.length} פריטים)
+                </p>
+              </div>
+            )}
           </div>
         </div>
         

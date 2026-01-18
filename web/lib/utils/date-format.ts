@@ -198,10 +198,7 @@ export function formatContentRef(refId: string | null, heRef?: string | null): s
     return heRef;
   }
   
-  // Debug: Log when heRef is missing
-  if (refId && !heRef) {
-    console.warn(`formatContentRef: he_ref missing for ref_id: ${refId}, using fallback`);
-  }
+  // Note: heRef may be missing for old content - fallback parsing handles it
   
   // Fallback: parse refId if heRef is not available
   // This should only happen for old content that hasn't been regenerated yet

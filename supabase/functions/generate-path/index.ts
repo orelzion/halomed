@@ -5,22 +5,64 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { isScheduledDay, addDays, formatDate, parseDate } from '../_shared/calendar.ts';
-import { getContentRefForIndex } from '../_shared/content-order.ts';
+import { isScheduledDay, addDays, formatDate, parseDate, isJewishHoliday } from '../_shared/calendar.ts';
+import { 
+  getContentRefForIndex, 
+  getCurrentTractate, 
+  getCurrentChapter,
+  isChapterEndIndex,
+  isTractateEndIndex,
+  TOTAL_MISHNAYOT,
+  TOTAL_CHAPTERS,
+} from '../_shared/content-order.ts';
 
 interface GeneratePathRequest {
   user_id: string;
+  force?: boolean; // If true, delete existing path and regenerate
+  dev_offset_days?: number; // In dev mode: offset start date backwards to simulate progress
 }
 
 interface PathNode {
   node_index: number;
-  node_type: 'learning' | 'review' | 'quiz' | 'divider';
+  node_type: 'learning' | 'review' | 'quiz' | 'weekly_quiz' | 'divider';
   content_ref: string | null;
   tractate: string | null;
   chapter: number | null;
   is_divider: boolean;
   unlock_date: string; // ISO date (YYYY-MM-DD)
   review_of_node_id?: string | null;
+}
+
+/**
+ * Checks if a date is Friday (day 5 in JavaScript Date.getDay())
+ */
+function isFriday(date: Date): boolean {
+  return date.getDay() === 5;
+}
+
+/**
+ * Checks if a date is Thursday (day 4 in JavaScript Date.getDay())
+ */
+function isThursday(date: Date): boolean {
+  return date.getDay() === 4;
+}
+
+/**
+ * Get the Thursday before a given Friday
+ */
+function getThursdayBefore(friday: Date): Date {
+  const thursday = new Date(friday);
+  thursday.setDate(friday.getDate() - 1);
+  return thursday;
+}
+
+/**
+ * Get the Friday of next week
+ */
+function getNextFriday(friday: Date): Date {
+  const nextFriday = new Date(friday);
+  nextFriday.setDate(friday.getDate() + 7);
+  return nextFriday;
 }
 
 interface GeneratePathResponse {
@@ -90,15 +132,37 @@ Deno.serve(async (req: Request) => {
       console.error('Error checking existing path:', pathError);
     }
 
-    if (existingPath && existingPath.length > 0) {
+    // If path exists and force is not true, return error
+    if (existingPath && existingPath.length > 0 && !body.force) {
       return new Response(
         JSON.stringify({ 
           success: false,
-          message: 'Learning path already exists for this user. Use update-path to modify.',
+          message: 'Learning path already exists for this user. Set force=true to regenerate.',
           nodes_created: 0
         }),
         { status: 400, headers: corsHeaders }
       );
+    }
+
+    // If force is true, delete existing path
+    if (existingPath && existingPath.length > 0 && body.force) {
+      console.log(`[generate-path] Force regeneration: deleting existing path for user ${body.user_id}`);
+      const { error: deleteError } = await supabase
+        .from('learning_path')
+        .delete()
+        .eq('user_id', body.user_id);
+
+      if (deleteError) {
+        console.error('Error deleting existing path:', deleteError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Failed to delete existing path',
+            details: deleteError.message 
+          }),
+          { status: 500, headers: corsHeaders }
+        );
+      }
+      console.log(`[generate-path] Deleted existing path, regenerating...`);
     }
 
     // Generate path nodes
@@ -106,23 +170,49 @@ Deno.serve(async (req: Request) => {
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0); // Start of today
     
+    // In dev mode: offset start date backwards to simulate being a few days into the path
+    const devOffsetDays = body.dev_offset_days || 0;
+    if (devOffsetDays > 0) {
+      currentDate.setDate(currentDate.getDate() - devOffsetDays);
+      console.log(`[generate-path] Dev mode: Starting path ${devOffsetDays} days in the past (${formatDate(currentDate)})`);
+    }
+    
     let nodeIndex = 0;
     let contentIndex = 0;
     let scheduledDaysCount = 0;
     let currentChapter = 0;
-    let currentTractate = 'Berakhot';
+    let currentTractate: string | undefined = undefined;
+    let previousTractate: string | undefined = undefined;
+    let previousDate: Date | undefined = undefined; // Track previous date for completion dividers
+    let pendingQuizWeeks: string[] = []; // Track weeks where quiz was skipped due to holidays
     
-    // For MVP: Generate path for Berakhot only (9 chapters)
-    // For full Shas: This would loop through all tractates
-    const MAX_CHAPTERS = 9; // Berakhot has 9 chapters
-    const MAX_CONTENT_ITEMS = 57; // Total mishnayot in Berakhot
-
-    // Track learning nodes for quiz scheduling (intensive intervals: 1,3,7,14,30 days)
-    const quizIntervals = [1, 3, 7, 14, 30];
-    const learningNodeDates: Map<number, Date> = new Map(); // Map contentIndex -> date
+    // Review intervals based on intensity setting
+    const REVIEW_INTERVALS: Record<string, number[]> = {
+      'none': [],
+      'light': [7, 30],
+      'medium': [3, 7, 30],
+      'intensive': [1, 3, 7, 14, 30],
+    };
+    const reviewIntervals = REVIEW_INTERVALS[review_intensity] || [];
     
-    // Generate learning nodes
-    while (contentIndex < MAX_CONTENT_ITEMS) {
+    // Track learning nodes for review scheduling
+    const learningNodeDates: Map<number, { date: Date; contentRef: string; tractate: string; chapter: number }> = new Map();
+    
+    // Full Shas: Generate path for all 63 tractates (~4,192 mishnayot)
+    // No limits - generate complete path
+    
+    // Generate learning nodes for complete Shas
+    // Log progress every 100 nodes to track generation
+    let lastLogIndex = 0;
+    const LOG_INTERVAL = 100;
+    
+    while (contentIndex < TOTAL_MISHNAYOT) {
+      // Log progress periodically
+      if (nodes.length - lastLogIndex >= LOG_INTERVAL) {
+        console.log(`[generate-path] Generated ${nodes.length} nodes so far (content index: ${contentIndex}/${TOTAL_MISHNAYOT})`);
+        lastLogIndex = nodes.length;
+      }
+      
       // Find next scheduled weekday
       let date = new Date(currentDate);
       date.setDate(date.getDate() + scheduledDaysCount);
@@ -134,65 +224,139 @@ Deno.serve(async (req: Request) => {
         date.setDate(date.getDate() + scheduledDaysCount);
       }
 
-      // Get content references based on pace
-      let contentRefs: string[] = [];
-      let chapter: number;
+      // If this is Friday, handle weekly quiz
+      if (isFriday(date)) {
+        const fridayIsHoliday = await isJewishHoliday(date);
+        
+        if (fridayIsHoliday) {
+          // Friday is a holiday - check Thursday
+          const thursday = getThursdayBefore(date);
+          const thursdayIsHoliday = await isJewishHoliday(thursday);
+          
+          if (thursdayIsHoliday) {
+            // Both Friday and Thursday are holidays - skip this week's quiz
+            // The content will be included in next week's quiz
+            console.log(`[generate-path] Skipping quiz for week of ${formatDate(date)} - both Fri and Thu are holidays`);
+            // Mark that we're skipping (quiz will cover 2 weeks next time)
+            pendingQuizWeeks.push(formatDate(date));
+          } else {
+            // Thursday is available - put quiz on Thursday
+            console.log(`[generate-path] Moving quiz from Friday ${formatDate(date)} to Thursday ${formatDate(thursday)} (Friday is holiday)`);
+            
+            // Build content_ref with all covered weeks (this week + any pending)
+            const allWeeks = [...pendingQuizWeeks, formatDate(date)];
+            const contentRef = allWeeks.length > 1 
+              ? `weekly_quiz_${formatDate(thursday)}+${pendingQuizWeeks.join('+')}` 
+              : `weekly_quiz_${formatDate(thursday)}`;
+            pendingQuizWeeks = []; // Clear pending
+            
+            nodes.push({
+              node_index: nodeIndex++,
+              node_type: 'weekly_quiz',
+              content_ref: contentRef,
+              tractate: null,
+              chapter: null,
+              is_divider: false,
+              unlock_date: formatDate(thursday),
+            });
+          }
+        } else {
+          // Friday is not a holiday - add quiz normally
+          // Build content_ref with all covered weeks (this week + any pending)
+          const allWeeks = [...pendingQuizWeeks, formatDate(date)];
+          const contentRef = allWeeks.length > 1 
+            ? `weekly_quiz_${formatDate(date)}+${pendingQuizWeeks.join('+')}` 
+            : `weekly_quiz_${formatDate(date)}`;
+          pendingQuizWeeks = []; // Clear pending
+          
+          nodes.push({
+            node_index: nodeIndex++,
+            node_type: 'weekly_quiz',
+            content_ref: contentRef,
+            tractate: null,
+            chapter: null,
+            is_divider: false,
+            unlock_date: formatDate(date),
+          });
+        }
+        
+        // Skip to next scheduled day (Sunday)
+        scheduledDaysCount++;
+        previousDate = date;
+        continue;
+      }
+
+      // Get content indices for this day based on pace
+      let contentIndices: number[] = [];
       
       if (pace === 'one_chapter') {
         // Chapter-per-day: each scheduled day = one chapter
-        chapter = Math.floor(contentIndex) + 1;
-        if (chapter > MAX_CHAPTERS) break; // Done with all chapters
-        const contentRef = getContentRefForIndex(contentIndex, 'DAILY_CHAPTER_PER_DAY');
-        contentRefs = [contentRef];
-        contentIndex += 1; // Move to next chapter
+        if (contentIndex >= TOTAL_CHAPTERS) break;
+        contentIndices = [contentIndex];
+        contentIndex += 1;
       } else if (pace === 'two_mishna') {
-        // Two mishnayot per day: create 2 learning nodes for this day
-        const firstRef = getContentRefForIndex(contentIndex, 'DAILY_WEEKDAYS_ONLY');
-        const secondRef = getContentRefForIndex(contentIndex + 1, 'DAILY_WEEKDAYS_ONLY');
-        contentRefs = [firstRef, secondRef];
-        // Extract chapter from first ref
-        const match = firstRef.match(/Mishnah_Berakhot\.(\d+)/);
-        chapter = match ? parseInt(match[1]) : 1;
-        contentIndex += 2; // Move forward by 2 mishnayot
+        // Two mishnayot per day
+        if (contentIndex + 1 >= TOTAL_MISHNAYOT) {
+          contentIndices = [contentIndex];
+          contentIndex += 1;
+        } else {
+          contentIndices = [contentIndex, contentIndex + 1];
+          contentIndex += 2;
+        }
       } else {
         // One mishna per day
-        const contentRef = getContentRefForIndex(contentIndex, 'DAILY_WEEKDAYS_ONLY');
-        contentRefs = [contentRef];
-        // Extract chapter from contentRef (e.g., "Mishnah_Berakhot.2.3" -> chapter 2)
-        const match = contentRef.match(/Mishnah_Berakhot\.(\d+)/);
-        chapter = match ? parseInt(match[1]) : 1;
+        contentIndices = [contentIndex];
         contentIndex += 1;
       }
 
-      // Insert divider before new chapter (except first)
-      if (chapter !== currentChapter && currentChapter > 0) {
-        nodes.push({
-          node_index: nodeIndex++,
-          node_type: 'divider',
-          content_ref: null,
-          tractate: currentTractate,
-          chapter: currentChapter,
-          is_divider: true,
-          unlock_date: formatDate(date), // Unlock on same day as first node of new chapter
-        });
-      }
-
-      // Create learning nodes for each content ref (1 for one_mishna/one_chapter, 2 for two_mishna)
-      for (let i = 0; i < contentRefs.length; i++) {
-        const contentRef = contentRefs[i];
+      // Process each content item for this day, checking for tractate/chapter changes
+      for (let i = 0; i < contentIndices.length; i++) {
+        const idx = contentIndices[i];
+        const contentRef = getContentRefForIndex(idx, pace === 'one_chapter' ? 'DAILY_CHAPTER_PER_DAY' : 'DAILY_WEEKDAYS_ONLY');
+        const chapter = getCurrentChapter(idx);
+        const tractate = getCurrentTractate(idx);
         
-        // Track this learning node for quiz scheduling (use first content ref for tracking)
-        if (i === 0) {
-          // Calculate the content index for tracking based on pace
-          let learningNodeContentIndex: number;
-          if (pace === 'one_chapter') {
-            learningNodeContentIndex = chapter - 1;
-          } else if (pace === 'two_mishna') {
-            learningNodeContentIndex = contentIndex - 2; // Before we added 2
-          } else {
-            learningNodeContentIndex = contentIndex - 1; // Before we added 1
-          }
-          learningNodeDates.set(learningNodeContentIndex, new Date(date));
+        if (!tractate || !chapter) {
+          console.warn(`[generate-path] Could not determine tractate/chapter for index ${idx}`);
+          continue;
+        }
+        
+        // Debug: Log tracking state periodically
+        if (nodeIndex % 50 === 0) {
+          console.log(`[generate-path] Tracking state at node ${nodeIndex}: idx=${idx}, tractate=${tractate}, chapter=${chapter}, currentTractate=${currentTractate}, currentChapter=${currentChapter}`);
+        }
+
+        // Check for tractate completion (insert divider BEFORE this learning node)
+        if (previousTractate && tractate !== previousTractate) {
+          // Log tractate divider creation for debugging
+          console.log(`[generate-path] Creating TRACTATE divider: ${previousTractate} chapter ${currentChapter}, date: ${formatDate(date)}, nodeIndex: ${nodeIndex}, contentIdx: ${idx}, newTractate: ${tractate}`);
+          
+          // Tractate completion divider - placed right after the last learning node
+          nodes.push({
+            node_index: nodeIndex++,
+            node_type: 'divider',
+            content_ref: null,
+            tractate: previousTractate,
+            chapter: currentChapter, // Last chapter of previous tractate
+            is_divider: true,
+            unlock_date: formatDate(date), // Same day, right before new tractate starts
+          });
+        }
+        // Check for chapter completion (only if same tractate)
+        else if (chapter !== currentChapter && currentChapter > 0 && tractate === currentTractate) {
+          // Log chapter divider creation for debugging
+          console.log(`[generate-path] Creating chapter divider: ${currentTractate} chapter ${currentChapter}, date: ${formatDate(date)}, nodeIndex: ${nodeIndex}, contentIdx: ${idx}, newChapter: ${chapter}`);
+          
+          // Chapter completion divider
+          nodes.push({
+            node_index: nodeIndex++,
+            node_type: 'divider',
+            content_ref: null,
+            tractate: currentTractate,
+            chapter: currentChapter,
+            is_divider: true,
+            unlock_date: formatDate(date), // Same day, right before new chapter starts
+          });
         }
 
         // Add learning node
@@ -200,48 +364,74 @@ Deno.serve(async (req: Request) => {
           node_index: nodeIndex++,
           node_type: 'learning',
           content_ref: contentRef,
-          tractate: currentTractate,
+          tractate: tractate,
           chapter: chapter,
           is_divider: false,
           unlock_date: formatDate(date),
         };
         nodes.push(learningNode);
+        
+        // Track this learning node for review scheduling
+        learningNodeDates.set(idx, {
+          date: new Date(date),
+          contentRef: contentRef,
+          tractate: tractate,
+          chapter: chapter,
+        });
 
-        // Schedule quiz nodes for this learning node at intensive intervals (1,3,7,14,30 days) - non-blocking
-        // Quiz nodes appear for all users regardless of review_intensity
-        for (const interval of quizIntervals) {
-          const quizDate = addDays(date, interval);
-          // Find next scheduled weekday for quiz date
-          let quizScheduledDate = new Date(quizDate);
-          let quizDaysOffset = 0;
-          while (!(await isScheduledDay(quizScheduledDate, 'DAILY_WEEKDAYS_ONLY'))) {
-            quizDaysOffset++;
-            quizScheduledDate = addDays(quizDate, quizDaysOffset);
-          }
-          
-          // Add quiz node (non-blocking - same unlock_date as learning node, or slightly after)
-          nodes.push({
-            node_index: nodeIndex++,
-            node_type: 'quiz',
-            content_ref: contentRef, // Quiz is about this content
-            tractate: currentTractate,
-            chapter: chapter,
-            is_divider: false,
-            unlock_date: formatDate(quizScheduledDate),
-          });
-        }
+        // Update tracking for next iteration
+        // IMPORTANT: previousTractate must be set to THIS content's tractate,
+        // not the old currentTractate, otherwise we'll create duplicate dividers
+        // when a tractate change spans across days
+        previousTractate = tractate;
+        currentTractate = tractate;
+        currentChapter = chapter;
       }
 
-      currentChapter = chapter;
+      previousDate = date; // Track this date for completion dividers
       scheduledDaysCount++;
 
-      // Break if we've generated enough content for MVP
-      if (pace === 'one_chapter' && chapter >= MAX_CHAPTERS) break;
-      if (pace !== 'one_chapter' && contentIndex >= MAX_CONTENT_ITEMS) break;
+      // Break if we've completed all content
+      if (pace === 'one_chapter' && contentIndex >= TOTAL_CHAPTERS) break;
+      if (pace !== 'one_chapter' && contentIndex >= TOTAL_MISHNAYOT) break;
     }
 
-    // Insert final divider after last chapter
-    if (currentChapter > 0) {
+    // Generate review nodes based on review_intensity setting
+    // Review nodes are scheduled at intervals after learning nodes
+    if (reviewIntervals.length > 0) {
+      console.log(`[generate-path] Generating review nodes with intensity '${review_intensity}' (intervals: ${reviewIntervals.join(', ')} days)`);
+      
+      let reviewNodesCount = 0;
+      for (const [contentIdx, learningInfo] of learningNodeDates) {
+        for (const interval of reviewIntervals) {
+          const reviewDate = addDays(learningInfo.date, interval);
+          
+          // Find next scheduled weekday for review date (skip Shabbat, holidays, and Fridays which are quiz-only)
+          let reviewScheduledDate = new Date(reviewDate);
+          let daysOffset = 0;
+          while (!(await isScheduledDay(reviewScheduledDate, 'DAILY_WEEKDAYS_ONLY')) || isFriday(reviewScheduledDate)) {
+            daysOffset++;
+            reviewScheduledDate = addDays(reviewDate, daysOffset);
+            if (daysOffset > 7) break; // Safety limit
+          }
+          
+          nodes.push({
+            node_index: nodeIndex++,
+            node_type: 'review',
+            content_ref: learningInfo.contentRef,
+            tractate: learningInfo.tractate,
+            chapter: learningInfo.chapter,
+            is_divider: false,
+            unlock_date: formatDate(reviewScheduledDate),
+          });
+          reviewNodesCount++;
+        }
+      }
+      console.log(`[generate-path] Generated ${reviewNodesCount} review nodes`);
+    }
+
+    // Insert final divider after last chapter/tractate
+    if (currentChapter > 0 && currentTractate) {
       const lastDate = nodes.length > 0 ? parseDate(nodes[nodes.length - 1].unlock_date) : currentDate;
       nodes.push({
         node_index: nodeIndex++,
@@ -254,40 +444,70 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Insert nodes into database
-    const pathNodes = nodes.map(node => ({
-      user_id: body.user_id,
-      node_index: node.node_index,
-      node_type: node.node_type === 'divider' ? 'learning' : node.node_type, // dividers stored as 'learning' type
-      content_ref: node.content_ref,
-      tractate: node.tractate,
-      chapter: node.chapter,
-      is_divider: node.is_divider,
-      unlock_date: node.unlock_date,
-      review_of_node_id: node.review_of_node_id || null,
-    }));
-
-    const { error: insertError } = await supabase
-      .from('learning_path')
-      .insert(pathNodes);
-
-    if (insertError) {
-      console.error('Error inserting path nodes:', insertError);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to create learning path',
-          details: insertError.message 
-        }),
-        { status: 500, headers: corsHeaders }
-      );
-    }
-
-    // Pre-generate content for the next 14 days
+    console.log(`[generate-path] Generated ${nodes.length} total nodes, preparing for batch insert...`);
+    
+    // Insert nodes into database in batches to avoid memory/compute limits
+    const BATCH_SIZE = 1000;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const fourteenDaysLater = new Date(today);
-    fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14);
     const todayStr = formatDate(today);
+    
+    const pathNodes = nodes.map(node => {
+      // In dev mode: mark early nodes as completed to simulate progress
+      // Only mark learning nodes (not quiz/review/divider) that are in the past
+      const isCompleted = devOffsetDays > 0 && 
+                         node.unlock_date < todayStr && 
+                         node.node_type === 'learning' && 
+                         !node.is_divider &&
+                         Math.random() > 0.3; // 70% chance of completion for past learning nodes
+      
+      return {
+        user_id: body.user_id,
+        node_index: node.node_index,
+        node_type: node.node_type === 'divider' ? 'learning' : node.node_type, // dividers stored as 'learning' type
+        content_ref: node.content_ref,
+        tractate: node.tractate,
+        chapter: node.chapter,
+        is_divider: node.is_divider,
+        unlock_date: node.unlock_date,
+        completed_at: isCompleted ? formatDate(today) : null,
+        review_of_node_id: node.review_of_node_id || null,
+      };
+    });
+
+    console.log(`[generate-path] Inserting ${pathNodes.length} nodes in batches of ${BATCH_SIZE}...`);
+    
+    let totalInserted = 0;
+    for (let i = 0; i < pathNodes.length; i += BATCH_SIZE) {
+      const batch = pathNodes.slice(i, i + BATCH_SIZE);
+      const { error: insertError } = await supabase
+        .from('learning_path')
+        .insert(batch);
+
+      if (insertError) {
+        console.error(`[generate-path] Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Failed to create learning path',
+            details: `Error at batch ${i / BATCH_SIZE + 1}: ${insertError.message}`,
+            nodes_inserted: totalInserted
+          }),
+          { status: 500, headers: corsHeaders }
+        );
+      }
+      
+      totalInserted += batch.length;
+      console.log(`[generate-path] Inserted batch ${i / BATCH_SIZE + 1}/${Math.ceil(pathNodes.length / BATCH_SIZE)} (${totalInserted}/${pathNodes.length} nodes)`);
+    }
+    
+    console.log(`[generate-path] Successfully inserted all ${totalInserted} nodes`);
+
+    // Pre-generate content for the next 14 days only
+    const todayForContent = new Date();
+    todayForContent.setHours(0, 0, 0, 0);
+    const fourteenDaysLater = new Date(todayForContent);
+    fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14);
+    const todayStrForContent = formatDate(todayForContent);
     const fourteenDaysLaterStr = formatDate(fourteenDaysLater);
 
     // Get all learning nodes (not quiz/review/divider) within next 14 days
@@ -295,7 +515,7 @@ Deno.serve(async (req: Request) => {
       node.node_type === 'learning' && 
       !node.is_divider &&
       node.content_ref &&
-      node.unlock_date >= todayStr &&
+      node.unlock_date >= todayStrForContent &&
       node.unlock_date <= fourteenDaysLaterStr
     );
 

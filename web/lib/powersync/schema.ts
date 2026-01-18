@@ -78,6 +78,7 @@ const learning_path = new Table({
 
 const quiz_questions = new Table({
   content_ref: column.text,
+  question_index: column.integer,
   question_text: column.text,
   options: column.text, // JSONB stored as JSON string
   correct_answer: column.integer,
@@ -86,6 +87,7 @@ const quiz_questions = new Table({
 }, {
   indexes: {
     content_ref: ['content_ref'],
+    content_ref_question_index: ['content_ref', 'question_index'],
   },
 });
 

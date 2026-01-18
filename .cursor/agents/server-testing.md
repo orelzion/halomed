@@ -1,7 +1,3 @@
----
-name: server-testing
-model: fast
----
 
 # Server Testing Agent
 
@@ -41,6 +37,7 @@ The Server Testing Agent is responsible for testing all server-side components i
 
 ### Prerequisites
 
+- Docker Desktop running
 - Supabase CLI installed
 
 ### Installation
@@ -59,11 +56,9 @@ brew install supabase/tap/supabase
 # Initialize (first time)
 supabase init
 
-# Start local Supabase dev instance
+# Start local instance
 supabase start
 ```
-
-**Note**: Supabase dev runs locally without Docker. All services run natively.
 
 This starts:
 - PostgreSQL database (port 54322)

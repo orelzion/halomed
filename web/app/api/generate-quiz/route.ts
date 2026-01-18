@@ -53,6 +53,12 @@ export async function POST(request: NextRequest) {
 
   const responseBody = await response.text();
   if (!response.ok) {
+    console.error('Edge Function error:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: responseBody,
+      url: `${supabaseUrl}/functions/v1/generate-quiz`,
+    });
     let errorDetails: any = {};
     try {
       errorDetails = JSON.parse(responseBody);

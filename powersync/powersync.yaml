@@ -46,7 +46,7 @@ bucket_definitions:
         WHERE user_id = bucket.user_id
 
   # Learning path (user-scoped)
-  # Syncs only unlocked nodes for the current user
+  # Syncs past and future nodes within 60-day window for the current user
   learning_path:
     parameters:
       - user_id: token.user_id
@@ -54,7 +54,7 @@ bucket_definitions:
       - SELECT id, user_id, node_index, node_type, content_ref, tractate, chapter, is_divider, unlock_date, completed_at, review_of_node_id, created_at
         FROM learning_path
         WHERE user_id = bucket.user_id
-          AND unlock_date <= CURRENT_DATE
+          AND unlock_date <= CURRENT_DATE + INTERVAL '60 days'
 
   # Quiz questions (read-only)
   # Syncs quiz questions for content referenced by user's learning path
@@ -62,11 +62,11 @@ bucket_definitions:
     parameters:
       - user_id: token.user_id
     data:
-      - SELECT id, content_ref, question_text, options, correct_answer, explanation, created_at
+      - SELECT id, content_ref, question_index, question_text, options, correct_answer, explanation, created_at
         FROM quiz_questions
         WHERE content_ref IN (
           SELECT DISTINCT content_ref FROM learning_path
           WHERE user_id = bucket.user_id
             AND content_ref IS NOT NULL
-            AND unlock_date <= CURRENT_DATE
+            AND unlock_date <= CURRENT_DATE + INTERVAL '60 days'
         )

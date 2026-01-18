@@ -29,6 +29,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid user session' }, { status: 401 });
   }
 
+  const body = await request.json().catch(() => ({}));
+  const force = body.force === true;
+  
+  // In dev mode: offset start date by a few days to simulate progress
+  const isDev = process.env.NODE_ENV === 'development';
+  const devOffsetDays = isDev && body.dev_offset_days !== undefined 
+    ? body.dev_offset_days 
+    : (isDev ? 4 : 0); // Default to 4 days in dev mode
+
   // Security: Service role key is only used server-side
   // User authentication is validated above before calling the Edge Function
   const response = await fetch(`${supabaseUrl}/functions/v1/generate-path`, {
@@ -39,6 +48,8 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       user_id: user.id,
+      force: force,
+      dev_offset_days: devOffsetDays,
     }),
   });
 

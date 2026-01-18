@@ -23,8 +23,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        'source': ['Frank Ruhl Libre', 'serif'],
-        'explanation': ['Noto Sans Hebrew', 'sans-serif'],
+        'source': ['var(--font-source)', 'serif'],
+        'explanation': ['var(--font-explanation)', 'sans-serif'],
       },
     },
   },

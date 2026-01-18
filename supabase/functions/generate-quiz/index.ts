@@ -5,7 +5,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { generateQuizQuestion } from '../_shared/gemini.ts';
+import { generateQuizQuestions } from '../_shared/gemini.ts';
 
 interface GenerateQuizRequest {
   content_ref: string; // e.g., "Mishnah_Berakhot.1.1"
@@ -13,7 +13,8 @@ interface GenerateQuizRequest {
 
 interface GenerateQuizResponse {
   success: boolean;
-  quiz_question_id: string | null;
+  quiz_question_ids: string[];
+  questions_generated: number;
   message: string;
 }
 
@@ -57,20 +58,20 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if quiz question already exists
-    const { data: existingQuiz, error: quizError } = await supabase
+    // Check if quiz questions already exist for this content_ref
+    const { data: existingQuizzes, error: quizError } = await supabase
       .from('quiz_questions')
-      .select('id')
+      .select('id, question_index')
       .eq('content_ref', content_ref)
-      .limit(1)
-      .maybeSingle();
+      .order('question_index', { ascending: true });
 
-    if (existingQuiz && !quizError) {
+    if (existingQuizzes && existingQuizzes.length > 0 && !quizError) {
       return new Response(
         JSON.stringify({
           success: true,
-          quiz_question_id: existingQuiz.id,
-          message: 'Quiz question already exists'
+          quiz_question_ids: existingQuizzes.map(q => q.id),
+          questions_generated: existingQuizzes.length,
+          message: `Quiz questions already exist (${existingQuizzes.length} questions)`
         } as GenerateQuizResponse),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -90,42 +91,57 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Generate quiz question using AI
-    let quizQuestion;
+    // Parse explanation JSON
+    let explanation: any;
     try {
-      quizQuestion = await generateQuizQuestion(
+      explanation = typeof content.ai_explanation_json === 'string' 
+        ? JSON.parse(content.ai_explanation_json)
+        : content.ai_explanation_json;
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid explanation JSON in content cache' }),
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
+    // Generate multiple quiz questions (1-8) using AI
+    let quizQuestions;
+    try {
+      quizQuestions = await generateQuizQuestions(
         content.source_text_he,
-        content.ai_explanation_json,
+        explanation,
         geminiApiKey
       );
     } catch (error) {
-      console.error('Error generating quiz question:', error);
+      console.error('Error generating quiz questions:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to generate quiz question',
+          error: 'Failed to generate quiz questions',
           details: error instanceof Error ? error.message : String(error)
         }),
         { status: 500, headers: corsHeaders }
       );
     }
 
-    // Store quiz question in database
-    const { data: newQuiz, error: insertError } = await supabase
-      .from('quiz_questions')
-      .insert({
-        content_ref: content_ref,
-        question_text: quizQuestion.question_text,
-        options: quizQuestion.options, // JSONB array
-        correct_answer: quizQuestion.correct_answer,
-        explanation: quizQuestion.explanation,
-      })
-      .select()
-      .single();
+    // Store all quiz questions in database with question_index
+    const questionsToInsert = quizQuestions.map((q, index) => ({
+      content_ref: content_ref,
+      question_index: index,
+      question_text: q.question_text,
+      options: q.options, // JSONB array
+      correct_answer: q.correct_answer,
+      explanation: q.explanation,
+    }));
 
-    if (insertError || !newQuiz) {
+    const { data: newQuizzes, error: insertError } = await supabase
+      .from('quiz_questions')
+      .insert(questionsToInsert)
+      .select('id');
+
+    if (insertError || !newQuizzes || newQuizzes.length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to store quiz question',
+          error: 'Failed to store quiz questions',
           details: insertError?.message || 'Unknown error'
         }),
         { status: 500, headers: corsHeaders }
@@ -135,8 +151,9 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        quiz_question_id: newQuiz.id,
-        message: 'Quiz question generated successfully'
+        quiz_question_ids: newQuizzes.map(q => q.id),
+        questions_generated: newQuizzes.length,
+        message: `Generated ${newQuizzes.length} quiz questions successfully`
       } as GenerateQuizResponse),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

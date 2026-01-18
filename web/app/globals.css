@@ -2,30 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Font Face Declarations */
-@font-face {
-  font-family: 'Frank Ruhl Libre';
-  src: url('/fonts/FrankRuhlLibre-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Noto Sans Hebrew';
-  src: url('/fonts/NotoSansHebrew-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
 /* RTL support */
 html {
   direction: rtl;
 }
 
 body {
-  font-family: 'Noto Sans Hebrew', sans-serif;
+  font-family: var(--font-explanation), sans-serif;
 }
 
 /* Theme colors */

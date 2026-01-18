@@ -12,6 +12,7 @@
 CREATE TABLE quiz_questions (
   id TEXT PRIMARY KEY NOT NULL,
   content_ref TEXT NOT NULL,
+  question_index INTEGER NOT NULL DEFAULT 0,
   question_text TEXT NOT NULL,
   options TEXT NOT NULL, -- JSONB stored as JSON string
   correct_answer INTEGER NOT NULL,
@@ -21,3 +22,6 @@ CREATE TABLE quiz_questions (
 
 -- Index on content_ref for faster lookups
 CREATE INDEX idx_quiz_questions_content_ref ON quiz_questions(content_ref);
+
+-- Index on content_ref and question_index for ordered queries
+CREATE INDEX idx_quiz_questions_content_ref_question_index ON quiz_questions(content_ref, question_index);
