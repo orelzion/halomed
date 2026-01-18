@@ -41,10 +41,61 @@ const tracks = new Table({
   start_date: column.text,
 });
 
+const user_preferences = new Table({
+  user_id: column.text,
+  pace: column.text,
+  review_intensity: column.text,
+  streak_count: column.integer,
+  last_study_date: column.text,
+  created_at: column.text,
+  updated_at: column.text,
+}, {
+  indexes: {
+    user_id: ['user_id'],
+  },
+});
+
+const learning_path = new Table({
+  user_id: column.text,
+  node_index: column.integer,
+  node_type: column.text,
+  content_ref: column.text,
+  tractate: column.text,
+  chapter: column.integer,
+  is_divider: column.integer,
+  unlock_date: column.text,
+  completed_at: column.text,
+  review_of_node_id: column.text,
+  created_at: column.text,
+}, {
+  indexes: {
+    user_id: ['user_id'],
+    unlock_date: ['unlock_date'],
+    node_index: ['user_id', 'node_index'],
+    user_unlock: ['user_id', 'unlock_date'],
+  },
+});
+
+const quiz_questions = new Table({
+  content_ref: column.text,
+  question_text: column.text,
+  options: column.text, // JSONB stored as JSON string
+  correct_answer: column.integer,
+  explanation: column.text,
+  created_at: column.text,
+}, {
+  indexes: {
+    content_ref: ['content_ref'],
+  },
+});
+
 export const AppSchema = new Schema({
   user_study_log,
   content_cache,
   tracks,
+  user_preferences,
+  learning_path,
+  quiz_questions,
 });
 
 // Export types for use in hooks

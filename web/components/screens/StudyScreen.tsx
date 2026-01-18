@@ -11,11 +11,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 
 interface StudyScreenProps {
-  trackId: string;
+  trackId?: string;
   studyDate?: string;
+  contentRef?: string; // For path-based study
+  isReview?: boolean; // For review nodes
+  onCompletion?: (isCompleted: boolean) => void; // For path-based completion
+  pathNodeId?: string; // Path node ID for completion tracking
 }
 
-export function StudyScreen({ trackId, studyDate }: StudyScreenProps) {
+export function StudyScreen({ trackId, studyDate, contentRef, isReview, onCompletion, pathNodeId }: StudyScreenProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const { studyUnit, explanationData, loading, studyTitle } = useStudyUnit(trackId, studyDate);
@@ -207,7 +211,7 @@ export function StudyScreen({ trackId, studyDate }: StudyScreenProps) {
         {halakha && halakha.trim() && (
           <div className="space-y-3">
             <h2 className="text-xl font-source font-bold text-[var(--text-primary)]">
-              הלכה מעשית
+              הלכה
             </h2>
             <div className="text-lg font-explanation text-[var(--text-secondary)] leading-relaxed">
               {halakha}

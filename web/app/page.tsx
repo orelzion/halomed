@@ -1,12 +1,15 @@
 'use client';
 
-import { HomeScreen } from '@/components/screens/HomeScreen';
+import { PathScreen } from '@/components/screens/PathScreen';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import { usePreferences } from '@/lib/hooks/usePreferences';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { getPowerSyncDatabase } from '@/lib/powersync/database';
 
 export default function HomePage() {
   const { user, loading } = useAuthContext();
+  const { preferences, loading: prefsLoading } = usePreferences();
   const router = useRouter();
 
   useEffect(() => {
@@ -15,7 +18,15 @@ export default function HomePage() {
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  useEffect(() => {
+    // Only redirect to onboarding if preferences don't exist in PowerSync
+    // PowerSync is the source of truth
+    if (!loading && !prefsLoading && user && !preferences) {
+      router.push('/onboarding');
+    }
+  }, [user, loading, prefsLoading, preferences, router]);
+
+  if (loading || prefsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
         <p className="text-desert-oasis-accent">טוען...</p>
@@ -27,5 +38,9 @@ export default function HomePage() {
     return null; // Will redirect
   }
 
-  return <HomeScreen />;
+  if (!preferences) {
+    return null; // Will redirect to onboarding
+  }
+
+  return <PathScreen />;
 }

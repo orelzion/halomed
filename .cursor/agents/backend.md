@@ -230,12 +230,14 @@ supabase functions deploy [function_name] --use-api
 **IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
 
 ```bash
-# Start local Supabase
+# Start local Supabase dev instance
 supabase start
 
 # Run Edge Function locally
 supabase functions serve [function_name]
 ```
+
+**Note**: Supabase dev runs locally without Docker. All services run natively.
 
 ### Environment Variables
 
@@ -264,7 +266,7 @@ Required secrets (store in Supabase Dashboard > Settings > Edge Functions):
 
 ## Edge Function Deployment (Updated)
 
-**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag to bundle functions server-side without using Docker.
+**IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag .
 
 **IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.
 
@@ -276,7 +278,7 @@ supabase functions deploy [function_name] --use-api
 - Edge Functions are accessed through Next.js API routes (not directly from client)
 - API routes handle authentication and call Edge Functions with user's JWT token
 - Edge Functions validate JWT using `validateAuth` from `_shared/auth.ts`
-- Use `--use-api` flag for all deployments to avoid Docker requirements
+- Use `--use-api` flag for all deployments for all deployments
 
 **Example:**
 **IMPORTANT**: All Edge Functions must be deployed with the `--use-api` flag.

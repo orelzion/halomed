@@ -208,3 +208,155 @@ ${JSON.stringify(promptData)}`;
   
   throw new Error('Failed to generate explanation after retries');
 }
+
+export interface QuizQuestion {
+  question_text: string;
+  options: string[]; // Array of 4 options
+  correct_answer: number; // Index of correct answer (0-based)
+  explanation: string;
+}
+
+/**
+ * Generate JSON Schema for QuizQuestion
+ */
+function getQuizQuestionSchema(): any {
+  return {
+    type: 'object',
+    properties: {
+      question_text: {
+        type: 'string',
+        description: 'שאלת חידון בעברית על המשנה',
+      },
+      options: {
+        type: 'array',
+        description: '4 אפשרויות תשובה בעברית',
+        items: {
+          type: 'string',
+        },
+        minItems: 4,
+        maxItems: 4,
+      },
+      correct_answer: {
+        type: 'integer',
+        description: 'אינדקס התשובה הנכונה (0-3)',
+        minimum: 0,
+        maximum: 3,
+      },
+      explanation: {
+        type: 'string',
+        description: 'הסבר על התשובה הנכונה בעברית',
+      },
+    },
+    required: ['question_text', 'options', 'correct_answer', 'explanation'],
+  };
+}
+
+/**
+ * Generate quiz question using Gemini API with structured JSON output
+ */
+export async function generateQuizQuestion(
+  sourceText: string,
+  explanation: MishnahExplanation,
+  apiKey: string,
+  retries: number = 3
+): Promise<QuizQuestion> {
+  const prompt = `צור שאלת חידון בעברית על המשנה הבאה.
+
+טקסט המשנה:
+${sourceText}
+
+הסבר המשנה:
+${JSON.stringify(explanation, null, 2)}
+
+צור שאלת חידון עם 4 אפשרויות תשובה. השאלה צריכה לבדוק הבנה של המשנה.
+התשובה הנכונה צריכה להיות אחת מ-4 האפשרויות.
+כלול הסבר קצר על התשובה הנכונה.`;
+
+  const jsonSchema = getQuizQuestionSchema();
+
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(
+        `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'x-goog-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: prompt,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.7, // Slightly higher for creative questions
+              responseMimeType: 'application/json',
+              responseJsonSchema: jsonSchema,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMsg = `Gemini API error: ${response.status} ${response.statusText}`;
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMsg = errorJson.error?.message || errorMsg;
+        } catch (e) {
+          // Use default error message
+        }
+
+        if (response.status === 429 || response.status >= 500) {
+          if (attempt < retries - 1) {
+            const retryAfter = response.headers.get('Retry-After');
+            const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 1000 * Math.pow(2, attempt);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+        }
+
+        throw new Error(errorMsg);
+      }
+
+      const data = await response.json();
+
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        throw new Error('Gemini API returned invalid response structure');
+      }
+
+      const content = data.candidates[0].content.parts[0].text;
+
+      if (!content || content.length === 0) {
+        throw new Error('Gemini API returned empty quiz question');
+      }
+
+      const quizQuestion = JSON.parse(content) as QuizQuestion;
+
+      // Validate structure
+      if (!quizQuestion.question_text || !Array.isArray(quizQuestion.options) || 
+          quizQuestion.options.length !== 4 || 
+          quizQuestion.correct_answer < 0 || quizQuestion.correct_answer > 3) {
+        throw new Error('Gemini API returned invalid quiz question structure');
+      }
+
+      return quizQuestion;
+    } catch (error) {
+      if (attempt === retries - 1) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to generate quiz question: ${errorMsg}`);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+    }
+  }
+
+  throw new Error('Failed to generate quiz question after retries');
+}

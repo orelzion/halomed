@@ -1047,6 +1047,409 @@ This file tracks implementation tasks following TDD workflow:
 
 ---
 
+## Duolingo-Style Learning Path
+
+**Plan Reference**: `.cursor/plans/duolingo-style_learning_path_711ba262.plan.md`  
+**PRD Reference**: Section 4 (Tracks), Section 7 (Core App Flow)  
+**TDD Reference**: Section 6 (Scheduling), Section 4 (Database Schema)
+
+### Feature Overview
+
+Transform HaloMed into a Duolingo-style Jewish learning app with:
+- Visual learning path (vertical, Duolingo-style)
+- Onboarding: Pace selection (1 Mishna/day, 2 Mishnas/day, 1 Chapter/day) + Review intensity selection
+- Spaced repetition: Review nodes at configurable intervals (None/Light/Medium/Intensive)
+- Quiz nodes: Optional quiz opportunities at intensive pace (1,3,7,14,30 days) - non-blocking
+- Tractate dividers: Visual markers between tractates/chapters
+- Weekday-only scheduling: Maintains existing Sun-Thu + holiday exclusion
+- Streak tracking: Preserved from existing system
+- Content caching: Full path generated, content cached for next 14 days
+
+### Dependencies
+
+- Backend schema complete (tracks, content_cache, user_study_log) ✅
+- Scheduling logic implemented ✅
+- PowerSync integration complete ✅
+- Web app foundation complete ✅
+
+### Backend Tasks
+
+- [ ] **Task 10.1a**: Write tests for user_preferences table schema
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.1)
+  - Test table structure (id, user_id, pace, review_intensity, streak_count, last_study_date)
+  - Test pace enum values ('one_mishna', 'two_mishna', 'one_chapter')
+  - Test review_intensity enum values ('none', 'light', 'medium', 'intensive')
+  - Test foreign key to auth.users
+  - Test unique constraint on user_id
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Reference: Plan Section "Data Model Changes", backend.md
+
+- [ ] **Task 10.1**: Create database migration for `user_preferences` table
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 10.1a tests pass)
+  - Create migration file
+  - Define pace and review_intensity enums
+  - Add RLS policies (users can only access their own preferences)
+  - Acceptance: Table created, RLS enabled, tests pass
+  - Depends on: Task 10.1a (tests written first)
+  - Reference: backend.md Section "Database Schema", Plan Section "Data Model Changes"
+
+- [ ] **Task 10.2a**: Write tests for learning_path table schema
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.2)
+  - Test table structure (id, user_id, node_index, node_type, content_ref, tractate, chapter, is_divider, unlock_date, completed_at, review_of_node_id)
+  - Test node_type enum values ('learning', 'review', 'quiz')
+  - Test foreign key to auth.users
+  - Test indexes for performance (user_id, unlock_date, node_index)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.1 ✅
+  - Reference: Plan Section "Data Model Changes", backend.md
+
+- [ ] **Task 10.2**: Create database migration for `learning_path` table
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 10.2a tests pass)
+  - Create migration file
+  - Define node_type enum
+  - Add indexes for query performance
+  - Add RLS policies (users can only access their own path)
+  - Acceptance: Table created, indexes added, RLS enabled, tests pass
+  - Depends on: Task 10.2a (tests written first)
+  - Reference: backend.md, Plan Section "Data Model Changes"
+
+- [ ] **Task 10.3a**: Write tests for quiz_questions table schema
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.3)
+  - Test table structure (id, content_ref, question_text, options, correct_answer, explanation)
+  - Test options as JSONB array
+  - Test correct_answer as integer index
+  - Test index on content_ref for lookups
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Reference: Plan Section "Data Model Changes", backend.md
+
+- [ ] **Task 10.3**: Create database migration for `quiz_questions` table
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 10.3a tests pass)
+  - Create migration file
+  - Define JSONB structure for options
+  - Add index on content_ref
+  - Add RLS policies (read-only for authenticated users)
+  - Acceptance: Table created, index added, RLS enabled, tests pass
+  - Depends on: Task 10.3a (tests written first)
+  - Reference: backend.md, Plan Section "Data Model Changes"
+
+### Scheduling Agent Tasks
+
+- [ ] **Task 10.4a**: Write tests for path generation algorithm
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.4)
+  - Test path generation for each pace (one_mishna, two_mishna, one_chapter)
+  - Test weekday-only scheduling (Sun-Thu, excludes Shabbat/holidays)
+  - Test starting from Berakhot 1:1 (or Chapter 1 for full chapter)
+  - Test full path generation (all nodes from start to end of Shas)
+  - Test tractate dividers inserted at boundaries
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.2 ✅
+  - Reference: scheduling.md, Plan Section "Spaced Repetition Schedule"
+
+- [ ] **Task 10.4**: Implement `generate-path` Edge Function
+  - **Assigned to**: Scheduling Agent
+  - **TDD Workflow**: Implementation (after 10.4a tests pass)
+  - Create Edge Function at `supabase/functions/generate-path/index.ts`
+  - Generate full learning path based on pace selection
+  - Insert learning nodes for each scheduled day (weekdays only)
+  - Insert tractate dividers at chapter/tractate boundaries
+  - Set unlock_date based on weekday-only logic
+  - Start from Berakhot 1:1 (or Chapter 1 for full chapter pace)
+  - Acceptance: Path generated correctly, weekday-only respected, tests pass
+  - Depends on: Task 10.4a (tests written first), Task 10.2 ✅
+  - Reference: scheduling.md, Plan Section "Implementation Phases"
+
+- [ ] **Task 10.5a**: Write tests for spaced repetition review scheduling
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.5)
+  - Test review intervals for each intensity (None: none, Light: 7,30, Medium: 3,7,30, Intensive: 1,3,7,14,30)
+  - Test review nodes inserted at correct intervals after learning node completion
+  - Test review nodes block progress (unlock_date set correctly)
+  - Test review_of_node_id references original learning node
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.4 ✅
+  - Reference: Plan Section "Spaced Repetition Schedule"
+
+- [ ] **Task 10.5**: Implement spaced repetition review scheduling
+  - **Assigned to**: Scheduling Agent
+  - **TDD Workflow**: Implementation (after 10.5a tests pass)
+  - When learning node completed, schedule review nodes at intervals based on review_intensity
+  - Insert review nodes into path at appropriate positions
+  - Set unlock_date for review nodes (block progress until review done)
+  - Link review nodes to original learning node via review_of_node_id
+  - Acceptance: Review nodes scheduled correctly, intervals respected, tests pass
+  - Depends on: Task 10.5a (tests written first), Task 10.4 ✅
+  - Reference: scheduling.md, Plan Section "Spaced Repetition Schedule"
+
+- [ ] **Task 10.6a**: Write tests for quiz node scheduling
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.6)
+  - Test quiz nodes scheduled at intensive intervals (1,3,7,14,30 days) for all users
+  - Test quiz nodes don't block progress (next learning node also accessible)
+  - Test quiz nodes appear regardless of review_intensity setting
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.4 ✅
+  - Reference: Plan Section "Spaced Repetition Schedule"
+
+- [ ] **Task 10.6**: Implement quiz node scheduling
+  - **Assigned to**: Scheduling Agent
+  - **TDD Workflow**: Implementation (after 10.6a tests pass)
+  - Schedule quiz nodes at intensive intervals (1,3,7,14,30 days) for all users
+  - Quiz nodes don't block progress - next learning node also unlocked
+  - Insert quiz nodes into path alongside learning nodes
+  - Acceptance: Quiz nodes scheduled correctly, non-blocking, tests pass
+  - Depends on: Task 10.6a (tests written first), Task 10.4 ✅
+  - Reference: scheduling.md, Plan Section "Spaced Repetition Schedule"
+
+### Content Generation Agent Tasks
+
+- [ ] **Task 10.7a**: Write tests for quiz question generation
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.7)
+  - Test quiz questions generated from content (Mishna text + AI explanation)
+  - Test question format (multiple choice with 4 options)
+  - Test correct_answer is valid index
+  - Test explanation provided after answer
+  - Test questions stored in quiz_questions table
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.3 ✅
+  - Reference: content-generation.md, Plan Section "Quiz System"
+
+- [ ] **Task 10.7**: Implement quiz question generation
+  - **Assigned to**: Content Generation Agent
+  - **TDD Workflow**: Implementation (after 10.7a tests pass)
+  - Extend `generate-content` Edge Function to generate quiz questions
+  - Use AI to generate multiple choice questions from Mishna content
+  - Store questions in quiz_questions table
+  - Generate questions when quiz node is created
+  - Acceptance: Quiz questions generated correctly, stored in DB, tests pass
+  - Depends on: Task 10.7a (tests written first), Task 10.3 ✅
+  - Reference: content-generation.md, Plan Section "Phase 5: Quiz System"
+
+### Sync Agent Tasks
+
+- [ ] **Task 10.8a**: Write tests for user_preferences sync rules
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.8)
+  - Test user-scoped bucket (user_id = bucket.user_id)
+  - Test all columns synced (pace, review_intensity, streak_count, last_study_date)
+  - Test sync rules syntax
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.1 ✅
+  - Reference: sync.md Section "Sync Rules"
+
+- [ ] **Task 10.8**: Configure sync rules for `user_preferences` table
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 10.8a tests pass)
+  - Add user_preferences bucket to powersync.yaml
+  - User-scoped sync (user_id = bucket.user_id)
+  - Sync all preference columns
+  - Acceptance: Sync rules configured, tests pass
+  - Depends on: Task 10.8a (tests written first), Task 10.1 ✅
+  - Reference: sync.md, powersync/powersync.yaml
+
+- [ ] **Task 10.9a**: Write tests for learning_path sync rules
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.9)
+  - Test user-scoped bucket (user_id = bucket.user_id)
+  - Test all columns synced
+  - Test filtering by unlock_date (only unlocked nodes synced)
+  - Test sync rules syntax
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.2 ✅
+  - Reference: sync.md Section "Sync Rules"
+
+- [ ] **Task 10.9**: Configure sync rules for `learning_path` table
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 10.9a tests pass)
+  - Add learning_path bucket to powersync.yaml
+  - User-scoped sync (user_id = bucket.user_id)
+  - Filter by unlock_date (only unlocked nodes)
+  - Sync all path columns
+  - Acceptance: Sync rules configured, tests pass
+  - Depends on: Task 10.9a (tests written first), Task 10.2 ✅
+  - Reference: sync.md, powersync/powersync.yaml
+
+- [ ] **Task 10.10a**: Write tests for quiz_questions sync rules
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.10)
+  - Test read-only bucket for all authenticated users
+  - Test filtering by content_ref (only questions for user's path content)
+  - Test all columns synced
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.3 ✅
+  - Reference: sync.md Section "Sync Rules"
+
+- [ ] **Task 10.10**: Configure sync rules for `quiz_questions` table
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 10.10a tests pass)
+  - Add quiz_questions bucket to powersync.yaml
+  - Read-only bucket for authenticated users
+  - Filter by content_ref (only questions for user's path content)
+  - Acceptance: Sync rules configured, tests pass
+  - Depends on: Task 10.10a (tests written first), Task 10.3 ✅
+  - Reference: sync.md, powersync/powersync.yaml
+
+- [ ] **Task 10.11a**: Write tests for SQLite schemas (user_preferences, learning_path, quiz_questions)
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.11)
+  - Test schema matches PostgreSQL structure
+  - Test data type mappings (UUID→TEXT, ENUM→TEXT, JSONB→TEXT, DATE→TEXT)
+  - Test indexes created correctly
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Tasks 10.1, 10.2, 10.3 ✅
+  - Reference: sync.md Section "SQLite Schema"
+
+- [ ] **Task 10.11**: Define SQLite schemas for new tables
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 10.11a tests pass)
+  - Create schema files in powersync/schemas/
+  - Define user_preferences schema (TEXT types, pace/review_intensity as TEXT)
+  - Define learning_path schema (TEXT types, node_type as TEXT)
+  - Define quiz_questions schema (TEXT types, options as TEXT for JSONB)
+  - Acceptance: Schemas match PostgreSQL, tests pass
+  - Depends on: Task 10.11a (tests written first), Tasks 10.1, 10.2, 10.3 ✅
+  - Reference: sync.md Section "SQLite Schema", powersync/schemas/
+
+### Web Agent Tasks
+
+- [ ] **Task 10.12a**: Write Maestro tests for onboarding flow
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.12)
+  - Test onboarding page displays for new users
+  - Test pace selection (3 options: 1 Mishna, 2 Mishnas, 1 Chapter)
+  - Test review intensity selection (4 options: None, Light, Medium, Intensive)
+  - Test "התחל" button generates path and redirects
+  - Test existing users skip onboarding
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.1 ✅
+  - Reference: client-testing.md, Plan Section "UI Components"
+
+- [ ] **Task 10.12**: Implement onboarding page
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 10.12a tests pass)
+  - Create onboarding page at `web/app/onboarding/page.tsx`
+  - Step 1: Pace selection with visual cards
+  - Step 2: Review intensity selection with explanation
+  - Store preferences in user_preferences table
+  - Call generate-path Edge Function on "התחל"
+  - Redirect to path view after completion
+  - Redirect existing users (who have preferences) to path view
+  - Acceptance: Onboarding works, preferences saved, path generated, tests pass
+  - Depends on: Task 10.12a (tests written first), Task 10.1 ✅, Task 10.4 ✅
+  - Reference: web.md, Plan Section "UI Components"
+
+- [ ] **Task 10.13a**: Write Maestro tests for learning path screen
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.13)
+  - Test path displays vertically (Duolingo-style)
+  - Test node states (completed, current, locked, review, quiz)
+  - Test tractate dividers display correctly
+  - Test current node is highlighted/glowing
+  - Test scrolling to current node on load
+  - Test tapping node navigates to study/quiz screen
+  - Test locked nodes are greyed out
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.9 ✅
+  - Reference: client-testing.md, Plan Section "UI Components"
+
+- [ ] **Task 10.13**: Implement learning path screen
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 10.13a tests pass)
+  - Replace home page (`web/app/page.tsx`) with path view
+  - Create PathScreen component
+  - Create PathNode component (learning, review, quiz, locked states)
+  - Create TractateDivider component
+  - Implement Duolingo-style vertical path layout
+  - Load path from PowerSync (learning_path table)
+  - Display nodes with correct states (completed, current, locked)
+  - Scroll to current node on load
+  - Handle node tap navigation
+  - Acceptance: Path displays correctly, nodes work, navigation works, tests pass
+  - Depends on: Task 10.13a (tests written first), Task 10.9 ✅
+  - Reference: web.md, Plan Section "UI Components"
+
+- [ ] **Task 10.14a**: Write Maestro tests for study screen updates
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.14)
+  - Test review badge displays for review nodes
+  - Test completion updates path progress
+  - Test review nodes scheduled after completion
+  - Test quiz nodes don't block next learning node
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.13 ✅
+  - Reference: client-testing.md, Plan Section "Study Session Updates"
+
+- [ ] **Task 10.14**: Update study screen for path integration
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 10.14a tests pass)
+  - Add review badge/indicator to StudyScreen for review nodes
+  - Connect completion to path progress (update learning_path.completed_at)
+  - Trigger review node scheduling on completion (call Edge Function)
+  - Handle quiz nodes (non-blocking - next node also accessible)
+  - Animate back to path after completion
+  - Acceptance: Study screen integrated with path, completion works, tests pass
+  - Depends on: Task 10.14a (tests written first), Task 10.13 ✅, Task 10.5 ✅
+  - Reference: web.md, Plan Section "Phase 4: Study Session Updates"
+
+- [ ] **Task 10.15a**: Write Maestro tests for quiz screen
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 10.15)
+  - Test quiz screen displays question with 4 options
+  - Test immediate feedback (correct/incorrect)
+  - Test explanation displays after answer
+  - Test score tracking
+  - Test navigation back to path
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 10.10 ✅
+  - Reference: client-testing.md, Plan Section "UI Components"
+
+- [ ] **Task 10.15**: Implement quiz screen
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 10.15a tests pass)
+  - Create QuizScreen component at `web/components/screens/QuizScreen.tsx`
+  - Load quiz questions from PowerSync (quiz_questions table)
+  - Display question with 4 multiple choice options
+  - Show immediate feedback on answer selection
+  - Display explanation after answer
+  - Track quiz results (optional - store in local state or DB)
+  - Handle navigation back to path
+  - Acceptance: Quiz screen works, questions load, feedback works, tests pass
+  - Depends on: Task 10.15a (tests written first), Task 10.10 ✅, Task 10.7 ✅
+  - Reference: web.md, Plan Section "Phase 5: Quiz System"
+
+- [ ] **Task 10.16**: Update streak calculation for path system
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (no tests needed - existing streak logic)
+  - Update useStreak hook to work with learning_path instead of user_study_log
+  - Calculate streak from completed learning nodes (not review/quiz nodes)
+  - Maintain weekday-only logic (only count completions on scheduled weekdays)
+  - Update streak display on path screen
+  - Acceptance: Streak calculated correctly from path, displays on path screen
+  - Depends on: Task 10.13 ✅
+  - Reference: web.md, Plan Section "Key Constraints"
+
+- [ ] **Task 10.17**: Migrate existing users to path system
+  - **Assigned to**: Backend Agent (or Scheduling Agent)
+  - **TDD Workflow**: Implementation (migration script)
+  - Create migration script to convert existing user_study_log entries to learning_path
+  - Set default pace based on existing track schedule_type
+  - Set default review_intensity to 'medium'
+  - Generate path for existing users
+  - Acceptance: Existing users migrated, path generated, no data loss
+  - Depends on: Tasks 10.1, 10.2, 10.4 ✅
+  - Reference: Plan Section "Removed/Deprecated"
+
+---
+
 ## Task Status Legend
 
 - `[ ]` = Not started / To do

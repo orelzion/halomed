@@ -1,5 +1,5 @@
 // supabase/tests/syntax/migrations.test.ts
-// SQL syntax validation tests (no Docker required)
+// SQL syntax validation tests (no Supabase required)
 // These tests validate SQL structure without running a database
 
 import { assert, assertStringIncludes } from 'https://deno.land/std@0.208.0/testing/asserts.ts';

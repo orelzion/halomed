@@ -33,7 +33,7 @@ The Server Testing Agent is responsible for testing all server-side components i
 | Component | Technology |
 |-----------|------------|
 | Test Framework | Deno Test |
-| Local Backend | Supabase CLI (Docker) |
+| Local Backend | Supabase CLI (supbase dev) |
 | Database | PostgreSQL (local) |
 | Edge Functions | Deno Runtime |
 
@@ -41,7 +41,6 @@ The Server Testing Agent is responsible for testing all server-side components i
 
 ### Prerequisites
 
-- Docker Desktop running
 - Supabase CLI installed
 
 ### Installation
@@ -60,9 +59,11 @@ brew install supabase/tap/supabase
 # Initialize (first time)
 supabase init
 
-# Start local instance
+# Start local Supabase dev instance
 supabase start
 ```
+
+**Note**: Supabase dev runs locally without Docker. All services run natively.
 
 This starts:
 - PostgreSQL database (port 54322)

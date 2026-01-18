@@ -20,10 +20,10 @@ export function ExpandableSection({
     <div className="border-t border-desert-oasis-muted dark:border-desert-oasis-dark-card mt-6 pt-6">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between text-desert-oasis-muted hover:text-desert-oasis-accent transition-colors font-explanation"
+        className="w-full flex items-center justify-between text-[var(--text-primary)] hover:text-desert-oasis-accent transition-colors font-explanation font-semibold"
       >
         <span>{title}</span>
-        <span className="text-xl">{isExpanded ? '−' : '+'}</span>
+        <span className="text-2xl font-bold text-desert-oasis-accent">{isExpanded ? '−' : '+'}</span>
       </button>
 
       {isExpanded && (

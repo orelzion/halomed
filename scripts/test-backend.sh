@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test script for backend migrations and RLS policies
-# Supports both syntax tests (no Docker) and integration tests (Docker required)
+# Supports both syntax tests (no Supabase required) and integration tests (Supabase dev required)
 
 set -e
 
@@ -8,8 +8,8 @@ echo "🧪 Testing HaLomeid Backend"
 echo "============================"
 echo ""
 
-# Always run syntax tests (no Docker needed)
-echo "📝 Running SQL syntax validation tests (no Docker required)..."
+# Always run syntax tests (no Supabase needed)
+echo "📝 Running SQL syntax validation tests (no Supabase required)..."
 if deno test --allow-read supabase/tests/syntax/migrations.test.ts 2>/dev/null; then
     echo "✅ Syntax tests passed"
 else
@@ -21,11 +21,10 @@ echo ""
 
 # Check if Supabase is running for integration tests
 if ! supabase status > /dev/null 2>&1; then
-    echo "⚠️  Supabase is not running. Skipping integration tests."
+    echo "⚠️  Supabase dev is not running. Skipping integration tests."
     echo "   To run integration tests:"
-    echo "   1. Start Docker Desktop"
-    echo "   2. Run: supabase start"
-    echo "   3. Run this script again"
+    echo "   1. Run: supabase start"
+    echo "   2. Run this script again"
     echo ""
     echo "✅ Syntax validation complete (integration tests skipped)"
     exit 0
