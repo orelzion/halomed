@@ -1,7 +1,5 @@
 'use client';
 
-import Image from 'next/image';
-
 export type MascotMood = 
   | 'default'
   | 'celebrating'
@@ -55,13 +53,13 @@ export function Mascot({
   return (
     <div className={`flex flex-col items-center gap-2 ${className}`}>
       <div className="relative">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={imageSrc}
           alt="כבשון - המדריך שלך ללימוד"
           width={dimensions.width}
           height={dimensions.height}
           className="object-contain"
-          priority={mood === 'celebrating'} // Prioritize loading for celebrations
         />
       </div>
       

@@ -438,44 +438,48 @@ export function QuizScreen() {
   if (quizComplete) {
     const percentage = Math.round((score / totalQuestions) * 100);
     
-    // Determine mascot mood based on score
-    const getMascotMood = () => {
-      if (percentage === 100) return 'celebrating';
-      if (percentage >= 70) return 'happy';
-      return 'encouraging';
+    // Determine mascot mood and colors based on score
+    const getScoreStyle = () => {
+      if (percentage === 100) return { mood: 'celebrating' as const, color: 'from-yellow-400 to-amber-500', text: 'מושלם!' };
+      if (percentage >= 80) return { mood: 'celebrating' as const, color: 'from-green-400 to-emerald-500', text: 'מצוין!' };
+      if (percentage >= 60) return { mood: 'happy' as const, color: 'from-desert-oasis-accent to-orange-500', text: 'יפה מאוד!' };
+      return { mood: 'encouraging' as const, color: 'from-desert-oasis-accent to-orange-400', text: 'ממשיכים להתקדם!' };
     };
     
+    const { mood, color, text } = getScoreStyle();
+    
     return (
-      <div className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
+      <div className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary flex flex-col">
         <StudyHeader 
           title={t('quiz_title')}
           onBack={() => router.push('/')}
         />
 
-        <div className="max-w-2xl mx-auto p-4">
-          <div className="bg-desert-oasis-card dark:bg-desert-oasis-dark-card rounded-2xl p-8 text-center">
-            <div className="mb-6">
-              {/* Mascot with score-based mood */}
-              <div className="mb-4">
-                <Mascot mood={getMascotMood()} size="lg" />
-              </div>
-              
-              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-desert-oasis-accent to-orange-500 flex items-center justify-center">
-                <span className="text-3xl font-source font-bold text-white">
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          {/* Main content card */}
+          <div className="bg-desert-oasis-card dark:bg-desert-oasis-dark-card rounded-3xl p-8 w-full max-w-sm shadow-xl">
+            {/* Mascot and score row */}
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <Mascot mood={mood} size="md" />
+              <div className="text-center">
+                <div className={`text-6xl font-source font-bold bg-gradient-to-br ${color} bg-clip-text text-transparent`}>
                   {percentage}%
-                </span>
+                </div>
+                <p className="font-source text-xl font-bold text-[var(--text-primary)]">
+                  {text}
+                </p>
               </div>
-              <p className="font-source text-2xl font-bold text-[var(--text-primary)] mb-2">
-                {percentage === 100 ? 'מושלם!' : percentage >= 80 ? 'מצוין!' : percentage >= 60 ? 'טוב מאוד!' : 'ממשיכים להתקדם!'}
-              </p>
-              <p className="font-explanation text-lg text-[var(--text-secondary)]">
-                ענית נכון על {score} מתוך {totalQuestions} שאלות
-              </p>
             </div>
+            
+            {/* Score details */}
+            <p className="font-explanation text-center text-[var(--text-secondary)] mb-6">
+              {score} מתוך {totalQuestions} תשובות נכונות
+            </p>
 
+            {/* Button */}
             <button
               onClick={handleFinish}
-              className="w-full px-6 py-3 bg-desert-oasis-accent text-white rounded-xl font-explanation text-lg font-semibold"
+              className={`w-full px-6 py-4 bg-gradient-to-r ${color} text-white rounded-2xl font-explanation text-lg font-semibold shadow-md hover:shadow-lg transition-all active:scale-[0.98]`}
             >
               {t('quiz_continue')}
             </button>
