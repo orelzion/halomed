@@ -9,9 +9,14 @@ HOOKS_DIR="$REPO_ROOT/.git/hooks"
 
 echo "🔧 Setting up git hooks..."
 
+# Copy pre-commit hook
+cp "$SCRIPT_DIR/hooks/pre-commit" "$HOOKS_DIR/pre-commit"
+chmod +x "$HOOKS_DIR/pre-commit"
+
 # Copy pre-push hook
 cp "$SCRIPT_DIR/hooks/pre-push" "$HOOKS_DIR/pre-push"
 chmod +x "$HOOKS_DIR/pre-push"
 
 echo "✅ Git hooks installed!"
+echo "   - pre-commit: Security scanning for secrets"
 echo "   - pre-push: TypeScript type checking"

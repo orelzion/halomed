@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# Pre-commit hook: Security scanning for secrets and sensitive data
+# Based on .cursor/agents/security.md
+
+echo "🔒 Running security checks..."
+
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+    echo "✅ No staged files to check"
+    exit 0
+fi
+
+ERRORS_FOUND=0
+
+# Function to check a file for secrets
+check_file() {
+    local file="$1"
+    local content
+    
+    # Skip binary files
+    if file "$file" | grep -q "binary"; then
+        return 0
+    fi
+    
+    # Skip if file doesn't exist (deleted)
+    if [ ! -f "$file" ]; then
+        return 0
+    fi
+    
+    content=$(cat "$file")
+    
+    # Supabase service role key (JWT starting with eyJ, longer than anon key)
+    # Service role keys are typically 200+ characters
+    if echo "$content" | grep -qE 'eyJ[A-Za-z0-9_-]{200,}'; then
+        # Check if it's in a .env file or example file (allowed)
+        if [[ "$file" != *.env* ]] && [[ "$file" != *example* ]] && [[ "$file" != *.md ]]; then
+            echo "❌ Potential Supabase service role key found in: $file"
+            ERRORS_FOUND=1
+        fi
+    fi
+    
+    # OpenAI API key pattern
+    if echo "$content" | grep -qE 'sk-[A-Za-z0-9]{40,}'; then
+        if [[ "$file" != *.env* ]] && [[ "$file" != *example* ]] && [[ "$file" != *.md ]]; then
+            echo "❌ Potential OpenAI API key found in: $file"
+            ERRORS_FOUND=1
+        fi
+    fi
+    
+    # Google API key pattern
+    if echo "$content" | grep -qE 'AIza[A-Za-z0-9_-]{35}'; then
+        if [[ "$file" != *.env* ]] && [[ "$file" != *example* ]] && [[ "$file" != *.md ]]; then
+            echo "❌ Potential Google API key found in: $file"
+            ERRORS_FOUND=1
+        fi
+    fi
+    
+    # AWS access key pattern
+    if echo "$content" | grep -qE 'AKIA[A-Z0-9]{16}'; then
+        echo "❌ Potential AWS access key found in: $file"
+        ERRORS_FOUND=1
+    fi
+    
+    # Private key markers
+    if echo "$content" | grep -qE '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'; then
+        echo "❌ Private key found in: $file"
+        ERRORS_FOUND=1
+    fi
+    
+    # Generic secret/password in code (not in .env or config templates)
+    if [[ "$file" != *.env* ]] && [[ "$file" != *example* ]] && [[ "$file" != *.md ]]; then
+        # Check for hardcoded passwords/secrets (with actual values, not placeholders)
+        if echo "$content" | grep -qiE "(password|secret|api_key|apikey|access_token)\s*[:=]\s*['\"][^'\"]{8,}['\"]"; then
+            # Exclude common false positives
+            if ! echo "$content" | grep -qE "process\.env\.|getenv|os\.environ|SECRET_KEY|your-.*-here"; then
+                echo "⚠️  Potential hardcoded secret in: $file (please verify)"
+            fi
+        fi
+    fi
+}
+
+# Check each staged file
+for file in $STAGED_FILES; do
+    check_file "$file"
+done
+
+# Verify .gitignore has required entries
+echo "📋 Checking .gitignore..."
+GITIGNORE_FILE="$(git rev-parse --show-toplevel)/.gitignore"
+
+REQUIRED_PATTERNS=(".env" ".env.local" "*.pem" "*.key" "secrets.json" "credentials.json")
+MISSING_PATTERNS=()
+
+for pattern in "${REQUIRED_PATTERNS[@]}"; do
+    if ! grep -qF "$pattern" "$GITIGNORE_FILE" 2>/dev/null; then
+        MISSING_PATTERNS+=("$pattern")
+    fi
+done
+
+if [ ${#MISSING_PATTERNS[@]} -gt 0 ]; then
+    echo "⚠️  Missing .gitignore entries: ${MISSING_PATTERNS[*]}"
+fi
+
+# Check if any .env files are being committed (should be blocked)
+for file in $STAGED_FILES; do
+    if [[ "$file" == *.env ]] || [[ "$file" == *.env.local ]] || [[ "$file" == *.env.production ]]; then
+        echo "❌ Attempting to commit environment file: $file"
+        ERRORS_FOUND=1
+    fi
+done
+
+if [ $ERRORS_FOUND -eq 1 ]; then
+    echo ""
+    echo "❌ Security check failed. Commit aborted."
+    echo "   Please remove secrets and use environment variables instead."
+    echo "   If this is a false positive, use: git commit --no-verify"
+    exit 1
+fi
+
+echo "✅ Security checks passed!"
+exit 0
