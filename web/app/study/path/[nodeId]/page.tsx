@@ -33,23 +33,17 @@ export default function PathStudyPage() {
         const db = getPowerSyncDatabase();
         if (!db) return;
 
-        const nodeResult = await db.getAll(
+        const nodes = await db.getAll<PathNode>(
           'SELECT * FROM learning_path WHERE id = ?',
           [nodeId]
         );
-
-        const nodes = Array.isArray(nodeResult) 
-          ? nodeResult 
-          : nodeResult.rows 
-            ? Array.from({ length: nodeResult.rows.length }, (_, i) => nodeResult.rows.item(i))
-            : [];
 
         if (nodes.length === 0) {
           setLoading(false);
           return;
         }
 
-        const pathNode = nodes[0] as PathNode;
+        const pathNode = nodes[0];
         setNode(pathNode);
         setIsReview(pathNode.node_type === 'review' || pathNode.review_of_node_id !== null);
         setLoading(false);
