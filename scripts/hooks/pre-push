@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Pre-push hook: Run TypeScript build check before pushing
+# This catches type errors that would fail on Vercel
+
+echo "🔍 Running pre-push checks..."
+
+# Navigate to web directory
+cd "$(git rev-parse --show-toplevel)/web" || exit 1
+
+# Run TypeScript type check (faster than full build)
+echo "📝 Checking TypeScript types..."
+if ! npx tsc --noEmit; then
+    echo ""
+    echo "❌ TypeScript errors found. Push aborted."
+    echo "   Fix the errors above and try again."
+    exit 1
+fi
+
+echo "✅ All checks passed!"
+exit 0
