@@ -4,7 +4,9 @@
 
 **[Live Demo →](https://halomed.vercel.app/)**
 
-![HaLomeid Banner](docs/screenshots/banner.png)
+<p align="center">
+  <img src="docs/screenshots/banner.png" alt="HaLomeid Banner" width="100%" />
+</p>
 
 ## Overview
 
@@ -13,9 +15,9 @@ HaLomeid is an offline-first daily learning application designed for religious a
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/path-screen.png" width="250" alt="Learning Path" />
-  <img src="docs/screenshots/study-screen.png" width="250" alt="Study Screen" />
-  <img src="docs/screenshots/quiz-screen.png" width="250" alt="Quiz Screen" />
+  <img src="docs/screenshots/Screenshot 2026-01-19 at 22.24.51.png" width="250" alt="Learning Path" />
+  <img src="docs/screenshots/Screenshot 2026-01-19 at 22.24.04.png" width="250" alt="Study Screen" />
+  <img src="docs/screenshots/Screenshot 2026-01-19 at 22.24.14.png" width="250" alt="Expansions" />
 </p>
 
 ## Features
