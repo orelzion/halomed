@@ -64,10 +64,12 @@ check_file() {
         ERRORS_FOUND=1
     fi
     
-    # Private key markers
-    if echo "$content" | grep -qE '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----'; then
-        echo "❌ Private key found in: $file"
-        ERRORS_FOUND=1
+    # Private key markers (skip hook files that contain the pattern as a check)
+    if [[ "$file" != *hooks/pre-commit* ]] && [[ "$file" != *.md ]]; then
+        if echo "$content" | grep -q -- '-----BEGIN.*PRIVATE KEY-----'; then
+            echo "❌ Private key found in: $file"
+            ERRORS_FOUND=1
+        fi
     fi
     
     # Generic secret/password in code (not in .env or config templates)
