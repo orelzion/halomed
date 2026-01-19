@@ -6,6 +6,7 @@ import { useTranslation } from '@/lib/i18n';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import { supabase } from '@/lib/supabase/client';
 import { StudyHeader } from '@/components/ui/StudyHeader';
+import { Mascot } from '@/components/ui/Mascot';
 import posthog from 'posthog-js';
 
 interface QuizQuestion {
@@ -437,6 +438,13 @@ export function QuizScreen() {
   if (quizComplete) {
     const percentage = Math.round((score / totalQuestions) * 100);
     
+    // Determine mascot mood based on score
+    const getMascotMood = () => {
+      if (percentage === 100) return 'celebrating';
+      if (percentage >= 70) return 'happy';
+      return 'encouraging';
+    };
+    
     return (
       <div className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
         <StudyHeader 
@@ -447,13 +455,18 @@ export function QuizScreen() {
         <div className="max-w-2xl mx-auto p-4">
           <div className="bg-desert-oasis-card dark:bg-desert-oasis-dark-card rounded-2xl p-8 text-center">
             <div className="mb-6">
-              <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-desert-oasis-accent to-orange-500 flex items-center justify-center">
-                <span className="text-4xl font-source font-bold text-white">
-                  {score}/{totalQuestions}
+              {/* Mascot with score-based mood */}
+              <div className="mb-4">
+                <Mascot mood={getMascotMood()} size="lg" />
+              </div>
+              
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-desert-oasis-accent to-orange-500 flex items-center justify-center">
+                <span className="text-3xl font-source font-bold text-white">
+                  {percentage}%
                 </span>
               </div>
               <p className="font-source text-2xl font-bold text-[var(--text-primary)] mb-2">
-                {percentage >= 80 ? 'מצוין!' : percentage >= 60 ? 'טוב מאוד!' : 'נסה שוב!'}
+                {percentage === 100 ? 'מושלם!' : percentage >= 80 ? 'מצוין!' : percentage >= 60 ? 'טוב מאוד!' : 'ממשיכים להתקדם!'}
               </p>
               <p className="font-explanation text-lg text-[var(--text-secondary)]">
                 ענית נכון על {score} מתוך {totalQuestions} שאלות

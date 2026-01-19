@@ -9,6 +9,7 @@ import { usePath } from '@/lib/hooks/usePath';
 import { supabase } from '@/lib/supabase/client';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import posthog from 'posthog-js';
+import { Mascot } from '@/components/ui/Mascot';
 
 type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
@@ -144,6 +145,11 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary p-4">
       <div className="max-w-2xl mx-auto">
+        {/* Welcome mascot */}
+        <div className="flex justify-center mb-6">
+          <Mascot mood="happy" size="xl" />
+        </div>
+        
         <h1 className="text-3xl font-source text-center mb-2 text-[var(--text-primary)]">
           {t('onboarding_welcome')}
         </h1>

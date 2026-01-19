@@ -7,6 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useRouter } from 'next/navigation';
 import { formatContentRef, formatHebrewNumber, getTractateHebrew, isLastChapter } from '@/lib/utils/date-format';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import { Mascot } from '@/components/ui/Mascot';
 import posthog from 'posthog-js';
 
 /**
@@ -538,12 +539,10 @@ export function PathScreen() {
                           {/* Glow effect */}
                           <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/30 via-orange-400/30 to-yellow-400/30 blur-xl rounded-full" />
                           
-                          <div className="relative flex flex-col items-center gap-3 px-8 py-5 bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-50 dark:from-yellow-900/40 dark:via-orange-900/30 dark:to-yellow-900/40 rounded-2xl border-2 border-yellow-400/50 dark:border-yellow-500/50 shadow-lg">
-                            <div className="flex items-center gap-2">
-                              <StarIcon className="text-yellow-500 w-6 h-6" />
-                              <StarIcon className="text-yellow-400 w-8 h-8" />
-                              <StarIcon className="text-yellow-500 w-6 h-6" />
-                            </div>
+                          <div className="relative flex flex-col items-center gap-4 px-8 py-6 bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-50 dark:from-yellow-900/40 dark:via-orange-900/30 dark:to-yellow-900/40 rounded-2xl border-2 border-yellow-400/50 dark:border-yellow-500/50 shadow-lg">
+                            {/* Mascot celebrating */}
+                            <Mascot mood="celebrating" size="lg" />
+                            
                             <div className="text-center">
                               <p className="font-source text-xl font-bold text-yellow-700 dark:text-yellow-300">
                                 מזל טוב!
