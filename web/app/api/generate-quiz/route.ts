@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { captureServerEvent, getPostHogClient } from '@/lib/posthog-server';
 
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -71,5 +72,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(JSON.parse(responseBody));
+  // Capture quiz generated event
+  const quizData = JSON.parse(responseBody);
+  captureServerEvent(user.id, 'quiz_generated', {
+    content_ref: content_ref,
+    question_count: quizData.questions?.length || 0,
+  });
+  await getPostHogClient().shutdown();
+
+  return NextResponse.json(quizData);
 }

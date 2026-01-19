@@ -8,6 +8,7 @@ import { usePreferences } from '@/lib/hooks/usePreferences';
 import { usePath } from '@/lib/hooks/usePath';
 import { supabase } from '@/lib/supabase/client';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
+import posthog from 'posthog-js';
 
 type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
@@ -53,6 +54,11 @@ export default function OnboardingPage() {
   const handlePaceSelect = (selectedPace: Pace) => {
     setPace(selectedPace);
     setStep('review');
+
+    // Capture pace selection event
+    posthog.capture('onboarding_pace_selected', {
+      pace: selectedPace,
+    });
   };
 
   const handleReviewSelect = (selectedIntensity: ReviewIntensity) => {
@@ -118,9 +124,17 @@ export default function OnboardingPage() {
       // Preferences and path saved successfully to Supabase
       // PowerSync will sync automatically in the background
       console.log('[Onboarding] Preferences and path saved, redirecting to home');
+
+      // Capture onboarding completed event
+      posthog.capture('onboarding_completed', {
+        pace: pace,
+        review_intensity: reviewIntensity,
+      });
+
       router.replace('/');
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      posthog.captureException(error);
       alert('שגיאה בהתחלת הלימוד. נסה שוב.');
     } finally {
       setIsSubmitting(false);

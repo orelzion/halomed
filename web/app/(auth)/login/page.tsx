@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
+import posthog from 'posthog-js';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -23,10 +24,22 @@ export default function LoginPage() {
     setIsSigningIn(true);
     setError(null);
     try {
-      await signInAnonymously();
+      const user = await signInAnonymously();
+
+      // Identify user and capture sign-in event
+      if (user) {
+        posthog.identify(user.id, {
+          is_anonymous: true,
+        });
+        posthog.capture('user_signed_in', {
+          method: 'anonymous',
+        });
+      }
+
       router.push('/');
     } catch (err) {
       console.error('Anonymous login error:', err);
+      posthog.captureException(err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign in anonymously';
       setError(errorMessage);
       setIsSigningIn(false);
@@ -39,11 +52,14 @@ export default function LoginPage() {
       const { error } = await signInWithGoogle();
       if (error) {
         console.error('Google login error:', error);
+        posthog.captureException(error);
         setIsSigningIn(false);
       }
       // OAuth redirect will happen automatically if successful
+      // PostHog identification is handled in the auth callback
     } catch (error) {
       console.error('Google login error:', error);
+      posthog.captureException(error);
       setIsSigningIn(false);
     }
   };
@@ -54,11 +70,14 @@ export default function LoginPage() {
       const { error } = await signInWithApple();
       if (error) {
         console.error('Apple login error:', error);
+        posthog.captureException(error);
         setIsSigningIn(false);
       }
       // OAuth redirect will happen automatically if successful
+      // PostHog identification is handled in the auth callback
     } catch (error) {
       console.error('Apple login error:', error);
+      posthog.captureException(error);
       setIsSigningIn(false);
     }
   };

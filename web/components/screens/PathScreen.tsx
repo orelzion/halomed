@@ -7,6 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useRouter } from 'next/navigation';
 import { formatContentRef, formatHebrewNumber, getTractateHebrew, isLastChapter } from '@/lib/utils/date-format';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import posthog from 'posthog-js';
 
 /**
  * Get week range (Sunday to Thursday) for a weekly quiz date
@@ -350,7 +351,15 @@ export function PathScreen() {
 
   const handleNodeClick = (node: typeof nodes[0]) => {
     if (node.isLocked) return;
-    
+
+    // Capture path node click event
+    posthog.capture('path_node_clicked', {
+      node_id: node.id,
+      node_type: node.node_type,
+      content_ref: node.content_ref,
+      is_completed: node.completed_at !== null,
+    });
+
     if (node.node_type === 'quiz' || node.node_type === 'weekly_quiz') {
       router.push(`/quiz/${node.id}`);
     } else if (node.content_ref) {

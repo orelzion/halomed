@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useCompletion } from '@/lib/hooks/useCompletion';
 import { useEffect, useRef, useState } from 'react';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import posthog from 'posthog-js';
 
 interface StudyScreenProps {
   trackId?: string;
@@ -30,7 +31,21 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const hasTriggeredRef = useRef(false);
+  const hasTrackedLessonStart = useRef(false);
   // Debug panel removed after diagnosis
+
+  // Track lesson start when content is loaded
+  useEffect(() => {
+    if (studyUnit?.content && !hasTrackedLessonStart.current) {
+      hasTrackedLessonStart.current = true;
+      posthog.capture('study_lesson_started', {
+        content_ref: studyUnit.content.ref_id,
+        track_id: trackId,
+        is_review: isReview || false,
+        path_node_id: pathNodeId,
+      });
+    }
+  }, [studyUnit?.content, trackId, isReview, pathNodeId]);
 
   const handleDone = async () => {
     if (!studyUnit?.log) return;
@@ -38,8 +53,19 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
     try {
       const currentState = studyUnit.log.is_completed === 1;
       await toggleCompletion(studyUnit.log.id, currentState);
+
+      // Capture completion event when marking as done (not when unchecking)
+      if (!currentState) {
+        posthog.capture('study_lesson_completed', {
+          content_ref: studyUnit.content?.ref_id,
+          track_id: trackId,
+          is_review: isReview || false,
+          path_node_id: pathNodeId,
+        });
+      }
     } catch (error) {
       console.error('Error toggling completion:', error);
+      posthog.captureException(error);
       setGenerationError(error instanceof Error ? error.message : t('error_generic'));
     }
   };

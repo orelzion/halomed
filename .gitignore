@@ -1,1 +1,24 @@
+# Environment files
 .env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Secret files
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AI assistants
+.claude/

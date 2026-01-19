@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { captureServerEvent, getPostHogClient } from '@/lib/posthog-server';
 
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -67,5 +68,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(JSON.parse(responseBody));
+  // Capture learning path generated event
+  const pathData = JSON.parse(responseBody);
+  captureServerEvent(user.id, 'learning_path_generated', {
+    is_forced: force,
+    node_count: pathData.nodes?.length || 0,
+  });
+  await getPostHogClient().shutdown();
+
+  return NextResponse.json(pathData);
 }

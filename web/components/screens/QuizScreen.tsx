@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import { supabase } from '@/lib/supabase/client';
 import { StudyHeader } from '@/components/ui/StudyHeader';
+import posthog from 'posthog-js';
 
 interface QuizQuestion {
   id: string;
@@ -87,6 +88,8 @@ export function QuizScreen() {
   const [showExplanations, setShowExplanations] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [quizComplete, setQuizComplete] = useState(false);
+  const [quizContentRef, setQuizContentRef] = useState<string | null>(null);
+  const hasTrackedQuizStart = useRef(false);
 
   useEffect(() => {
     const loadQuiz = async () => {
@@ -111,6 +114,9 @@ export function QuizScreen() {
           return;
         }
 
+        // Store content ref for tracking
+        setQuizContentRef(node.content_ref);
+
         // Check if this is a weekly quiz
         if (isWeeklyQuiz(node.content_ref)) {
           await loadWeeklyQuiz(db, node.content_ref);
@@ -119,6 +125,7 @@ export function QuizScreen() {
         }
       } catch (error) {
         console.error('Error loading quiz:', error);
+        posthog.captureException(error);
       } finally {
         setLoading(false);
       }
@@ -312,18 +319,42 @@ export function QuizScreen() {
     }
   }, [nodeId]);
 
+  // Track quiz start when questions are loaded
+  useEffect(() => {
+    if (allQuestions.length > 0 && !hasTrackedQuizStart.current) {
+      hasTrackedQuizStart.current = true;
+      posthog.capture('quiz_started', {
+        node_id: nodeId,
+        content_ref: quizContentRef,
+        is_weekly_quiz: quizContentRef ? isWeeklyQuiz(quizContentRef) : false,
+        total_questions: allQuestions.length,
+      });
+    }
+  }, [allQuestions.length, nodeId, quizContentRef]);
+
   const handleAnswerSelect = (answerIndex: number) => {
     const question = allQuestions[currentQuestionIndex];
     if (!question) return;
-    
+
     // Already answered this question
     if (selectedAnswers.has(currentQuestionIndex)) return;
-    
+
+    const isAnswerCorrect = answerIndex === question.correct_answer;
+
+    // Capture answer submission event
+    posthog.capture('quiz_answer_submitted', {
+      node_id: nodeId,
+      content_ref: question.content_ref,
+      question_index: currentQuestionIndex,
+      is_correct: isAnswerCorrect,
+      total_questions: allQuestions.length,
+    });
+
     // Record answer
     const newAnswers = new Map(selectedAnswers);
     newAnswers.set(currentQuestionIndex, answerIndex);
     setSelectedAnswers(newAnswers);
-    
+
     // Show explanation
     const newExplanations = new Set(showExplanations);
     newExplanations.add(currentQuestionIndex);
@@ -334,7 +365,21 @@ export function QuizScreen() {
     if (currentQuestionIndex < allQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
-      // All questions answered
+      // All questions answered - capture completion event
+      const finalScore = Array.from(selectedAnswers.entries()).filter(
+        ([idx, answer]) => allQuestions[idx]?.correct_answer === answer
+      ).length;
+      const percentage = Math.round((finalScore / allQuestions.length) * 100);
+
+      posthog.capture('quiz_completed', {
+        node_id: nodeId,
+        content_ref: quizContentRef,
+        is_weekly_quiz: quizContentRef ? isWeeklyQuiz(quizContentRef) : false,
+        score: finalScore,
+        total_questions: allQuestions.length,
+        percentage: percentage,
+      });
+
       setQuizComplete(true);
     }
   };

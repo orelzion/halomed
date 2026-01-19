@@ -1,0 +1,67 @@
+[
+  {
+    "event_name": "user_signed_in",
+    "description": "User successfully signed in (anonymous, Google, or Apple)",
+    "file_path": "app/(auth)/login/page.tsx"
+  },
+  {
+    "event_name": "user_signed_out",
+    "description": "User signed out from their account",
+    "file_path": "app/profile/page.tsx"
+  },
+  {
+    "event_name": "onboarding_pace_selected",
+    "description": "User selected a study pace during onboarding",
+    "file_path": "app/onboarding/page.tsx"
+  },
+  {
+    "event_name": "onboarding_completed",
+    "description": "User completed the onboarding process",
+    "file_path": "app/onboarding/page.tsx"
+  },
+  {
+    "event_name": "study_lesson_started",
+    "description": "User opened a study lesson to learn",
+    "file_path": "components/screens/StudyScreen.tsx"
+  },
+  {
+    "event_name": "study_lesson_completed",
+    "description": "User marked a study lesson as completed",
+    "file_path": "components/screens/StudyScreen.tsx"
+  },
+  {
+    "event_name": "quiz_started",
+    "description": "User started a quiz (daily or weekly)",
+    "file_path": "components/screens/QuizScreen.tsx"
+  },
+  {
+    "event_name": "quiz_answer_submitted",
+    "description": "User submitted an answer to a quiz question",
+    "file_path": "components/screens/QuizScreen.tsx"
+  },
+  {
+    "event_name": "quiz_completed",
+    "description": "User completed a quiz with final score",
+    "file_path": "components/screens/QuizScreen.tsx"
+  },
+  {
+    "event_name": "path_node_clicked",
+    "description": "User clicked on a learning path node",
+    "file_path": "components/screens/PathScreen.tsx"
+  },
+  {
+    "event_name": "learning_path_generated",
+    "description": "Server successfully generated a learning path for user",
+    "file_path": "app/api/generate-path/route.ts"
+  },
+  {
+    "event_name": "quiz_generated",
+    "description": "Server successfully generated a quiz for content",
+    "file_path": "app/api/generate-quiz/route.ts"
+  },
+  {
+    "event_name": "auth_callback_completed",
+    "description": "OAuth callback successfully processed",
+    "file_path": "app/auth/callback/route.ts"
+  }
+]

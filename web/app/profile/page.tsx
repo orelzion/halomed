@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
+import posthog from 'posthog-js';
 
 // Back arrow icon
 function ArrowRightIcon({ className = '' }: { className?: string }) {
@@ -43,13 +44,21 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
-    
+
     setIsLoggingOut(true);
     try {
+      // Capture logout event before signing out
+      posthog.capture('user_signed_out');
+
       await supabase.auth.signOut();
+
+      // Reset PostHog identification after sign out
+      posthog.reset();
+
       router.push('/login');
     } catch (error) {
       console.error('Error logging out:', error);
+      posthog.captureException(error);
       setIsLoggingOut(false);
     }
   };

@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase/client';
+import { captureServerEvent, getPostHogClient } from '@/lib/posthog-server';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -12,7 +13,38 @@ export async function GET(request: Request) {
 
   if (code) {
     // Exchange code for session
-    await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (data?.user) {
+      const posthog = getPostHogClient();
+
+      // Identify user on server side
+      posthog.identify({
+        distinctId: data.user.id,
+        properties: {
+          email: data.user.email,
+          provider: data.user.app_metadata?.provider,
+        },
+      });
+
+      // Capture auth callback event
+      captureServerEvent(data.user.id, 'auth_callback_completed', {
+        provider: data.user.app_metadata?.provider,
+        is_new_user: !data.user.last_sign_in_at ||
+          new Date(data.user.last_sign_in_at).getTime() === new Date(data.user.created_at).getTime(),
+      });
+
+      // Also capture the sign-in event
+      captureServerEvent(data.user.id, 'user_signed_in', {
+        method: data.user.app_metadata?.provider || 'oauth',
+      });
+
+      await posthog.shutdown();
+    }
+
+    if (error) {
+      console.error('OAuth callback error:', error);
+    }
   }
 
   // Redirect to home page
