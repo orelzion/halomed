@@ -32,7 +32,7 @@ async function calculateStreak(
     [trackId, userId]
   );
 
-  const logs = (result.rows?._array || []) as UserStudyLogRecord[];
+  const logs = result as UserStudyLogRecord[];
   
   // Filter to only scheduled units (skip days without units)
   const scheduledLogs = logs.filter(log => log.study_date);
@@ -175,8 +175,8 @@ export function useStreaks() {
           return;
         }
 
-        const tracksResult = await db.getAll('SELECT id FROM tracks');
-        const tracks = (tracksResult.rows?._array || []) as Array<{ id: string }>;
+        const tracksResult = await db.getAll<{ id: string }>('SELECT id FROM tracks');
+        const tracks = tracksResult;
 
         // Calculate streak for each track
         const streakMap: Record<string, number> = {};

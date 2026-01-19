@@ -23,7 +23,7 @@ interface StudyScreenProps {
 export function StudyScreen({ trackId, studyDate, contentRef, isReview, onCompletion, pathNodeId }: StudyScreenProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { studyUnit, explanationData, loading, studyTitle } = useStudyUnit(trackId, studyDate);
+  const { studyUnit, explanationData, loading, studyTitle } = useStudyUnit(trackId ?? '', studyDate);
   const { toggleCompletion, isToggling } = useCompletion();
   const { session } = useAuthContext();
   const [isGenerating, setIsGenerating] = useState(false);

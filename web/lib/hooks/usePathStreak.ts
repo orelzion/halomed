@@ -33,8 +33,13 @@ export function usePathStreak() {
           return;
         }
 
+        interface PathNode {
+          completed_at: string | null;
+          unlock_date: string | null;
+        }
+        
         // Get all learning nodes (not review/quiz) ordered by unlock_date DESC
-        const result = await db.getAll(
+        const nodes = await db.getAll<PathNode>(
           `SELECT * FROM learning_path 
            WHERE user_id = ? 
              AND node_type = 'learning'
@@ -42,12 +47,6 @@ export function usePathStreak() {
            ORDER BY unlock_date DESC`,
           [user.id]
         );
-
-        const nodes = Array.isArray(result) 
-          ? result 
-          : result.rows 
-            ? Array.from({ length: result.rows.length }, (_, i) => result.rows.item(i))
-            : [];
 
         let streakCount = 0;
         const today = new Date().toISOString().split('T')[0];

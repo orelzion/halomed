@@ -98,18 +98,18 @@ export function QuizScreen() {
         if (!db) return;
 
         // Get path node to find content_ref
-        const nodeResult = await db.getAll(
+        const nodeResult = await db.getAll<{ content_ref: string | null }>(
           'SELECT content_ref FROM learning_path WHERE id = ?',
           [nodeId]
         );
         
-        if (!nodeResult || (Array.isArray(nodeResult) && nodeResult.length === 0)) {
+        if (!nodeResult || nodeResult.length === 0) {
           setLoading(false);
           return;
         }
 
-        const node = Array.isArray(nodeResult) ? nodeResult[0] : nodeResult.rows?.[0];
-        if (!node?.content_ref) {
+        const node = nodeResult[0];
+        if (!node.content_ref) {
           setLoading(false);
           return;
         }

@@ -59,7 +59,7 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
           <button
             onClick={() => router.back()}
             className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
-            aria-label={t('back') || 'חזור'}
+            aria-label="חזור"
           >
             <svg
               width="24"
@@ -193,7 +193,7 @@ function ScheduleUnit({ unit, onClick, isToday }: ScheduleUnitProps) {
   
   // Debug: Log he_ref availability
   if (unit.content_ref_id && !unit.content_he_ref) {
-    console.log(`[ScheduleUnit] Missing he_ref for ref_id: ${unit.content_ref_id}, content_id: ${unit.content_id}`);
+    console.log(`[ScheduleUnit] Missing he_ref for ref_id: ${unit.content_ref_id}`);
   }
   
   const contentFormatted = formatContentRef(unit.content_ref_id, unit.content_he_ref);

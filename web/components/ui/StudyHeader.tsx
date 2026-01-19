@@ -33,7 +33,7 @@ export function StudyHeader({ title, onBack, trackId }: StudyHeaderProps) {
         <button
           onClick={handleBack}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
-          aria-label={t('back') || 'חזור'}
+          aria-label={t('back')}
         >
           <svg
             width="24"

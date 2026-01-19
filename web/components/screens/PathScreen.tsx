@@ -40,7 +40,7 @@ function getWeekRangeForQuiz(contentRef: string): { start: string; end: string }
  */
 function getWeeklyQuizMishnayot(
   contentRef: string, 
-  allNodes: Array<{ node_type: string; content_ref: string | null; unlock_date: string }>
+  allNodes: Array<{ node_type: string | null; content_ref: string | null; unlock_date: string | null }>
 ): string {
   const weekRange = getWeekRangeForQuiz(contentRef);
   if (!weekRange) return '';
@@ -49,6 +49,7 @@ function getWeeklyQuizMishnayot(
   const weekLearningNodes = allNodes.filter(n => 
     n.node_type === 'learning' && 
     n.content_ref &&
+    n.unlock_date &&
     n.unlock_date >= weekRange.start && 
     n.unlock_date <= weekRange.end
   );
@@ -697,7 +698,7 @@ export function PathScreen() {
                           <line x1="3" x2="21" y1="10" y2="10" />
                         </svg>
                         <span className="font-explanation text-sm font-semibold text-[var(--text-secondary)]">
-                          {formatDateSeparator(node.unlock_date)}
+                          {formatDateSeparator(node.unlock_date!)}
                         </span>
                       </div>
                       <div className="h-px flex-1 bg-desert-oasis-muted/30 dark:bg-gray-600/30" />

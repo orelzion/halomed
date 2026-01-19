@@ -247,8 +247,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
         console.log(`[PowerSync] Transaction ${transactionCount} completed successfully`);
       } catch (error) {
         console.error(`[PowerSync] Error uploading transaction ${transactionCount}:`, error);
-        // Mark transaction as failed so it can be retried
-        await transaction.rollback();
+        // Re-throw to let PowerSync handle the retry
         throw error;
       }
       

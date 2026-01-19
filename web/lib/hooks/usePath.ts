@@ -67,7 +67,7 @@ export function usePath() {
         // Find current node (first unlocked, incomplete node)
         let currentIdx: number | null = null;
         const nodesWithState: PathNode[] = allNodes.map((node, idx) => {
-          const isUnlocked = node.unlock_date <= today;
+          const isUnlocked = node.unlock_date !== null && node.unlock_date <= today;
           const isCompleted = node.completed_at !== null;
           const isCurrent = isUnlocked && !isCompleted && currentIdx === null;
           

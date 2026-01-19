@@ -81,6 +81,7 @@ export function useTracks() {
             todayLogs
               .filter((log: UserStudyLogRecord) => log.is_completed === 1)
               .map((log: UserStudyLogRecord) => log.track_id)
+              .filter((id): id is string => id !== null)
           );
           setLoading(false);
         }
