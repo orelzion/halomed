@@ -267,12 +267,29 @@ export function PathScreen() {
     }
   }, [currentNodeIndex]);
 
-  if (loading) {
+  // Wait for sync when nodes is empty (path might be generating/syncing)
+  const [waitingForSync, setWaitingForSync] = useState(true);
+  
+  useEffect(() => {
+    if (!loading && nodes.length === 0) {
+      // Wait up to 8 seconds for data to sync
+      const timer = setTimeout(() => {
+        setWaitingForSync(false);
+      }, 8000);
+      
+      return () => clearTimeout(timer);
+    } else if (nodes.length > 0) {
+      setWaitingForSync(false);
+    }
+  }, [loading, nodes.length]);
+
+  // Show loading with mascot
+  if (loading || (nodes.length === 0 && waitingForSync)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-desert-oasis-primary to-desert-oasis-secondary dark:from-desert-oasis-dark-primary dark:to-desert-oasis-dark-secondary">
         <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full border-4 border-desert-oasis-accent border-t-transparent animate-spin" />
-          <p className="text-desert-oasis-accent font-explanation">טוען...</p>
+          <Mascot mood="thinking" size="lg" />
+          <p className="text-desert-oasis-accent font-explanation mt-4">מכין את דרך הלימוד...</p>
         </div>
       </div>
     );
@@ -319,12 +336,10 @@ export function PathScreen() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-desert-oasis-primary to-desert-oasis-secondary dark:from-desert-oasis-dark-primary dark:to-desert-oasis-dark-secondary">
         <div className="text-center p-8 max-w-md">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-desert-oasis-muted/30 flex items-center justify-center">
-            <BookOpenIcon className="text-desert-oasis-accent" />
-          </div>
-          <p className="text-[var(--text-primary)] text-xl font-source mb-2">אין דרך לימוד עדיין</p>
+          <Mascot mood="encouraging" size="lg" />
+          <p className="text-[var(--text-primary)] text-xl font-source mb-2 mt-4">אין דרך לימוד עדיין</p>
           <p className="text-[var(--text-secondary)] text-sm font-explanation mb-6">
-            {session ? 'צור דרך לימוד כדי להתחיל' : 'השלם את ההרשמה כדי להתחיל'}
+            {session ? 'בוא נתחיל את המסע שלך!' : 'השלם את ההרשמה כדי להתחיל'}
           </p>
           
           {session && (
@@ -768,15 +783,18 @@ export function PathScreen() {
                 {/* Shabbat Shalom separator after weekly quiz */}
                 {node.node_type === 'weekly_quiz' && (
                   <div className="mt-6 mb-2 mr-8">
-                    <div className="flex items-center gap-3 justify-center">
-                      <div className="h-px flex-1 bg-gradient-to-r from-transparent to-desert-oasis-accent/50" />
-                      <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-desert-oasis-accent/20 to-orange-400/20 dark:from-desert-oasis-accent/30 dark:to-orange-400/30 rounded-full">
-                        <CandlesIcon className="text-desert-oasis-accent w-5 h-5" />
-                        <span className="font-source text-desert-oasis-accent font-semibold">
-                          שבת שלום
-                        </span>
+                    <div className="flex flex-col items-center gap-2">
+                      <Mascot mood="peaceful" size="sm" />
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-desert-oasis-accent/50" />
+                        <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-desert-oasis-accent/20 to-orange-400/20 dark:from-desert-oasis-accent/30 dark:to-orange-400/30 rounded-full">
+                          <CandlesIcon className="text-desert-oasis-accent w-5 h-5" />
+                          <span className="font-source text-desert-oasis-accent font-semibold">
+                            שבת שלום
+                          </span>
+                        </div>
+                        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-desert-oasis-accent/50" />
                       </div>
-                      <div className="h-px flex-1 bg-gradient-to-l from-transparent to-desert-oasis-accent/50" />
                     </div>
                   </div>
                 )}

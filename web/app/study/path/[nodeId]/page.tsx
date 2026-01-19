@@ -10,6 +10,8 @@ import { formatContentRef } from '@/lib/utils/date-format';
 import { ExpandableSection } from '@/components/ui/ExpandableSection';
 import { DoneButton } from '@/components/ui/DoneButton';
 import { StudyHeader } from '@/components/ui/StudyHeader';
+import { Mascot } from '@/components/ui/Mascot';
+import { CompletionToast } from '@/components/ui/CompletionToast';
 
 interface PathNode {
   id: string;
@@ -99,7 +101,10 @@ export default function PathStudyPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
-        <p className="text-desert-oasis-accent">{t('loading_content')}</p>
+        <div className="text-center">
+          <Mascot mood="reading" size="md" />
+          <p className="text-desert-oasis-accent font-explanation mt-4">{t('loading_content')}</p>
+        </div>
       </div>
     );
   }
@@ -107,7 +112,10 @@ export default function PathStudyPage() {
   if (!node || !node.content_ref) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
-        <p className="text-[var(--text-primary)]">שגיאה בטעינת התוכן</p>
+        <div className="text-center">
+          <Mascot mood="sad" size="md" />
+          <p className="text-[var(--text-primary)] font-explanation mt-4">שגיאה בטעינת התוכן</p>
+        </div>
       </div>
     );
   }
@@ -140,6 +148,7 @@ function PathStudyScreen({
   const [isCompleted, setIsCompleted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [showCompletionToast, setShowCompletionToast] = useState(false);
 
   useEffect(() => {
     setIsCompleted(node?.completed_at !== null);
@@ -192,15 +201,24 @@ function PathStudyScreen({
   const handleDone = async () => {
     const newState = !isCompleted;
     setIsCompleted(newState);
+    
+    // Show celebration toast when completing (not when unchecking)
+    if (newState) {
+      setShowCompletionToast(true);
+    }
+    
     await onCompletion(newState);
   };
 
   if (loading || isGenerating) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
-        <p className="text-desert-oasis-accent">
-          {isGenerating ? 'יוצר תוכן...' : t('loading_content')}
-        </p>
+        <div className="text-center">
+          <Mascot mood={isGenerating ? 'thinking' : 'reading'} size="md" />
+          <p className="text-desert-oasis-accent font-explanation mt-4">
+            {isGenerating ? 'יוצר תוכן...' : t('loading_content')}
+          </p>
+        </div>
       </div>
     );
   }
@@ -209,7 +227,8 @@ function PathStudyScreen({
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
         <div className="text-center p-4">
-          <p className="text-[var(--text-primary)] mb-4">
+          <Mascot mood="sad" size="md" />
+          <p className="text-[var(--text-primary)] mt-4 mb-4">
             {generationError ? `שגיאה: ${generationError}` : 'תוכן לא נמצא'}
           </p>
           {generationError && (
@@ -218,7 +237,7 @@ function PathStudyScreen({
                 setGenerationError(null);
                 setIsGenerating(false);
               }}
-              className="px-6 py-3 bg-desert-oasis-accent text-white rounded-xl"
+              className="px-6 py-3 bg-desert-oasis-accent text-white rounded-xl font-explanation"
             >
               נסה שוב
             </button>
@@ -337,6 +356,12 @@ function PathStudyScreen({
           />
         </div>
       </div>
+      
+      {/* Completion celebration toast */}
+      <CompletionToast 
+        show={showCompletionToast} 
+        onComplete={() => setShowCompletionToast(false)} 
+      />
     </div>
   );
 }

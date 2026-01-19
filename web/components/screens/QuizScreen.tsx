@@ -402,8 +402,9 @@ export function QuizScreen() {
           title={t('quiz_title')}
           onBack={() => router.push('/')}
         />
-        <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 64px)' }}>
-          <p className="text-desert-oasis-accent">{t('loading_content')}</p>
+        <div className="flex flex-col items-center justify-center" style={{ height: 'calc(100vh - 64px)' }}>
+          <Mascot mood="thinking" size="md" />
+          <p className="text-desert-oasis-accent font-explanation mt-4">{t('loading_content')}</p>
         </div>
       </div>
     );
@@ -416,8 +417,15 @@ export function QuizScreen() {
           title={t('quiz_title')}
           onBack={() => router.push('/')}
         />
-        <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 64px)' }}>
-          <p className="text-[var(--text-primary)]">שגיאה בטעינת החידון</p>
+        <div className="flex flex-col items-center justify-center" style={{ height: 'calc(100vh - 64px)' }}>
+          <Mascot mood="sad" size="md" />
+          <p className="text-[var(--text-primary)] font-explanation mt-4">שגיאה בטעינת החידון</p>
+          <button
+            onClick={() => router.push('/')}
+            className="mt-4 px-6 py-3 bg-desert-oasis-accent text-white rounded-xl font-explanation"
+          >
+            חזור
+          </button>
         </div>
       </div>
     );

@@ -5,6 +5,7 @@ import { useAuthContext } from '@/components/providers/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
 import posthog from 'posthog-js';
+import { Mascot } from '@/components/ui/Mascot';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -19,6 +20,16 @@ export default function LoginPage() {
       router.push('/');
     }
   }, [user, loading, router]);
+
+  // Check if user has seen intro (stored in localStorage)
+  useEffect(() => {
+    if (!loading && !user) {
+      const hasSeenIntro = localStorage.getItem('halomed_seen_intro');
+      if (!hasSeenIntro) {
+        router.push('/welcome');
+      }
+    }
+  }, [loading, user, router]);
 
   const handleAnonymousLogin = async () => {
     setIsSigningIn(true);
@@ -85,7 +96,10 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
-        <p className="text-desert-oasis-accent">{t('syncing')}</p>
+        <div className="text-center">
+          <Mascot mood="thinking" size="md" />
+          <p className="text-desert-oasis-accent font-explanation mt-4">{t('syncing')}</p>
+        </div>
       </div>
     );
   }
@@ -93,7 +107,12 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary p-4">
       <div className="max-w-md w-full bg-desert-oasis-card dark:bg-desert-oasis-dark-card rounded-xl p-8 shadow-lg">
-        <h1 className="text-3xl font-source text-center mb-8 text-[var(--text-primary)]">
+        {/* Welcome mascot */}
+        <div className="flex justify-center mb-4">
+          <Mascot mood="happy" size="lg" />
+        </div>
+        
+        <h1 className="text-3xl font-source text-center mb-6 text-[var(--text-primary)]">
           {t('login_title')}
         </h1>
 

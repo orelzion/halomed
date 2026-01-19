@@ -7,18 +7,18 @@ import { useTranslation } from '@/lib/i18n';
 import { usePreferences } from '@/lib/hooks/usePreferences';
 import { usePath } from '@/lib/hooks/usePath';
 import { supabase } from '@/lib/supabase/client';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import posthog from 'posthog-js';
 import { Mascot } from '@/components/ui/Mascot';
 
 type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
+type OnboardingStep = 'pace' | 'review';
 
 export default function OnboardingPage() {
   const { user, loading } = useAuthContext();
   const router = useRouter();
   const { t } = useTranslation();
-  const [step, setStep] = useState<'pace' | 'review'>('pace');
+  const [step, setStep] = useState<OnboardingStep>('pace');
   const [pace, setPace] = useState<Pace | null>(null);
   const [reviewIntensity, setReviewIntensity] = useState<ReviewIntensity | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -143,19 +143,25 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary p-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Welcome mascot */}
-        <div className="flex justify-center mb-6">
-          <Mascot mood="happy" size="xl" />
-        </div>
-        
-        <h1 className="text-3xl font-source text-center mb-2 text-[var(--text-primary)]">
-          {t('onboarding_welcome')}
-        </h1>
-        <p className="text-center mb-8 text-[var(--text-secondary)]">
-          {t('onboarding_subtitle')}
-        </p>
+    <div className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary p-4 flex flex-col">
+      <div className="max-w-2xl mx-auto flex-1 flex flex-col w-full">
+
+        {/* Pace selection step */}
+        {step === 'pace' && (
+          <>
+            {/* Welcome mascot */}
+            <div className="flex justify-center mb-6 mt-8">
+              <Mascot mood="happy" size="lg" />
+            </div>
+            
+            <h1 className="text-2xl font-source text-center mb-2 text-[var(--text-primary)]">
+              {t('onboarding_welcome')}
+            </h1>
+            <p className="text-center mb-6 text-[var(--text-secondary)] font-explanation">
+              {t('onboarding_subtitle')}
+            </p>
+          </>
+        )}
 
         {step === 'pace' && (
           <div className="space-y-4">
@@ -222,10 +228,15 @@ export default function OnboardingPage() {
               ← חזור
             </button>
 
-            <h2 className="text-xl font-explanation font-semibold mb-2 text-[var(--text-primary)]">
+            {/* Review mascot */}
+            <div className="flex justify-center mb-4">
+              <Mascot mood="thinking" size="md" />
+            </div>
+
+            <h2 className="text-xl font-explanation font-semibold mb-2 text-[var(--text-primary)] text-center">
               {t('review_intensity_title')}
             </h2>
-            <p className="text-sm mb-6 text-[var(--text-secondary)]">
+            <p className="text-sm mb-6 text-[var(--text-secondary)] text-center">
               {t('review_intensity_subtitle')}
             </p>
 

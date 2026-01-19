@@ -10,6 +10,8 @@ import { useCompletion } from '@/lib/hooks/useCompletion';
 import { useEffect, useRef, useState } from 'react';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import posthog from 'posthog-js';
+import { Mascot } from '@/components/ui/Mascot';
+import { CompletionToast } from '@/components/ui/CompletionToast';
 
 interface StudyScreenProps {
   trackId?: string;
@@ -30,9 +32,9 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
+  const [showCompletionToast, setShowCompletionToast] = useState(false);
   const hasTriggeredRef = useRef(false);
   const hasTrackedLessonStart = useRef(false);
-  // Debug panel removed after diagnosis
 
   // Track lesson start when content is loaded
   useEffect(() => {
@@ -54,8 +56,9 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
       const currentState = studyUnit.log.is_completed === 1;
       await toggleCompletion(studyUnit.log.id, currentState);
 
-      // Capture completion event when marking as done (not when unchecking)
+      // Show celebration toast and capture completion event when marking as done (not when unchecking)
       if (!currentState) {
+        setShowCompletionToast(true);
         posthog.capture('study_lesson_completed', {
           content_ref: studyUnit.content?.ref_id,
           track_id: trackId,
@@ -128,7 +131,10 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-primary dark:bg-desert-oasis-dark-primary">
-        <p className="text-desert-oasis-accent">{t('syncing')}</p>
+        <div className="text-center">
+          <Mascot mood="reading" size="md" />
+          <p className="text-desert-oasis-accent font-explanation mt-4">{t('syncing')}</p>
+        </div>
       </div>
     );
   }
@@ -137,7 +143,8 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-primary dark:bg-desert-oasis-dark-primary p-4">
         <div className="text-center">
-          <p className="text-[var(--text-secondary)] font-explanation mb-4">
+          <Mascot mood="encouraging" size="md" />
+          <p className="text-[var(--text-secondary)] font-explanation my-4">
             {t('no_study_today')}
           </p>
           <button
@@ -155,7 +162,8 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-primary dark:bg-desert-oasis-dark-primary p-4">
         <div className="text-center">
-          <p className="text-[var(--text-secondary)] font-explanation mb-4">
+          <Mascot mood={generationError ? 'sad' : 'thinking'} size="md" />
+          <p className="text-[var(--text-secondary)] font-explanation my-4">
             {t('loading_content')}
           </p>
           {generationError && (
@@ -313,6 +321,12 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
           </div>
         )}
       </div>
+      
+      {/* Completion celebration toast */}
+      <CompletionToast 
+        show={showCompletionToast} 
+        onComplete={() => setShowCompletionToast(false)} 
+      />
     </div>
   );
 }
