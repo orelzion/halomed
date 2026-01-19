@@ -178,7 +178,7 @@ This project is private and not open for public use without permission.
 ---
 
 <p align="center">
-  <b>בְּרֵאשִׁית בָּרָא אֱלֹהִים</b>
+  <b>הַלּוֹמֵד וְאֵינוֹ חוֹזֵר — כְּזוֹרֵעַ וְאֵינוֹ קוֹצֵר</b>
   <br/>
-  <sub>Built with ❤️ for Torah learners everywhere</sub>
+  <sub>סנהדרין צט ע"א</sub>
 </p>
