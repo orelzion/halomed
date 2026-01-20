@@ -32,7 +32,7 @@ export function StudyHeader({ title, onBack, trackId }: StudyHeaderProps) {
       <div className="max-w-2xl mx-auto px-6 py-4 flex items-center gap-4">
         <button
           onClick={handleBack}
-          className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
+          className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
           aria-label={t('back')}
         >
           <svg
@@ -46,6 +46,7 @@ export function StudyHeader({ title, onBack, trackId }: StudyHeaderProps) {
             strokeLinejoin="round"
             className="text-[var(--text-primary)]"
             style={{ transform: 'scaleX(-1)' }}
+            aria-hidden="true"
           >
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
@@ -56,7 +57,7 @@ export function StudyHeader({ title, onBack, trackId }: StudyHeaderProps) {
         {trackId ? (
           <button
             onClick={handleSchedule}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
+            className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
             aria-label={t('view_schedule') || 'צפה בלוח זמנים'}
             title={t('view_schedule') || 'צפה בלוח זמנים'}
           >
@@ -70,6 +71,7 @@ export function StudyHeader({ title, onBack, trackId }: StudyHeaderProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
               className="text-[var(--text-primary)]"
+              aria-hidden="true"
             >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
@@ -78,7 +80,7 @@ export function StudyHeader({ title, onBack, trackId }: StudyHeaderProps) {
             </svg>
           </button>
         ) : (
-          <div className="w-10" />
+          <div className="w-11" />
         )}
       </div>
     </header>

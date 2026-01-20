@@ -5,6 +5,9 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PowerSyncProvider } from "@/components/providers/PowerSyncProvider";
 import { getTranslation } from "@/lib/i18n";
+import { SkipLink } from "@/components/ui/SkipLink";
+import { CookieConsentBanner } from "@/components/ui/CookieConsentBanner";
+import { Footer } from "@/components/layout/Footer";
 
 const t = getTranslation();
 
@@ -57,10 +60,17 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <body className={`${frankRuhlLibre.variable} ${notoSansHebrew.variable} antialiased`}>
+        <SkipLink />
         <ThemeProvider>
           <AuthProvider>
             <PowerSyncProvider>
-              {children}
+              <div className="min-h-screen flex flex-col">
+                <main id="main-content" className="flex-1">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+              <CookieConsentBanner />
             </PowerSyncProvider>
           </AuthProvider>
         </ThemeProvider>

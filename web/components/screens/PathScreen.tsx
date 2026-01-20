@@ -77,7 +77,7 @@ function getWeeklyQuizMishnayot(
 // Icon components for different study types
 function BookOpenIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
     </svg>
@@ -87,7 +87,7 @@ function BookOpenIcon({ className = '' }: { className?: string }) {
 // Brain icon for review/memory recall
 function BrainIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
       <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
       <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
@@ -99,7 +99,7 @@ function BrainIcon({ className = '' }: { className?: string }) {
 // Clipboard checklist icon for quiz
 function ClipboardCheckIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
       <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
       <path d="m9 14 2 2 4-4" />
@@ -109,7 +109,7 @@ function ClipboardCheckIcon({ className = '' }: { className?: string }) {
 
 function CheckIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -117,7 +117,7 @@ function CheckIcon({ className = '' }: { className?: string }) {
 
 function FlameIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
     </svg>
   );
@@ -126,7 +126,7 @@ function FlameIcon({ className = '' }: { className?: string }) {
 // Shabbat candles icon
 function CandlesIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {/* Left candle */}
       <rect x="5" y="10" width="4" height="10" rx="1" />
       <path d="M7 10 C7 8 6 6 7 4 C8 6 7 8 7 10" fill="currentColor" />
@@ -139,7 +139,7 @@ function CandlesIcon({ className = '' }: { className?: string }) {
 
 function TrophyIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
       <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
       <path d="M4 22h16" />
@@ -152,7 +152,7 @@ function TrophyIcon({ className = '' }: { className?: string }) {
 
 function StarIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
     </svg>
   );
@@ -161,7 +161,7 @@ function StarIcon({ className = '' }: { className?: string }) {
 // User/Profile icon
 function UserCircleIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="10" r="3" />
       <path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" />
@@ -171,7 +171,7 @@ function UserCircleIcon({ className = '' }: { className?: string }) {
 
 function SparklesIcon({ className = '' }: { className?: string }) {
   return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
       <path d="M5 3v4" />
       <path d="M19 17v4" />
@@ -189,7 +189,7 @@ export function PathScreen() {
   const { streak } = usePathStreak();
   const { t } = useTranslation();
   const router = useRouter();
-  const currentRef = useRef<HTMLDivElement>(null);
+  const currentRef = useRef<HTMLButtonElement>(null);
   const { session } = useAuthContext();
   const hasEnsuredContent = useRef(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -391,7 +391,7 @@ export function PathScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-desert-oasis-primary to-desert-oasis-secondary dark:from-desert-oasis-dark-primary dark:to-desert-oasis-dark-secondary">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-desert-oasis-primary/95 dark:bg-desert-oasis-dark-primary/95 backdrop-blur-sm border-b border-desert-oasis-muted/20 dark:border-gray-700/30">
+      <header className="sticky top-0 z-20 bg-desert-oasis-primary/95 dark:bg-desert-oasis-dark-primary/95 backdrop-blur-sm border-b border-desert-oasis-muted/20 dark:border-gray-700/30">
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-source font-bold text-[var(--text-primary)]">
@@ -441,6 +441,7 @@ export function PathScreen() {
                     }
                   }}
                   className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full font-explanation"
+                  aria-label="Regenerate learning path with full Shas (all 63 tractates)"
                   title="Regenerate learning path with full Shas (all 63 tractates)"
                 >
                   🔄 Regenerate
@@ -451,6 +452,7 @@ export function PathScreen() {
               <button
                 onClick={() => router.push('/profile')}
                 className="p-2 -m-1 rounded-full hover:bg-desert-oasis-muted/20 dark:hover:bg-gray-700/30 transition-colors"
+                aria-label="פרופיל"
                 title="פרופיל"
               >
                 <UserCircleIcon className="text-[var(--text-primary)]" />
@@ -476,15 +478,15 @@ export function PathScreen() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Path content */}
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <section className="max-w-2xl mx-auto px-4 py-6" aria-label={t('path_title')}>
         <div className="relative">
           {/* Vertical path line */}
           <div className="absolute right-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-desert-oasis-accent/50 via-desert-oasis-muted/30 to-transparent dark:from-desert-oasis-accent/30 dark:via-gray-600/30" />
           
-          <div className="space-y-4">
+          <div className="space-y-4" role="list" aria-label="דרך הלימוד">
             {nodes.slice(0, visibleCount).map((node, idx) => {
               const isDivider = node.is_divider === 1;
               const isCompleted = node.completed_at !== null;
@@ -707,7 +709,7 @@ export function PathScreen() {
                   {showDateSeparator && (
                     <div className="flex items-center gap-3 mb-4 mr-8">
                       <div className="flex items-center gap-2 px-3 py-1.5 bg-desert-oasis-muted/20 dark:bg-gray-700/30 rounded-full">
-                        <svg className="w-4 h-4 text-[var(--text-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <svg className="w-4 h-4 text-[var(--text-secondary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
                           <line x1="16" x2="16" y1="2" y2="6" />
                           <line x1="8" x2="8" y1="2" y2="6" />
@@ -722,11 +724,20 @@ export function PathScreen() {
                   )}
                   
                   {/* Node card */}
-                  <div
+                  <button
+                    type="button"
                     ref={isCurrent ? currentRef : null}
                     onClick={() => handleNodeClick(node)}
+                    disabled={isLocked}
+                    aria-label={`${node.content_ref ? formatContentRef(node.content_ref) : ''}, ${
+                      node.node_type === 'learning' ? t('path_node_learning') : 
+                      node.node_type === 'quiz' ? t('path_node_quiz') : 
+                      node.node_type === 'weekly_quiz' ? 'מבחן שבועי' :
+                      node.node_type === 'review' ? t('path_node_review') : ''
+                    }${isCompleted ? ', הושלם' : ''}${isCurrent ? ', נוכחי' : ''}${isLocked ? ', נעול' : ''}`}
                     className={`
-                      relative flex items-start gap-4 transition-all duration-300
+                      relative flex items-start gap-4 transition-all duration-300 w-full text-right
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-desert-oasis-accent focus-visible:ring-offset-2
                       ${isLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:scale-[1.02]'}
                     `}
                   >
@@ -780,27 +791,27 @@ export function PathScreen() {
                     )}
                     
                   </div>
-                </div>
+                  </button>
                 
-                {/* Shabbat Shalom separator after weekly quiz */}
-                {node.node_type === 'weekly_quiz' && (
-                  <div className="mt-6 mb-2 mr-8">
-                    <div className="flex flex-col items-center gap-2">
-                      <Mascot mood="peaceful" size="sm" />
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-desert-oasis-accent/50" />
-                        <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-desert-oasis-accent/20 to-orange-400/20 dark:from-desert-oasis-accent/30 dark:to-orange-400/30 rounded-full">
-                          <CandlesIcon className="text-desert-oasis-accent w-5 h-5" />
-                          <span className="font-source text-desert-oasis-accent font-semibold">
-                            שבת שלום
-                          </span>
+                  {/* Shabbat Shalom separator after weekly quiz */}
+                  {node.node_type === 'weekly_quiz' && (
+                    <div className="mt-6 mb-2 mr-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <Mascot mood="peaceful" size="sm" />
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="h-px flex-1 bg-gradient-to-r from-transparent to-desert-oasis-accent/50" />
+                          <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-desert-oasis-accent/20 to-orange-400/20 dark:from-desert-oasis-accent/30 dark:to-orange-400/30 rounded-full">
+                            <CandlesIcon className="text-desert-oasis-accent w-5 h-5" />
+                            <span className="font-source text-desert-oasis-accent font-semibold">
+                              שבת שלום
+                            </span>
+                          </div>
+                          <div className="h-px flex-1 bg-gradient-to-l from-transparent to-desert-oasis-accent/50" />
                         </div>
-                        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-desert-oasis-accent/50" />
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               );
             })}
             
@@ -833,7 +844,7 @@ export function PathScreen() {
         
         {/* Bottom padding for safe area */}
         <div className="h-20" />
-      </div>
+      </section>
     </div>
   );
 }
