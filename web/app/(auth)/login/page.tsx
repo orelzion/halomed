@@ -109,7 +109,7 @@ export default function LoginPage() {
           <button
             onClick={handleAnonymousLogin}
             disabled={isSigningIn}
-            className="w-full py-4 px-6 bg-desert-oasis-muted hover:bg-desert-oasis-accent text-[var(--text-primary)] rounded-xl font-explanation text-lg transition-colors disabled:opacity-50"
+            className="w-full py-4 px-6 bg-desert-oasis-accent hover:bg-desert-oasis-accent/80 text-white rounded-xl font-explanation text-lg transition-colors disabled:opacity-50"
           >
             {isSigningIn ? t('syncing') : t('continue_as_guest')}
           </button>
