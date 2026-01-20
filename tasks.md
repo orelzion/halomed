@@ -777,6 +777,405 @@ SI 5568 Compliance (12.25, 12.26)
 
 ---
 
+## Feature: Study Plan Display & Change in Profile (Section 13)
+
+**Created**: 2026-01-20  
+**PRD Reference**: Section 4.1 (Tracks), Section 7 (Core App Flow)  
+**TDD Reference**: Section 4 (Database Schema - user_preferences, learning_path)  
+**Status**: Implementation Complete (Testing Pending)
+
+### Overview
+
+Enable users to view their current study plan (pace, review intensity) in the profile page and change it without losing their learning progress. When a user changes their plan, completed nodes are preserved and only future nodes are regenerated based on the new preferences.
+
+### Dependencies
+- Profile page exists (`web/app/profile/page.tsx`)
+- User preferences table exists with `pace` and `review_intensity` columns
+- Learning path generation exists (`generate-path` edge function)
+- PowerSync syncs preferences and learning path
+
+---
+
+### Backend Agent Tasks
+
+- [ ] **Task 13.1a**: Write tests for `update-preferences` Edge Function
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.1)
+  - Test function updates `user_preferences` table correctly
+  - Test function preserves completed nodes in `learning_path` (completed_at IS NOT NULL)
+  - Test function deletes only future/incomplete nodes (unlock_date >= today AND completed_at IS NULL)
+  - Test function calls path regeneration with correct starting position
+  - Test authentication required
+  - Test validation of pace and review_intensity values
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `supabase/tests/edge-functions/update-preferences.test.ts`
+
+- [x] **Task 13.1**: Create `update-preferences` Edge Function ✅ (2026-01-20)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 13.1a tests pass)
+  - Create new Edge Function at `supabase/functions/update-preferences/index.ts`
+  - Accept parameters: `user_id`, `pace`, `review_intensity`
+  - Update `user_preferences` table with new values
+  - Identify the last completed learning node (highest node_index where completed_at IS NOT NULL)
+  - Delete all incomplete future nodes from `learning_path`
+  - Calculate the content_index to resume from based on last completed node
+  - Call `generate-path` internally with `start_from_content_index` parameter
+  - Return success with summary of changes
+  - Acceptance: Function works, preserves progress, tests pass
+  - Depends on: Task 13.1a (tests written first), Task 13.2
+  - Files: `supabase/functions/update-preferences/index.ts`
+  - Reference: TDD 4.3 (learning_path schema), TDD 6.2 (generate-schedule pattern)
+
+- [ ] **Task 13.2a**: Write tests for `generate-path` partial regeneration
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.2)
+  - Test `start_from_content_index` parameter skips already-covered content
+  - Test `preserve_completed` parameter prevents deletion of completed nodes
+  - Test node_index continues from last existing node
+  - Test unlock_date calculation starts from today (not original start date)
+  - Test content generation only for new nodes
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `supabase/tests/edge-functions/generate-path-partial.test.ts`
+
+- [x] **Task 13.2**: Update `generate-path` Edge Function for partial regeneration ✅ (2026-01-20)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 13.2a tests pass)
+  - Add `start_from_content_index` parameter (optional, default 0)
+  - Add `preserve_completed` parameter (optional, default false)
+  - When `preserve_completed=true`: skip deletion of completed nodes
+  - When `start_from_content_index > 0`: start content assignment from that index
+  - Calculate `node_index` to continue from last existing node
+  - Calculate `unlock_date` starting from today for new nodes
+  - Pre-generate content only for new nodes in 14-day window
+  - Acceptance: Partial regeneration works correctly, tests pass
+  - Depends on: Task 13.2a (tests written first)
+  - Files: `supabase/functions/generate-path/index.ts`
+  - Reference: Existing generate-path implementation
+
+---
+
+### Sync Agent Tasks
+
+- [ ] **Task 13.3a**: Write tests for preferences update sync
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.3)
+  - Test updated `user_preferences` syncs to client
+  - Test deleted `learning_path` nodes are removed from client
+  - Test new `learning_path` nodes sync correctly
+  - Test sync completes without conflicts
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 13.1
+  - Files: `supabase/tests/sync/preferences-update-sync.test.ts`
+
+- [ ] **Task 13.3**: Verify PowerSync sync rules for preferences update flow
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 13.3a tests pass)
+  - Verify `user_preferences` sync rules handle updates
+  - Verify `learning_path` sync rules handle deletions and insertions
+  - Test sync completes within reasonable time after plan change
+  - Document any sync rule adjustments needed
+  - Acceptance: Sync works correctly after plan change, tests pass
+  - Depends on: Task 13.3a (tests written first), Task 13.1
+  - Files: `powersync/powersync.yaml`
+  - Reference: TDD 8 (Sync Strategy)
+
+---
+
+### Design System Agent Tasks
+
+- [ ] **Task 13.4**: Define `StudyPlanCard` visual specifications
+  - **Assigned to**: Design System Agent
+  - Design card component consistent with existing TrackCard style
+  - Use Desert Oasis color palette (#FAEDCD for card surface)
+  - Define typography for labels (Noto Sans Hebrew)
+  - Define layout for pace and review intensity display
+  - Include edit/change button styling
+  - Support RTL layout
+  - Light and dark theme variants
+  - Acceptance: Design specifications documented and approved
+  - Depends on: None
+  - Files: Design documentation
+  - Reference: PRD 6.1 (Visual Theme), TDD 3.1 (Color Palette)
+
+- [ ] **Task 13.5**: Define `ChangePlanDialog` visual specifications
+  - **Assigned to**: Design System Agent
+  - Design modal overlay with semi-transparent backdrop
+  - Card surface background (#FAEDCD light / dark variant)
+  - Option buttons matching onboarding selection style
+  - Warning message styling (emphasis without alarm)
+  - Success/progress preservation message styling
+  - Confirm and cancel button placement
+  - RTL layout support
+  - Acceptance: Design specifications documented and approved
+  - Depends on: None
+  - Files: Design documentation
+  - Reference: PRD 6.1, TDD 3.1, existing onboarding UI
+
+---
+
+### Web Agent Tasks
+
+- [ ] **Task 13.6a**: Write Maestro tests for StudyPlanCard display
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.6)
+  - Test card displays current pace with Hebrew label
+  - Test card displays current review intensity with Hebrew label
+  - Test card shows loading state while preferences load
+  - Test "שנה תכנית" (Change Plan) button is visible
+  - Test card handles missing preferences (should not crash)
+  - Test card accessible (ARIA labels, keyboard navigable)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 13.4
+  - Files: `tests/maestro/flows/web/study_plan_card.yaml`
+
+- [x] **Task 13.6**: Create `StudyPlanCard` component ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 13.6a tests pass)
+  - Create component at `web/components/ui/StudyPlanCard.tsx`
+  - Use `usePreferences` hook to get current preferences
+  - Display pace with Hebrew label:
+    - `one_mishna`: "משנה אחת ליום"
+    - `two_mishna`: "שתי משניות ליום"
+    - `one_chapter`: "פרק אחד ליום"
+  - Display review intensity with Hebrew label:
+    - `none`: "ללא חזרות"
+    - `light`: "חזרות קלות"
+    - `medium`: "חזרות בינוניות"
+    - `intensive`: "חזרות אינטנסיביות"
+  - Include "שנה תכנית" button
+  - Show loading skeleton while preferences load
+  - Apply Desert Oasis styling
+  - Acceptance: Card displays correctly, tests pass
+  - Depends on: Task 13.6a (tests written first), Task 13.4
+  - Files: `web/components/ui/StudyPlanCard.tsx`
+  - Reference: PRD 4.1, TDD 4.1
+
+- [ ] **Task 13.7a**: Write Maestro tests for ChangePlanDialog
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.7)
+  - Test dialog opens when "שנה תכנית" clicked
+  - Test dialog shows pace selection options
+  - Test dialog shows review intensity options
+  - Test current selections are pre-selected
+  - Test warning message is visible
+  - Test progress preservation message is visible
+  - Test cancel button closes dialog without changes
+  - Test confirm button is disabled until selection made
+  - Test dialog accessible (focus trap, Escape closes, ARIA)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 13.5, Task 13.6
+  - Files: `tests/maestro/flows/web/change_plan_dialog.yaml`
+
+- [x] **Task 13.7**: Create `ChangePlanDialog` component ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 13.7a tests pass)
+  - Create component at `web/components/ui/ChangePlanDialog.tsx`
+  - Modal dialog with backdrop overlay
+  - Pace selection (same options as onboarding):
+    - `one_mishna`, `two_mishna`, `one_chapter`
+  - Review intensity selection (same options as onboarding):
+    - `none`, `light`, `medium`, `intensive`
+  - Pre-select current user preferences
+  - Warning message: "שינוי התכנית יחשב מחדש את לוח הזמנים שלך"
+  - Preservation message: "ההתקדמות הקיימת שלך תישמר"
+  - Cancel button: "ביטול"
+  - Confirm button: "שמור שינויים" (disabled if no changes)
+  - Loading state during save
+  - Focus trap for accessibility
+  - Escape key closes dialog
+  - Acceptance: Dialog works correctly, tests pass
+  - Depends on: Task 13.7a (tests written first), Task 13.5
+  - Files: `web/components/ui/ChangePlanDialog.tsx`
+  - Reference: Onboarding page patterns
+
+- [ ] **Task 13.8a**: Write Maestro tests for profile page integration
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.8)
+  - Test StudyPlanCard appears on profile page
+  - Test card is placed after user info section
+  - Test clicking change button opens dialog
+  - Test successful plan change updates card display
+  - Test error handling shows appropriate message
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 13.6, Task 13.7
+  - Files: `tests/maestro/flows/web/profile_plan_change.yaml`
+
+- [x] **Task 13.8**: Integrate `StudyPlanCard` into Profile page ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 13.8a tests pass)
+  - Import `StudyPlanCard` in `web/app/profile/page.tsx`
+  - Place card after user info section, before actions section
+  - Add section header: "תכנית הלימוד שלי"
+  - Handle case when preferences don't exist (show prompt to complete onboarding)
+  - Integrate `ChangePlanDialog` - open on button click
+  - Acceptance: Integration complete, tests pass
+  - Depends on: Task 13.8a (tests written first), Task 13.6, Task 13.7
+  - Files: `web/app/profile/page.tsx`
+  - Reference: Existing profile page structure
+
+- [ ] **Task 13.9a**: Write Maestro tests for plan change API flow
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 13.9)
+  - Test API call is made on dialog confirm
+  - Test loading state shown during API call
+  - Test success message shown on successful change
+  - Test error message shown on failure
+  - Test PowerSync data refreshes after change
+  - Test dialog closes on success
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 13.1, Task 13.7
+  - Files: `tests/maestro/flows/web/plan_change_api.yaml`
+
+- [x] **Task 13.9**: Implement plan change API call and state management ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 13.9a tests pass)
+  - Create API route at `web/app/api/update-preferences/route.ts`
+  - Proxy to Supabase Edge Function `update-preferences`
+  - Handle authentication (pass JWT)
+  - Show loading spinner during API call
+  - Show success toast/message on completion
+  - Show error message on failure with retry option
+  - Trigger PowerSync refresh after successful update
+  - Close dialog on success
+  - Acceptance: API flow works end-to-end, tests pass
+  - Depends on: Task 13.9a (tests written first), Task 13.1, Task 13.7
+  - Files: `web/app/api/update-preferences/route.ts`, `web/components/ui/ChangePlanDialog.tsx`
+  - Reference: Existing API route patterns
+
+- [x] **Task 13.10**: Add i18n strings for Study Plan feature ✅ (2026-01-20)
+  - **Assigned to**: Web Agent (or Content Generation Agent)
+  - Add Hebrew strings to `shared/strings/strings.json`:
+    - `profile_study_plan_title`: "תכנית הלימוד שלי"
+    - `profile_change_plan`: "שנה תכנית"
+    - `pace_label`: "קצב לימוד"
+    - `review_intensity_label`: "עוצמת חזרות"
+    - `pace_one_mishna_short`: "משנה אחת ליום"
+    - `pace_two_mishna_short`: "שתי משניות ליום"
+    - `pace_one_chapter_short`: "פרק אחד ליום"
+    - `review_none_short`: "ללא חזרות"
+    - `review_light_short`: "חזרות קלות"
+    - `review_medium_short`: "חזרות בינוניות"
+    - `review_intensive_short`: "חזרות אינטנסיביות"
+    - `change_plan_dialog_title`: "שינוי תכנית לימוד"
+    - `change_plan_warning`: "שינוי התכנית יחשב מחדש את לוח הזמנים שלך"
+    - `change_plan_preservation`: "ההתקדמות הקיימת שלך תישמר"
+    - `change_plan_confirm`: "שמור שינויים"
+    - `change_plan_cancel`: "ביטול"
+    - `change_plan_success`: "התכנית עודכנה בהצלחה"
+    - `change_plan_error`: "שגיאה בעדכון התכנית"
+    - `change_plan_loading`: "מעדכן..."
+  - Run string generation script
+  - Acceptance: All strings added and accessible via `useTranslation`
+  - Depends on: None
+  - Files: `shared/strings/strings.json`, `web/lib/i18n/`
+  - Reference: TDD 2.4 (Hebrew only MVP)
+
+---
+
+### Client Testing Agent Tasks
+
+- [ ] **Task 13.11**: Write E2E test for complete plan change flow
+  - **Assigned to**: Client Testing Agent
+  - Create comprehensive E2E test covering:
+    1. User navigates to profile page
+    2. User sees current plan displayed
+    3. User clicks "Change Plan"
+    4. Dialog opens with current selections
+    5. User selects different pace
+    6. User selects different review intensity
+    7. User confirms change
+    8. Loading state appears
+    9. Success message shown
+    10. Dialog closes
+    11. Profile shows updated preferences
+    12. Learning path screen shows recalculated nodes
+    13. Completed nodes are preserved
+  - Test both web and sync behavior
+  - Acceptance: E2E test passes
+  - Depends on: All Task 13.x implementation tasks
+  - Files: `tests/maestro/flows/web/e2e_plan_change.yaml`
+  - Reference: Existing E2E test patterns
+
+---
+
+### Task Dependencies Graph
+
+```
+Server Testing: 13.1a, 13.2a, 13.3a (test writing)
+    │
+    ▼
+Backend: 13.2 (generate-path update) ──► Backend: 13.1 (update-preferences)
+    │                                         │
+    ▼                                         ▼
+Sync: 13.3 (verify sync rules)          Design System: 13.4, 13.5 (specs)
+                                              │
+    ┌─────────────────────────────────────────┤
+    │                                         │
+    ▼                                         ▼
+Client Testing: 13.6a              Client Testing: 13.7a
+    │                                         │
+    ▼                                         ▼
+Web: 13.6 (StudyPlanCard)          Web: 13.7 (ChangePlanDialog)
+    │                                         │
+    └──────────────┬──────────────────────────┘
+                   │
+                   ▼
+           Client Testing: 13.8a
+                   │
+                   ▼
+           Web: 13.8 (Profile integration)
+                   │
+                   ▼
+           Client Testing: 13.9a
+                   │
+                   ▼
+           Web: 13.9 (API call)
+                   │
+                   ▼
+           Web: 13.10 (i18n strings)
+                   │
+                   ▼
+           Client Testing: 13.11 (E2E test)
+```
+
+### Data Flow for Plan Change
+
+```
+1. User clicks "Change Plan" on Profile page
+2. ChangePlanDialog opens showing current selections
+3. User selects new pace and/or review intensity
+4. User confirms change
+5. Web calls update-preferences Edge Function:
+   - user_id
+   - new_pace
+   - new_review_intensity
+6. Edge Function:
+   a. Updates user_preferences table
+   b. Identifies last completed node (highest completed node_index)
+   c. Calculates content_index to resume from
+   d. Deletes all incomplete future nodes
+   e. Calls generate-path with start_from_content_index
+   f. Returns success with summary
+7. PowerSync syncs changes to client
+8. Profile page shows updated preferences
+9. PathScreen shows recalculated learning path
+```
+
+### Agent Assignments Summary (Section 13)
+
+| Agent | Tasks |
+|-------|-------|
+| Server Testing Agent | 13.1a, 13.2a, 13.3a |
+| Backend Agent | 13.1, 13.2 |
+| Sync Agent | 13.3 |
+| Design System Agent | 13.4, 13.5 |
+| Client Testing Agent | 13.6a, 13.7a, 13.8a, 13.9a, 13.11 |
+| Web Agent | 13.6, 13.7, 13.8, 13.9, 13.10 |
+
+---
+
 ## Notes
 
 - **Regulations Compliance**: These tasks address findings from the Regulations Agent compliance audit
