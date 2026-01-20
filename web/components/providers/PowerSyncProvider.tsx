@@ -1,10 +1,26 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import { SupabaseConnector } from '@/lib/powersync/connector';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
+
+interface PowerSyncContextType {
+  isConnected: boolean;
+  hasSynced: boolean;
+  error: Error | null;
+}
+
+const PowerSyncContext = createContext<PowerSyncContextType>({
+  isConnected: false,
+  hasSynced: false,
+  error: null,
+});
+
+export function usePowerSync() {
+  return useContext(PowerSyncContext);
+}
 
 interface PowerSyncProviderProps {
   children: ReactNode;
@@ -12,6 +28,7 @@ interface PowerSyncProviderProps {
 
 export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
+  const [hasSynced, setHasSynced] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { session } = useAuthContext();
   const isConnectingRef = useRef(false);
@@ -35,6 +52,12 @@ export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
         await db.connect(connector);
         setIsConnected(true);
         setError(null);
+        
+        // Wait for first sync to complete before marking as synced
+        console.log('[PowerSync] Connected, waiting for first sync...');
+        await db.waitForFirstSync();
+        console.log('[PowerSync] First sync completed');
+        setHasSynced(true);
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to connect to PowerSync');
         setError(error);
@@ -187,10 +210,14 @@ export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
         console.log('[PowerSync] Status changed:', {
           connected: status.connected,
           connecting: status.connecting,
+          hasSynced: status.hasSynced,
           uploading: status.dataFlowStatus?.uploading,
           uploadError: status.dataFlowStatus?.uploadError,
         });
         setIsConnected(status.connected === true);
+        if (status.hasSynced) {
+          setHasSynced(true);
+        }
       },
     };
 
@@ -201,8 +228,10 @@ export function PowerSyncProvider({ children }: PowerSyncProviderProps) {
     };
   }, []);
 
-  // Provide database instance via context if needed
-  // For now, components call getPowerSyncDatabase() directly
-
-  return <>{children}</>;
+  // Provide database instance and sync status via context
+  return (
+    <PowerSyncContext.Provider value={{ isConnected, hasSynced, error }}>
+      {children}
+    </PowerSyncContext.Provider>
+  );
 }
