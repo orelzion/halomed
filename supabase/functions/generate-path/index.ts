@@ -12,6 +12,7 @@ import {
   getCurrentChapter,
   isChapterEndIndex,
   isTractateEndIndex,
+  getMishnayotIndicesForChapter,
   TOTAL_MISHNAYOT,
   TOTAL_CHAPTERS,
 } from '../_shared/content-order.ts';
@@ -20,6 +21,10 @@ interface GeneratePathRequest {
   user_id: string;
   force?: boolean; // If true, delete existing path and regenerate
   dev_offset_days?: number; // In dev mode: offset start date backwards to simulate progress
+  // Partial regeneration parameters (for plan changes)
+  start_from_content_index?: number; // Content index to resume from (default 0)
+  start_node_index?: number; // Node index to continue from (default 0)
+  preserve_completed?: boolean; // If true, don't delete completed nodes (default false)
 }
 
 interface PathNode {
@@ -124,16 +129,50 @@ Deno.serve(async (req: Request) => {
     // Check if path already exists
     const { data: existingPath, error: pathError } = await supabase
       .from('learning_path')
-      .select('id')
+      .select('id, node_index, completed_at')
       .eq('user_id', body.user_id)
-      .limit(1);
+      .order('node_index', { ascending: false });
 
     if (pathError) {
       console.error('Error checking existing path:', pathError);
     }
 
-    // If path exists and force is not true, return error
-    if (existingPath && existingPath.length > 0 && !body.force) {
+    // Handle partial regeneration (preserve_completed mode)
+    const isPartialRegeneration = body.preserve_completed === true;
+    let nodesPreserved = 0;
+    
+    if (isPartialRegeneration && existingPath && existingPath.length > 0) {
+      console.log(`[generate-path] Partial regeneration: preserving completed nodes for user ${body.user_id}`);
+      
+      // Delete only incomplete nodes (completed_at IS NULL)
+      const { error: deleteError, count: deletedCount } = await supabase
+        .from('learning_path')
+        .delete()
+        .eq('user_id', body.user_id)
+        .is('completed_at', null);
+
+      if (deleteError) {
+        console.error('Error deleting incomplete nodes:', deleteError);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Failed to delete incomplete nodes',
+            details: deleteError.message 
+          }),
+          { status: 500, headers: corsHeaders }
+        );
+      }
+      
+      // Count preserved nodes
+      const { count: preservedCount } = await supabase
+        .from('learning_path')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', body.user_id);
+      
+      nodesPreserved = preservedCount || 0;
+      console.log(`[generate-path] Deleted ${deletedCount || 0} incomplete nodes, preserved ${nodesPreserved} completed nodes`);
+    } 
+    // If path exists and force is not true, return error (standard mode)
+    else if (existingPath && existingPath.length > 0 && !body.force) {
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -143,9 +182,8 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: corsHeaders }
       );
     }
-
-    // If force is true, delete existing path
-    if (existingPath && existingPath.length > 0 && body.force) {
+    // If force is true, delete entire existing path (standard mode)
+    else if (existingPath && existingPath.length > 0 && body.force) {
       console.log(`[generate-path] Force regeneration: deleting existing path for user ${body.user_id}`);
       const { error: deleteError } = await supabase
         .from('learning_path')
@@ -177,8 +215,13 @@ Deno.serve(async (req: Request) => {
       console.log(`[generate-path] Dev mode: Starting path ${devOffsetDays} days in the past (${formatDate(currentDate)})`);
     }
     
-    let nodeIndex = 0;
-    let contentIndex = 0;
+    // For partial regeneration: start from specified indices
+    let nodeIndex = body.start_node_index || 0;
+    let contentIndex = body.start_from_content_index || 0;
+    
+    if (isPartialRegeneration) {
+      console.log(`[generate-path] Partial regeneration: starting from content_index=${contentIndex}, node_index=${nodeIndex}`);
+    }
     let scheduledDaysCount = 0;
     let currentChapter = 0;
     let currentTractate: string | undefined = undefined;
@@ -287,13 +330,23 @@ Deno.serve(async (req: Request) => {
       }
 
       // Get content indices for this day based on pace
+      // For all paces, contentIndices contains MISHNAH indices (not chapter indices)
       let contentIndices: number[] = [];
       
       if (pace === 'one_chapter') {
-        // Chapter-per-day: each scheduled day = one chapter
+        // Chapter-per-day: get all mishnayot in the current chapter
+        // contentIndex here represents the chapter index (0-based)
         if (contentIndex >= TOTAL_CHAPTERS) break;
-        contentIndices = [contentIndex];
-        contentIndex += 1;
+        
+        // Get all mishnah indices for this chapter
+        contentIndices = getMishnayotIndicesForChapter(contentIndex);
+        if (contentIndices.length === 0) {
+          console.warn(`[generate-path] No mishnayot found for chapter index ${contentIndex}`);
+          contentIndex += 1;
+          continue;
+        }
+        
+        contentIndex += 1; // Move to next chapter
       } else if (pace === 'two_mishna') {
         // Two mishnayot per day
         if (contentIndex + 1 >= TOTAL_MISHNAYOT) {
@@ -312,7 +365,8 @@ Deno.serve(async (req: Request) => {
       // Process each content item for this day, checking for tractate/chapter changes
       for (let i = 0; i < contentIndices.length; i++) {
         const idx = contentIndices[i];
-        const contentRef = getContentRefForIndex(idx, pace === 'one_chapter' ? 'DAILY_CHAPTER_PER_DAY' : 'DAILY_WEEKDAYS_ONLY');
+        // Always use mishnah-level content refs now (not chapter-level)
+        const contentRef = getContentRefForIndex(idx);
         const chapter = getCurrentChapter(idx);
         const tractate = getCurrentTractate(idx);
         
@@ -582,12 +636,17 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[generate-path] Content generation summary: ${contentGenerated} generated, ${contentSkipped} already existed, ${contentErrors} errors`);
 
+    const responseMessage = isPartialRegeneration
+      ? `Learning path partially regenerated: ${nodesPreserved} nodes preserved, ${nodes.length} new nodes created. Content: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors.`
+      : `Learning path generated with ${nodes.length} nodes. Content: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors.`;
+
     return new Response(
       JSON.stringify({
         success: true,
         nodes_created: nodes.length,
-        message: `Learning path generated with ${nodes.length} nodes. Content: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors.`
-      } as GeneratePathResponse),
+        nodes_preserved: nodesPreserved,
+        message: responseMessage
+      } as GeneratePathResponse & { nodes_preserved?: number }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
