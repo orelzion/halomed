@@ -1,14 +1,18 @@
 {
+  "id": "halomed-web",
   "name": "הלומד - HaLomeid",
   "short_name": "הלומד",
-  "description": "לימוד יומי",
+  "description": "לימוד יומי של משנה ותלמוד",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#D4A373",
   "dir": "rtl",
   "lang": "he",
   "orientation": "portrait",
+  "prefer_related_applications": false,
+  "categories": ["education", "books"],
   "icons": [
     {
       "src": "/icon-192.png",
@@ -33,6 +37,29 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "מסך הבית של הלומד"
+    },
+    {
+      "src": "/screenshots/mobile-2.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "מסך הלימוד היומי"
+    },
+    {
+      "src": "/screenshots/mobile-3.png",
+      "sizes": "1170x2532",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "מעקב התקדמות"
     }
   ]
 }

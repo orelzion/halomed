@@ -1,15 +1,18 @@
 import type { NextConfig } from "next";
-import withPWA from "next-pwa";
+import withSerwistInit from "@serwist/next";
+
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  swUrl: "/sw.js",
+  register: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === "development",
+});
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  // Use webpack for next-pwa compatibility
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // PWA service worker generation
-    }
-    return config;
-  },
+  // Empty turbopack config to silence warnings when using --webpack flag
+  turbopack: {},
   // PostHog reverse proxy configuration
   async rewrites() {
     return [
@@ -27,14 +30,4 @@ const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: true,
 };
 
-const pwaConfig = withPWA({
-  dest: "public",
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === "development", // Disable PWA in development for faster builds
-});
-
-// Use webpack explicitly for next-pwa
-export default process.env.NODE_ENV === "production" 
-  ? pwaConfig(nextConfig)
-  : nextConfig;
+export default withSerwist(nextConfig);
