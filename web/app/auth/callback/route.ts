@@ -5,7 +5,8 @@
  */
 
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { captureServerEvent, getPostHogClient } from '@/lib/posthog-server';
 
 export async function GET(request: Request) {
@@ -14,7 +15,27 @@ export async function GET(request: Request) {
   const isLinking = requestUrl.searchParams.get('linking') === 'true';
 
   if (code) {
-    // Exchange code for session
+    const cookieStore = await cookies();
+    
+    // Create server-side Supabase client that can access cookies for PKCE
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
+    // Exchange code for session (needs access to cookies for PKCE code_verifier)
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (data?.user) {
