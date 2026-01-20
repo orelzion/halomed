@@ -8,6 +8,9 @@ Use the commit agent to commit and push changes with automatic verification of p
 - ✅ Verifies and ensures git user is set to **personal account** (`orelzion` / `orelzion@gmail.com`), not `orel-viz`
 - ✅ Auto-generates precise commit messages based on file changes
 - ✅ Commits and pushes with confirmation prompt
+- ✅ Runs **pre-commit hooks** automatically:
+  - 🔒 **Security checks** - Scans for secrets, API keys, .env files (`.cursor/agents/security.md`)
+  - 📋 **Regulations checks** - Validates accessibility, cookie consent, privacy compliance (`.cursor/agents/regulations.md`)
 
 ## Usage
 
@@ -45,6 +48,30 @@ python3 commit_agent.py -b feature-branch
 2. **SSH Host**: The agent automatically converts `git@github.com` (work) to `git@github.com-personal` (personal)
 3. **Confirmation**: The agent will prompt for confirmation before committing/pushing
 4. **First Commit**: Handles initial commits gracefully (no HEAD yet)
+5. **Pre-commit Hooks**: Security and regulations checks run automatically on every commit
+
+## Pre-commit Checks
+
+The following checks run automatically before each commit:
+
+### Security Checks (`.cursor/agents/security.md`)
+- No hardcoded Supabase/API keys
+- No .env files committed
+- No secret files (credentials.json, .pem, .key)
+- .gitignore has required security patterns
+
+### Regulations Checks (`.cursor/agents/regulations.md`)
+- Cookie consent compliance (analytics blocked by default)
+- Accessibility attributes (aria-hidden on decorative SVGs)
+- Touch target sizes (minimum 44px for WCAG)
+- Keyboard accessibility (clickable elements should be buttons)
+- Privacy policy links in footer/layout
+- Legal pages have noindex meta tags
+
+To bypass checks (use with caution):
+```bash
+git commit --no-verify -m "message"
+```
 
 ## Configuration
 

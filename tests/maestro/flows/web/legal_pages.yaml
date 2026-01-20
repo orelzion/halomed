@@ -1,0 +1,128 @@
+# Maestro E2E Test: Legal Pages
+# Task 12.15a - Client Testing Agent
+# 
+# Tests legal pages functionality:
+# - Privacy policy page accessible at /privacy
+# - Cookie policy page accessible at /cookies
+# - Accessibility declaration accessible at /accessibility
+# - Footer links work correctly
+# - Back to home link works
+
+url: "http://localhost:3000"
+---
+# Launch app
+- launchApp
+
+# Wait for app to load
+# Wait (handled by assertions)
+
+# Navigate to authenticated state first (to see footer)
+- runFlow: auth_anonymous.yaml
+
+# Wait for home page to load
+- waitForAnimationToEnd
+
+# Test 4: Footer links work correctly
+# Verify footer is visible
+- assertVisible:
+    text: "מדיניות פרטיות"
+
+- assertVisible:
+    text: "מדיניות עוגיות"
+
+- assertVisible:
+    text: "הצהרת נגישות"
+
+# Test 1: Privacy policy page accessible at /privacy
+- tapOn:
+    text: "מדיניות פרטיות"
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Verify privacy policy page loaded
+- assertVisible:
+    text: "מדיניות פרטיות"
+
+# Verify page content is visible
+- assertVisible:
+    text: "מבוא"
+
+# Verify back to home link exists (Test 5)
+- assertVisible:
+    text: "חזור לדף הבית"
+
+# Test 5: Back to home link works
+- tapOn:
+    text: "חזור לדף הבית"
+
+# Wait for navigation back to home
+- waitForAnimationToEnd
+
+# Verify we're back on home page
+- assertVisible:
+    text: "הלומד"
+
+# Test 2: Cookie policy page accessible at /cookies
+# Navigate via footer link
+- tapOn:
+    text: "מדיניות עוגיות"
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Verify cookie policy page loaded
+- assertVisible:
+    text: "מדיניות עוגיות"
+
+# Verify page content is visible
+- assertVisible:
+    text: "מהן עוגיות?"
+
+# Verify back to home link exists
+- assertVisible:
+    text: "חזור לדף הבית"
+
+# Navigate back to home
+- tapOn:
+    text: "חזור לדף הבית"
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Verify we're back on home page
+- assertVisible:
+    text: "הלומד"
+
+# Test 3: Accessibility declaration accessible at /accessibility
+# Navigate via footer link
+- tapOn:
+    text: "הצהרת נגישות"
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Verify accessibility page loaded
+- assertVisible:
+    text: "הצהרת נגישות"
+
+# Verify back to home link exists
+- assertVisible:
+    text: "חזור לדף הבית"
+
+# Navigate back to home
+- tapOn:
+    text: "חזור לדף הבית"
+
+# Wait for navigation
+- waitForAnimationToEnd
+
+# Verify we're back on home page
+- assertVisible:
+    text: "הלומד"
+
+# Note: Direct URL navigation testing (typing URLs in address bar)
+# can be done manually or via browser DevTools
+# The footer link tests above validate that pages are accessible via UI
+
+- killApp

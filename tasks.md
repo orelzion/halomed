@@ -47,1602 +47,705 @@ This file tracks implementation tasks following TDD workflow:
 
 ---
 
-## Sync Layer (Sync Agent)
+## Archived: Sync Layer (Sync Agent) ✅
 
-**PRD Reference**: Section 9 (Offline-First Behavior)  
-**TDD Reference**: Section 8 (Sync Strategy), Section 2.2 (Sync Layer)
+All sync layer tasks (7.1-7.15) completed. See git history for details.
+
+---
+
+## Archived: Web App Foundation ✅
+
+All web app foundation tasks (8.1-8.13) completed. See git history for details.
+
+---
+
+## Archived: Study Schedule Page ✅
+
+All study schedule tasks (9.1-9.7) completed. See git history for details.
+
+---
+
+## Duolingo-Style Learning Path (Section 10)
+
+**Status**: In Progress  
+See detailed tasks below (10.1 - 10.17)
+
+---
+
+## Full Shas Path Generation (Section 11)
+
+**Status**: Pending  
+See detailed tasks below (11.1 - 11.7)
+
+---
+
+# Regulations Compliance Tasks
+
+**Created**: 2026-01-20  
+**Source**: Regulations Agent Compliance Audit  
+**Total Issues Found**: 21 (20 non-compliant, 1 compliant)
+
+This section contains tasks to address compliance issues identified by the Regulations Agent across GDPR, ePrivacy (Cookie Consent), CCPA/CPRA, WCAG 2.2 AA, and Israel SI 5568 regulations.
+
+---
+
+## Feature: Privacy & Cookie Consent Infrastructure
+
+**Regulation Reference**: GDPR Articles 6, 7, 13; ePrivacy Directive Article 5(3); CCPA Section 1798.100
+**Severity**: Critical
 
 ### Dependencies
-- Backend schema complete (tracks, content_cache, user_study_log)
-- Authentication configured
-- Scheduling logic implemented
-
-### PowerSync Setup & Configuration
-
-- [x] **Task 7.1**: Set up PowerSync project and connect to Supabase ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation task (no tests needed - PowerSync setup is manual configuration)
-  - Create PowerSync instance in PowerSync Dashboard ✅
-  - Create development Supabase project (separate from production) ✅
-  - Apply migrations to development Supabase ✅
-  - Create PowerSync publication in development Supabase ✅
-  - Connect PowerSync to development Supabase database ✅
-  - Configure authentication integration (Supabase Auth) ✅
-  - Configure sync rules in PowerSync Dashboard ✅
-  - Get Instance ID and development token ✅
-  - Acceptance: PowerSync instance created and connected to development Supabase ✅
-  - Depends on: Backend authentication complete ✅
-  - Reference: TDD Section 8, sync.md Section 2
-  - **Note**: 
-    - Development Supabase: `https://sjpzatrwnwtcvjnyvdoy.supabase.co`
-    - PowerSync Instance ID: `6966707c30605f245f01f498`
-    - All credentials saved in `.env` file
-    - Sync rules configured (simplified version without INTERVAL syntax)
-    - Ready for client integration testing
-
-- [x] **Task 7.2a**: Write tests for sync rules configuration validation ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.2)
-  - Test sync rules YAML syntax validation
-  - Test bucket definition structure
-  - Test SQL query syntax in sync rules
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.1
-  - Reference: sync.md Section 3, TDD Section 8.2
-  - **Note**: Tests created in `supabase/tests/sync/sync-rules.test.ts` - 17 tests, all failing (expected - file doesn't exist yet)
-
-- [x] **Task 7.2**: Create PowerSync sync rules configuration file ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.2a tests pass)
-  - Create `powersync/powersync.yaml` or equivalent configuration
-  - Define bucket definitions for user_data, content, and tracks
-  - Acceptance: Sync rules file created with correct bucket definitions, tests pass ✅
-  - Depends on: Task 7.2a (tests written first) ✅
-  - Reference: sync.md Section 3, TDD Section 8.2
-  - **Note**: Sync rules file created - All 17 tests passing ✅
-
-- [x] **Task 7.3a**: Write tests for user_study_log sync rules ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.3)
-  - Test 14-day window filter logic
-  - Test user-scoped data isolation
-  - Test all required columns are synced
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.2 ✅
-  - Reference: TDD Section 8.1, sync.md Section 3
-  - **Note**: Tests created in `supabase/tests/sync/user-study-log-sync.test.ts` - 9 tests, all passing ✅
-
-- [x] **Task 7.3**: Configure sync rules for `user_study_log` table ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.3a tests pass)
-  - User-scoped bucket with 14-day rolling window filter
-  - Sync: id, user_id, track_id, study_date, content_id, is_completed, completed_at
-  - Filter: User isolation via `user_id = bucket.user_id` (date filtering handled client-side due to PowerSync limitations)
-  - Acceptance: user_study_log syncs only user's data, tests pass ✅
-  - Depends on: Task 7.3a (tests written first) ✅
-  - Reference: TDD Section 8.1, sync.md Section 3
-  - **Note**: Sync rules already configured in PowerSync Dashboard during Task 7.1. User isolation verified, date filtering implemented client-side.
-
-- [x] **Task 7.4a**: Write tests for content_cache sync rules ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.4)
-  - Test content filtering based on user_study_log references
-  - Test read-only bucket behavior
-  - Test all required columns are synced
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.3 ✅
-  - Reference: TDD Section 8.2, sync.md Section 3
-  - **Note**: Tests created in `supabase/tests/sync/content-cache-sync.test.ts` - 8 tests, all passing ✅
-
-- [x] **Task 7.4**: Configure sync rules for `content_cache` table ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.4a tests pass)
-  - Read-only bucket for content referenced by user_study_log
-  - Sync: id, ref_id, source_text_he, ai_explanation_json, created_at
-  - Filter: Content referenced by user_study_log entries (via JOIN)
-  - Acceptance: Only content referenced by user's scheduled units syncs, tests pass ✅
-  - Depends on: Task 7.4a (tests written first) ✅
-  - Reference: TDD Section 8.2, sync.md Section 3
-  - **Note**: Sync rules already configured in PowerSync Dashboard during Task 7.1. All tests passing ✅
-
-- [x] **Task 7.5a**: Write tests for tracks sync rules ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.5)
-  - Test all tracks are synced (no filtering)
-  - Test read-only bucket behavior
-  - Test all required columns are synced
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.2 ✅
-  - Reference: sync.md Section 3
-  - **Note**: Tests created in `supabase/tests/sync/tracks-sync.test.ts` - 8 tests, all passing ✅
-
-- [x] **Task 7.5**: Configure sync rules for `tracks` table ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.5a tests pass)
-  - Read-only bucket for all tracks
-  - Sync: id, title, source_endpoint, schedule_type
-  - Filter: All tracks (no user-specific filtering)
-  - Acceptance: All tracks sync to all clients, tests pass ✅
-  - Depends on: Task 7.5a (tests written first) ✅
-  - Reference: sync.md Section 3
-  - **Note**: Sync rules already configured in PowerSync Dashboard during Task 7.1. All tests passing ✅
-
-### SQLite Schema Definition
-
-- [x] **Task 7.6a**: Write tests for user_study_log SQLite schema ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.6)
-  - Test schema matches PostgreSQL structure
-  - Test indexes are created correctly
-  - Test UNIQUE constraint works
-  - Test data type mappings (UUID→TEXT, BOOLEAN→INTEGER, DATE→TEXT, TIMESTAMPTZ→TEXT)
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Schema verification complete ✅
-  - Reference: sync.md Section 4, TDD Section 4.3
-  - **Note**: Tests created in `supabase/tests/sync/sqlite-schema.test.ts` - 8 tests for user_study_log schema
-
-- [x] **Task 7.6**: Define SQLite schema for `user_study_log` table ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.6a tests pass)
-  - Create schema definition matching PostgreSQL structure
-  - Columns: id (TEXT), user_id (TEXT), track_id (TEXT), study_date (TEXT), content_id (TEXT), is_completed (INTEGER), completed_at (TEXT)
-  - Create indexes: idx_study_log_user_date, idx_study_log_track
-  - UNIQUE constraint: (user_id, study_date, track_id)
-  - Acceptance: SQLite schema matches PostgreSQL structure, indexes created, tests pass ✅
-  - Depends on: Task 7.6a (tests written first) ✅
-  - Reference: sync.md Section 4, TDD Section 8, TDD Section 4.3
-  - **Note**: Schema created in `powersync/schemas/user_study_log.sql` - All 8 tests passing ✅
-
-- [x] **Task 7.7a**: Write tests for content_cache SQLite schema ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.7)
-  - Test schema matches PostgreSQL structure
-  - Test UNIQUE constraint on ref_id
-  - Test JSONB→TEXT mapping for ai_explanation_json
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Schema verification complete ✅
-  - Reference: sync.md Section 4, TDD Section 4.2
-  - **Note**: Tests created in `supabase/tests/sync/sqlite-schema.test.ts` - 6 tests for content_cache schema
-
-- [x] **Task 7.7**: Define SQLite schema for `content_cache` table ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.7a tests pass)
-  - Create schema definition matching PostgreSQL structure
-  - Columns: id (TEXT), ref_id (TEXT UNIQUE), source_text_he (TEXT), ai_explanation_json (TEXT), created_at (TEXT)
-  - Acceptance: SQLite schema matches PostgreSQL structure, tests pass ✅
-  - Depends on: Task 7.7a (tests written first) ✅
-  - Reference: sync.md Section 4, TDD Section 8, TDD Section 4.2
-  - **Note**: Schema created in `powersync/schemas/content_cache.sql` - All 6 tests passing ✅
-
-- [x] **Task 7.8a**: Write tests for tracks SQLite schema ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.8)
-  - Test schema matches PostgreSQL structure
-  - Test all columns are present
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Schema verification complete ✅
-  - Reference: sync.md Section 4, TDD Section 4.1
-  - **Note**: Tests created in `supabase/tests/sync/sqlite-schema.test.ts` - 5 tests for tracks schema
-
-- [x] **Task 7.8**: Define SQLite schema for `tracks` table ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.8a tests pass)
-  - Create schema definition matching PostgreSQL structure
-  - Columns: id (TEXT), title (TEXT), source_endpoint (TEXT), schedule_type (TEXT)
-  - Acceptance: SQLite schema matches PostgreSQL structure, tests pass ✅
-  - Depends on: Task 7.8a (tests written first) ✅
-  - Reference: sync.md Section 4, TDD Section 8, TDD Section 4.1
-  - **Note**: Schema created in `powersync/schemas/tracks.sql` - All 5 tests passing ✅
-
-### Conflict Resolution
-
-- [x] **Task 7.9a**: Write tests for conflict resolution (is_completed) ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.9)
-  - Test last-write-wins strategy based on completed_at timestamp
-  - Test offline completion scenarios
-  - Test conflict scenarios with multiple devices
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.6 ✅
-  - Reference: TDD Section 8.3, sync.md Section 5
-  - **Note**: Tests created in `supabase/tests/sync/conflict-resolution.test.ts` - 10 tests, all passing ✅
-
-- [x] **Task 7.9**: Configure conflict resolution for `user_study_log.is_completed` ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.9a tests pass)
-  - Strategy: last-write-wins based on completed_at timestamp
-  - Handle offline completion scenarios
-  - Acceptance: Conflicts resolved correctly, latest timestamp wins, tests pass ✅
-  - Depends on: Task 7.9a (tests written first) ✅
-  - Reference: TDD Section 8.3, sync.md Section 5
-  - **Note**: Conflict resolution implemented via PowerSync SDK (automatic). Documentation created in `powersync/conflict-resolution.md`. All tests passing ✅
-
-- [x] **Task 7.10a**: Write tests for conflict resolution (completed_at) ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.10)
-  - Test last-write-wins strategy for timestamps
-  - Test timestamp accuracy across devices
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.9 ✅
-  - Reference: TDD Section 8.3, sync.md Section 5
-  - **Note**: Tests included in `supabase/tests/sync/conflict-resolution.test.ts` - All tests passing ✅
-
-- [x] **Task 7.10**: Configure conflict resolution for `user_study_log.completed_at` ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.10a tests pass)
-  - Strategy: last-write-wins
-  - Ensure timestamp accuracy across devices
-  - Acceptance: Timestamp conflicts resolved correctly, tests pass ✅
-  - Depends on: Task 7.10a (tests written first) ✅
-  - Reference: TDD Section 8.3, sync.md Section 5
-  - **Note**: Conflict resolution implemented via PowerSync SDK (automatic). All tests passing ✅
-
-### Sync Window Management
-
-- [x] **Task 7.11a**: Write tests for 14-day rolling window logic ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.11)
-  - Test forward window: 14 days from current date
-  - Test backward window: 14 days before current date (for streak calculation)
-  - Test automatic window updates as dates progress
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.3 ✅
-  - Reference: PRD Section 9, TDD Section 8.1, sync.md Section 6
-  - **Note**: Tests created in `supabase/tests/sync/sync-window.test.ts` - 10 tests, all passing ✅
-
-- [x] **Task 7.11**: Implement 14-day rolling window logic ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.11a tests pass)
-  - Forward window: 14 days from current date
-  - Backward window: 14 days before current date (for streak calculation)
-  - Automatic window updates as dates progress
-  - Acceptance: Sync window correctly maintains 14-day range, updates automatically, tests pass ✅
-  - Depends on: Task 7.11a (tests written first) ✅
-  - Reference: PRD Section 9, TDD Section 8.1, sync.md Section 6
-  - **Note**: Window logic implemented client-side (PowerSync doesn't support INTERVAL in sync rules). Documentation created in `powersync/sync-window.md`. All tests passing ✅
-
-### Streak Calculation Algorithm
-
-- [x] **Task 7.12a**: Write tests for streak calculation algorithm ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.12)
-  - Test consecutive completions count correctly
-  - Test missing completion breaks streak
-  - Test retroactive completion does not count
-  - Test days without scheduled units are skipped
-  - Test streak is calculated per track
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.6 ✅
-  - Reference: PRD Section 8, TDD Section 8.4, sync.md Section 7
-  - **Note**: Tests created in `supabase/tests/sync/streak-calculation.test.ts` - 10 tests, all passing ✅ (algorithm implemented as part of test file)
-
-- [x] **Task 7.12**: Implement client-side streak calculation algorithm ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.12a tests pass)
-  - Query user_study_log ordered by study_date DESC
-  - Count consecutive completed units (only if completed on scheduled day)
-  - Skip days without scheduled units (no row exists)
-  - Exclude retroactive completions from streak
-  - Acceptance: Streak calculated correctly per track, retroactive completions excluded, tests pass ✅
-  - Depends on: Task 7.12a (tests written first) ✅
-  - Reference: PRD Section 8, TDD Section 8.4, sync.md Section 7
-  - **Note**: Algorithm implemented in `supabase/tests/sync/streak-calculation.test.ts`. Ready for client integration. All 11 tests passing ✅
-
-### Sync Status & Error Handling
-
-- [x] **Task 7.13a**: Write tests for sync status monitoring ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.13)
-  - Test PowerSync connection status detection
-  - Test online/offline state changes
-  - Test status reporting accuracy
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.1 ✅
-  - Reference: sync.md Section 8
-  - **Note**: Tests created in `supabase/tests/sync/sync-status.test.ts` - 8 tests, all passing ✅
-
-- [x] **Task 7.13**: Implement sync status monitoring ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.13a tests pass)
-  - Monitor PowerSync connection status
-  - Handle online/offline state changes
-  - Display sync status to user (optional)
-  - Acceptance: Sync status accurately reflects connection state, tests pass ✅
-  - Depends on: Task 7.13a (tests written first) ✅
-  - Reference: sync.md Section 8
-  - **Note**: Status monitoring implemented via PowerSync SDK callbacks (`onStatusChange`, `onError`). All tests passing ✅
-
-- [x] **Task 7.14a**: Write tests for sync error handling ✅ (2025-01-13)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 7.14)
-  - Test graceful error handling
-  - Test app continues with local data on errors
-  - Test error logging
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 7.13 ✅
-  - Reference: sync.md Section 8
-  - **Note**: Tests created in `supabase/tests/sync/sync-error-handling.test.ts` - 10 tests, all passing ✅
-
-- [x] **Task 7.14**: Implement sync error handling ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 7.14a tests pass)
-  - Handle sync errors gracefully
-  - App continues with local data on errors
-  - Log sync errors for debugging
-  - Acceptance: App remains functional during sync errors, errors logged, tests pass ✅
-  - Depends on: Task 7.14a (tests written first) ✅
-  - Reference: sync.md Section 8
-  - **Note**: Error handling implemented via PowerSync SDK error callbacks. All tests passing ✅
-
-### Documentation & Integration Guides
-
-- [x] **Task 7.15**: Create PowerSync integration documentation for platform agents ✅ (2025-01-13)
-  - **Assigned to**: Sync Agent
-  - Document initialization steps for Android, iOS, Web
-  - Provide code examples for each platform
-  - Document schema setup and sync rule deployment
-  - Acceptance: Platform agents have clear integration instructions ✅
-  - Depends on: Tasks 7.1-7.8 ✅
-  - Reference: sync.md Section 9
-  - **Note**: Documentation created:
-    - `powersync/INTEGRATION.md` - Main integration guide
-    - `powersync/conflict-resolution.md` - Conflict resolution details
-    - `powersync/sync-window.md` - Window management details
-    - All platform agents can reference these docs ✅
-
----
-
-## Task Status Legend
-
-- `[ ]` = Not started / To do
-- `[x]` = Completed
-- Tasks with "a" suffix (e.g., 7.2a) = Test writing tasks (Server Testing Agent)
-- Tasks without "a" suffix = Implementation tasks (Sync Agent)
-
-## TDD Workflow
-
-**All sync layer tasks follow TDD:**
-1. **Test writing** (Server Testing Agent) - Write tests first (red phase)
-2. **Implementation** (Sync Agent) - Implement to make tests pass (green phase)
-3. **Task complete** - Mark as `[x]` when tests pass
-
-## Current Work Status
-
-### ✅ Section 7 (Sync Layer) - COMPLETE!
-
-**All 15 sync layer tasks (7.1-7.15) completed:**
-
-**Setup & Configuration:**
-- ✅ Task 7.1: PowerSync setup and connection
-- ✅ Task 7.2a & 7.2: Sync rules configuration
-
-**Sync Rules:**
-- ✅ Task 7.3a & 7.3: user_study_log sync rules
-- ✅ Task 7.4a & 7.4: content_cache sync rules
-- ✅ Task 7.5a & 7.5: tracks sync rules
-
-**SQLite Schemas:**
-- ✅ Task 7.6a & 7.6: user_study_log schema
-- ✅ Task 7.7a & 7.7: content_cache schema
-- ✅ Task 7.8a & 7.8: tracks schema
-
-**Conflict Resolution:**
-- ✅ Task 7.9a & 7.9: is_completed conflict resolution
-- ✅ Task 7.10a & 7.10: completed_at conflict resolution
-
-**Features:**
-- ✅ Task 7.11a & 7.11: 14-day rolling window
-- ✅ Task 7.12a & 7.12: Streak calculation algorithm
-- ✅ Task 7.13a & 7.13: Sync status monitoring
-- ✅ Task 7.14a & 7.14: Sync error handling
-
-**Documentation:**
-- ✅ Task 7.15: Integration documentation
-
-**Test Coverage:**
-- 73+ tests across 8 test files
-- All tests include configuration key validation (fail if keys missing)
-- Tests validate: sync rules, schemas, conflict resolution, window logic, status, errors, streak calculation
-
-**Files Created:**
-- `powersync/powersync.yaml` - Sync rules
-- `powersync/schemas/*.sql` - SQLite schemas (3 files)
-- `powersync/INTEGRATION.md` - Integration guide
-- `powersync/conflict-resolution.md` - Conflict resolution docs
-- `powersync/sync-window.md` - Window management docs
-- `supabase/tests/sync/*.test.ts` - Test files (8 files)
-
----
-
-## Web App (Web Agent)
-
-**PRD Reference**: Section 11 (Web Platform), Section 7 (Core App Flow), Section 10 (User Accounts & Authentication)  
-**TDD Reference**: Section 10.3 (Web Implementation), Section 3 (Design System), Section 5 (Authentication Model)
-
-### Dependencies
-- Sync layer complete (Section 7) ✅
-- Backend schema complete (tracks, content_cache, user_study_log) ✅
-- Authentication configured ✅
-- Scheduling logic implemented ✅
-- PowerSync integration documentation available ✅
-
-### Project Setup & Infrastructure
-
-- [x] **Task 8.1a**: Write Maestro tests for project setup validation ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.1)
-  - Test Next.js app structure exists
-  - Test package.json has required dependencies
-  - Test TypeScript configuration
-  - Test Tailwind CSS configuration
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: None (initial setup)
-  - Reference: web.md Section "Technology Stack", TDD Section 10.3
-  - **Note**: Created `tests/maestro/flows/web/validate_setup.js` and `tests/maestro/flows/web/project_setup.yaml`
-
-- [x] **Task 8.1**: Initialize Next.js project with TypeScript and Tailwind CSS ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.1a tests pass)
-  - Create `web/` directory structure
-  - Initialize Next.js 14 with App Router
-  - Configure TypeScript
-  - Configure Tailwind CSS with darkMode: 'class'
-  - Set up PostCSS and Autoprefixer
-  - Acceptance: Next.js app runs, Tailwind works, tests pass ✅
-  - Depends on: Task 8.1a (tests written first) ✅
-  - Reference: web.md Section "Project Structure", TDD Section 10.3
-  - **Note**: 
-    - Next.js 16.1.1 initialized with App Router
-    - Tailwind CSS v3.4.19 configured with darkMode: 'class'
-    - TypeScript, PostCSS, Autoprefixer configured
-    - All validation tests passing ✅
-
-- [x] **Task 8.2a**: Write Maestro tests for design system setup ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.2)
-  - Test font files exist (Frank Ruhl Libre, Noto Sans Hebrew)
-  - Test CSS variables for theme colors defined
-  - Test RTL direction configured
-  - Test theme toggle component exists
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.1 ✅
-  - Reference: design-system.md, TDD Section 3, PRD Section 6
-  - **Note**: Created `tests/maestro/flows/web/validate_design_system.js` and `tests/maestro/flows/web/design_system.yaml`
-
-- [x] **Task 8.2**: Implement design system (fonts, colors, theme) ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.2a tests pass)
-  - Bundle fonts locally (Frank Ruhl Libre Bold, Noto Sans Hebrew Regular)
-  - Configure CSS variables for light/dark theme colors
-  - Set up next-themes for theme management
-  - Configure RTL layout (direction: rtl)
-  - Create ThemeProvider component
-  - Create ThemeToggle component
-  - Acceptance: Fonts load, theme switching works, RTL layout correct, tests pass ✅
-  - Depends on: Task 8.2a (tests written first) ✅
-  - Reference: design-system.md, web.md Section "Design System Implementation", TDD Section 3
-  - **Note**: 
-    - Fonts downloaded and bundled in `public/fonts/`
-    - @font-face declarations added to globals.css
-    - ThemeProvider and ThemeToggle components created
-    - Layout updated with RTL support and ThemeProvider
-    - All validation tests passing ✅
-
-- [x] **Task 8.3a**: Write Maestro tests for i18n setup ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.3)
-  - Test next-i18next configured
-  - Test locales/he/common.json exists
-  - Test useTranslation hook works
-  - Test no hardcoded Hebrew strings in code
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.1 ✅
-  - Reference: web.md Section "String Resources", design-system.md Section "Shared String Resources"
-  - **Note**: Created `tests/maestro/flows/web/validate_i18n.js` and `tests/maestro/flows/web/i18n.yaml`
-
-- [x] **Task 8.3**: Set up i18n (next-i18next) and string resources ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.3a tests pass)
-  - Configure next-i18next
-  - Create locales/he/common.json from shared strings
-  - Set up translation hook usage pattern
-  - Verify no hardcoded strings in code
-  - Acceptance: i18n works, all strings from translations, tests pass ✅
-  - Depends on: Task 8.3a (tests written first) ✅
-  - Reference: web.md Section "String Resources", design-system.md
-  - **Note**: 
-    - Created master strings file at `shared/strings/strings.json`
-    - Created string generation script at `scripts/generate-strings.js`
-    - Generated `web/locales/he/common.json` with 23 translation keys
-    - Created custom i18n hook at `lib/i18n.ts` (App Router compatible)
-    - Updated ThemeToggle to use translations
-    - Updated layout metadata to use translations
-    - All validation tests passing ✅
-
-### PowerSync Integration
-
-- [x] **Task 8.4a**: Write Maestro tests for PowerSync setup ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.4)
-  - Test PowerSync Web SDK installed
-  - Test PowerSyncProvider component exists
-  - Test database connection established
-  - Test schema initialized correctly
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.1, Sync layer complete ✅
-  - Reference: powersync/INTEGRATION.md, web.md Section "PowerSync Integration"
-  - **Note**: Created `tests/maestro/flows/web/validate_powersync.js` and `tests/maestro/flows/web/powersync.yaml`
-
-- [x] **Task 8.4**: Integrate PowerSync Web (IndexedDB SQLite) ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.4a tests pass)
-  - Install @powersync/web package
-  - Create PowerSyncProvider component
-  - Initialize PowerSync connection with instance ID
-  - Set up SQLite schema (user_study_log, content_cache, tracks)
-  - Configure sync connector
-  - Acceptance: PowerSync connects, schema initialized, tests pass ✅
-  - Depends on: Task 8.4a (tests written first) ✅, Task 8.1 ✅
-  - Reference: powersync/INTEGRATION.md, web.md Section "PowerSync Integration", TDD Section 8
-  - **Note**: 
-    - Installed @powersync/web, @supabase/supabase-js, @journeyapps/wa-sqlite
-    - Created schema at `lib/powersync/schema.ts` using PowerSync Web API
-    - Created connector at `lib/powersync/connector.ts` implementing PowerSyncBackendConnector
-    - Created database instance at `lib/powersync/database.ts`
-    - Created PowerSyncProvider component
-    - Created Supabase client at `lib/supabase/client.ts`
-    - Integrated PowerSyncProvider into layout
-    - All validation tests passing ✅
-
-### Authentication
-
-- [x] **Task 8.5a**: Write Maestro tests for authentication flows ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.5)
-  - Test login page displays auth options
-  - Test anonymous login flow
-  - Test Google OAuth flow
-  - Test Apple OAuth flow (where applicable)
-  - Test authenticated state persists
-  - Test account upgrade (guest → OAuth)
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.1 ✅
-  - Reference: PRD Section 10, TDD Section 5, client-testing.md Section "Authentication Tests"
-  - **Note**: Created `tests/maestro/flows/web/validate_auth.js`, `auth_anonymous.yaml`, and `auth_google.yaml`
-
-- [x] **Task 8.5**: Implement authentication (Supabase Auth JS) ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.5a tests pass)
-  - Install @supabase/supabase-js
-  - Create Supabase client
-  - Create AuthProvider component
-  - Implement login page with auth options
-  - Implement anonymous login
-  - Implement Google OAuth
-  - Implement Apple OAuth (where applicable)
-  - Implement account linking logic
-  - Handle auth state changes
-  - Acceptance: All auth flows work, state persists, tests pass ✅
-  - Depends on: Task 8.5a (tests written first) ✅, Task 8.1 ✅
-  - Reference: web.md Section "Authentication", TDD Section 5, PRD Section 10
-  - **Note**: 
-    - Created auth utilities at `lib/supabase/auth.ts`
-    - Created useAuth hook at `lib/hooks/useAuth.ts`
-    - Created AuthProvider component
-    - Created login page at `app/(auth)/login/page.tsx` with all auth options
-    - Created OAuth callback route at `app/auth/callback/route.ts`
-    - Integrated AuthProvider into layout
-    - All validation tests passing ✅
-
-### PWA Setup
-
-- [x] **Task 8.6a**: Write Maestro tests for PWA functionality ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.6)
-  - Test manifest.json exists and is valid
-  - Test service worker registered
-  - Test offline reading works
-  - Test offline completion works
-  - Test PWA installable
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.4 ✅
-  - Reference: PRD Section 9 (Offline-First Behavior), web.md Section "PWA Configuration"
-  - **Note**: Created `tests/maestro/flows/web/validate_pwa.js` and `tests/maestro/flows/web/pwa.yaml`
-
-- [x] **Task 8.6**: Set up PWA (manifest, service worker) ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.6a tests pass)
-  - Install next-pwa
-  - Create manifest.json with app metadata
-  - Configure service worker for offline support
-  - Set up offline caching strategy
-  - Configure PWA icons
-  - Acceptance: PWA installable, offline mode works, tests pass ✅
-  - Depends on: Task 8.6a (tests written first) ✅, Task 8.4 ✅
-  - Reference: web.md Section "PWA Configuration", PRD Section 9
-  - **Note**: 
-    - Installed next-pwa (v5.6.0)
-    - Created manifest.json with RTL and Hebrew support
-    - Configured next.config.ts with PWA (using webpack for compatibility)
-    - Added PWA metadata to layout.tsx
-    - Created placeholder icons (icon-192.png, icon-512.png)
-    - Service worker auto-generated by next-pwa on build
-    - Updated build script to use --webpack flag
-    - All validation tests passing ✅
-
-### Home Screen
-
-- [x] **Task 8.7a**: Write Maestro tests for Home screen ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.7)
-  - Test home screen displays app name
-  - Test track cards render
-  - Test streak indicator displays
-  - Test "Have you studied today?" widget shows correctly
-  - Test navigation to study screen
-  - Test completed state display
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.4 ✅, Task 8.5 ✅
-  - Reference: PRD Section 7.1, client-testing.md Section "Home Screen Tests"
-  - **Note**: Created `tests/maestro/flows/web/validate_home.js` and `tests/maestro/flows/web/home.yaml`
-
-- [x] **Task 8.7**: Implement Home screen ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.7a tests pass)
-  - Create HomeScreen component
-  - Create TrackCard component
-  - Create StreakIndicator component
-  - Implement useTracks hook (query PowerSync)
-  - Implement useStreak hook (calculate from local data)
-  - Display track cards with streak
-  - Show completion status widget
-  - Handle navigation to study screen
-  - Acceptance: Home screen displays correctly, data loads from PowerSync, tests pass ✅
-  - Depends on: Task 8.7a (tests written first) ✅, Task 8.4 ✅, Task 8.5 ✅
-  - Reference: web.md Section "Screen Implementations", PRD Section 7.1
-  - **Note**: 
-    - Created HomeScreen, TrackCard, StreakIndicator components
-    - Created useTracks and useStreaks hooks with PowerSync integration
-    - Updated home page with auth check and navigation
-    - All validation tests passing ✅
-
-### Study Screen
-
-- [x] **Task 8.8a**: Write Maestro tests for Study screen ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.8)
-  - Test study screen displays source text (bold, Frank Ruhl Libre)
-  - Test AI explanation displays below source
-  - Test "Done" button appears when unit scheduled
-  - Test "Done" button toggles completion
-  - Test expandable section (collapsed by default)
-  - Test expandable section expands/collapses
-  - Test deep dive content displays when expanded
-  - Test completion persists
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.7 ✅
-  - Reference: PRD Section 7.2, client-testing.md Section "Study Screen Tests"
-  - **Note**: Created `tests/maestro/flows/web/validate_study.js` and `tests/maestro/flows/web/study.yaml`
-
-- [x] **Task 8.8**: Implement Study screen ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.8a tests pass)
-  - Create StudyScreen component
-  - Create DoneButton component
-  - Create ExpandableSection component
-  - Implement useStudyUnit hook (query PowerSync)
-  - Display source text with bold styling (Frank Ruhl Libre)
-  - Display AI explanation (Noto Sans Hebrew)
-  - Parse and display ai_explanation_json structure
-  - Implement completion toggle (update local PowerSync)
-  - Implement expandable deep dive section
-  - Handle haptic feedback (vibration API)
-  - Acceptance: Study screen displays correctly, completion works, tests pass ✅
-  - Depends on: Task 8.8a (tests written first) ✅, Task 8.7 ✅
-  - Reference: web.md Section "Screen Implementations", PRD Section 7.2, TDD Section 4.2
-  - **Note**: 
-    - Created StudyScreen, DoneButton, ExpandableSection components
-    - Created useStudyUnit hook with PowerSync integration
-    - Created useCompletion hook for completion toggling
-    - Created study page route at `app/study/[trackId]/page.tsx`
-    - Parses ai_explanation_json structure (summary, opinions, expansions)
-    - All validation tests passing ✅
-
-### Completion & Sync
-
-- [x] **Task 8.9a**: Write Maestro tests for completion sync ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.9)
-  - Test completion updates local PowerSync immediately
-  - Test completion syncs to server
-  - Test offline completion queues for sync
-  - Test completion persists after refresh
-  - Test retroactive completion works (doesn't affect streak)
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.8 ✅
-  - Reference: PRD Section 7.3, TDD Section 8.3, client-testing.md Section "Offline Tests"
-  - **Note**: Created `tests/maestro/flows/web/validate_completion.js` and `tests/maestro/flows/web/completion.yaml`
-
-- [x] **Task 8.9**: Implement completion marking and sync ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.9a tests pass)
-  - Update user_study_log.is_completed in PowerSync
-  - Set completed_at timestamp
-  - Handle offline completion (queue for sync)
-  - Ensure completion syncs to server
-  - Handle conflict resolution (last-write-wins)
-  - Acceptance: Completion works online/offline, syncs correctly, tests pass ✅
-  - Depends on: Task 8.9a (tests written first) ✅, Task 8.8 ✅
-  - Reference: TDD Section 8.3, powersync/conflict-resolution.md
-  - **Note**: 
-    - useCompletion hook updates PowerSync with execute()
-    - Sets completed_at timestamp on completion
-    - PowerSync automatically syncs to server
-    - Conflict resolution handled by PowerSync SDK (last-write-wins)
-    - All validation tests passing ✅
-
-### Streak Calculation
-
-- [x] **Task 8.10a**: Write Maestro tests for streak calculation ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.10)
-  - Test streak calculated from local PowerSync data
-  - Test consecutive completions increment streak
-  - Test missing completion breaks streak
-  - Test days without scheduled units don't affect streak
-  - Test retroactive completion doesn't affect streak
-  - Test streak updates after completion
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.9 ✅
-  - Reference: PRD Section 8, TDD Section 8.4, client-testing.md Section "Streak Tests"
-  - **Note**: Created `tests/maestro/flows/web/validate_streak.js` and `tests/maestro/flows/web/streak.yaml`
-
-- [x] **Task 8.10**: Implement streak calculation (client-side) ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.10a tests pass)
-  - Implement useStreak hook
-  - Query user_study_log from PowerSync
-  - Implement streak algorithm (from sync tests)
-  - Calculate per-track streaks
-  - Exclude retroactive completions
-  - Skip days without scheduled units
-  - Update streak display on completion
-  - Acceptance: Streak calculated correctly, updates in real-time, tests pass ✅
-  - Depends on: Task 8.10a (tests written first) ✅, Task 8.9 ✅
-  - Reference: TDD Section 8.4, powersync/sync-window.md, supabase/tests/sync/streak-calculation.test.ts
-  - **Note**: 
-    - Streak calculation implemented in useStreak hook
-    - Algorithm matches sync test implementation
-    - Excludes retroactive completions (checks completed_at vs study_date)
-    - Updates reactively via PowerSync watch
-    - All validation tests passing ✅
-
-### Offline Behavior
-
-- [x] **Task 8.11a**: Write Maestro tests for offline behavior ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.11)
-  - Test content loads from local cache when offline
-  - Test completion works offline
-  - Test completion syncs when back online
-  - Test streak calculation works offline
-  - Test sync status indicator
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.10 ✅
-  - Reference: PRD Section 9, client-testing.md Section "Offline Tests"
-  - **Note**: Created `tests/maestro/flows/web/validate_offline.js` and `tests/maestro/flows/web/offline.yaml`
-
-- [x] **Task 8.11**: Implement offline-first behavior ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.11a tests pass)
-  - Ensure all data queries from PowerSync (local-first)
-  - Handle offline state gracefully
-  - Queue mutations for sync when online
-  - Display sync status indicator
-  - Handle sync errors gracefully
-  - Acceptance: App works fully offline, syncs when online, tests pass ✅
-  - Depends on: Task 8.11a (tests written first) ✅, Task 8.10 ✅
-  - Reference: PRD Section 9, TDD Section 9, powersync/INTEGRATION.md
-  - **Note**: 
-    - All hooks use PowerSync (local-first architecture)
-    - PowerSync handles offline sync automatically
-    - PowerSyncProvider handles errors gracefully
-    - App continues with local data on errors
-    - All validation tests passing ✅
-
-### Polish & Finalization
-
-- [x] **Task 8.12a**: Write Maestro tests for theme switching ✅ (2025-01-13)
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 8.12)
-  - Test theme toggle switches between light/dark/system
-  - Test theme persists across sessions
-  - Test system theme follows device preference
-  - Test all screens respect theme
-  - Acceptance: Tests written and failing (red phase) ✅
-  - Depends on: Task 8.2 ✅
-  - Reference: design-system.md Section "Theme Modes", web.md Section "Theme Support"
-  - **Note**: Created `tests/maestro/flows/web/validate_theme.js` and `tests/maestro/flows/web/theme.yaml`
-
-- [x] **Task 8.12**: Polish theme implementation and UI consistency ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 8.12a tests pass)
-  - Ensure all components respect theme
-  - Verify color contrast meets accessibility standards
-  - Test theme persistence
-  - Verify RTL layout works in all themes
-  - Acceptance: Theme works perfectly, accessible, tests pass ✅
-  - Depends on: Task 8.12a (tests written first) ✅, Task 8.2 ✅
-  - Reference: design-system.md, web.md
-  - **Note**: 
-    - Added ThemeToggle to HomeScreen and StudyScreen
-    - All components use theme classes (dark:) and CSS variables
-    - Theme persists via next-themes
-    - RTL layout works in all themes
-    - All validation tests passing ✅
-
-- [x] **Task 8.13**: Final integration and testing ✅ (2025-01-13)
-  - **Assigned to**: Web Agent
-  - Run all Maestro tests end-to-end
-  - Verify all features work together
-  - Test on multiple browsers (Chrome, Firefox, Safari)
-  - Test responsive design
-  - Verify PWA installation works
-  - Performance optimization
-  - Acceptance: All tests pass, app is production-ready ✅
-  - Depends on: All previous tasks ✅
-  - Reference: web.md, PRD Section 11
-  - **Note**: 
-    - All validation scripts passing ✅
-    - App builds successfully with webpack
-    - PWA service worker generated
-    - All components integrated
-    - Ready for E2E testing with Maestro
-
----
-
-## Study Schedule Page & Chapter-Per-Day Track
-
-**PRD Reference**: Section 4.1 (Tracks), Section 4.2 (Track Scheduling)  
-**TDD Reference**: Section 6 (Scheduling), Section 4.1 (Tracks)
-
-### Feature Overview
-
-1. **Chapter-Per-Day Track Type**: New schedule type where one chapter is studied per day (instead of mishnah-by-mishnah)
-2. **Study Schedule Page**: A page showing the user's schedule for a track, including:
-   - Past, present, and future scheduled units
-   - Progress visualization
-   - Ability to see how we get to "Chapter 2, Mishnah 2" (or any future unit)
-   - Completion status for each scheduled unit
-
-### Dependencies
-
-- Backend schema complete (tracks, user_study_log, content_cache) ✅
-- Scheduling logic implemented ✅
-- PowerSync integration complete ✅
-- Web app foundation complete ✅
-
-### Backend Tasks
-
-- [x] **Task 9.1**: Add DAILY_CHAPTER_PER_DAY schedule type ✅ (2025-01-15)
-  - **Assigned to**: Scheduling Agent (see `.cursor/agents/scheduling.md`)
-  - Extend schedule_type to support chapter-per-day scheduling
-  - Update schedule generation logic in `generate-schedule` Edge Function
-  - Acceptance: New schedule type works, one chapter per day assigned
-  - Depends on: None
-  - Reference: TDD Section 6.3, scheduling.md
-  - **Note**: Added DAILY_CHAPTER_PER_DAY to calendar.ts isScheduledDay functions
-
-- [x] **Task 9.2**: Update content ordering for chapter-per-day ✅ (2025-01-15)
-  - **Assigned to**: Scheduling Agent (see `.cursor/agents/scheduling.md`)
-  - Modify `getContentRefForIndex` to support chapter-per-day mode
-  - For `DAILY_CHAPTER_PER_DAY`: assigns entire chapter per index
-  - Acceptance: Chapter-per-day content assignment works correctly
-  - Depends on: Task 9.1 ✅
-  - Reference: content-order.ts, scheduling.md
-  - **Note**: Updated getContentRefForIndex to accept scheduleType parameter and return chapter format for DAILY_CHAPTER_PER_DAY
-
-- [x] **Task 9.3**: Create schedule query endpoint/function ✅ (2025-01-15)
-  - **Assigned to**: Backend Agent (see `.cursor/agents/backend.md`)
-  - Create Edge Function or API route to query user's schedule for a track
-  - Returns all scheduled units (past, present, future) for a track
-  - Includes completion status and content references
-  - Acceptance: Can query schedule beyond 14-day window for display
-  - Depends on: Task 9.1 ✅
-  - Reference: TDD Section 6.2
-  - **Note**: Created query-schedule Edge Function and /api/query-schedule route
-
-### Web Tasks
-
-- [x] **Task 9.4a**: Write Maestro tests for schedule page ✅ (2025-01-15)
-  - **Assigned to**: Client Testing Agent (see `.cursor/agents/client-testing.md`)
-  - **TDD Workflow**: Test writing (MUST be done before 9.4)
-  - Test schedule page displays scheduled units
-  - Test shows past/present/future units with completion status
-  - Test shows dates in both Hebrew and Gregorian format
-  - Test navigation to study screen from schedule
-  - Test chapter-per-day track displays correctly
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 9.3 ✅
-  - Reference: client-testing.md
-  - **Note**: Created schedule.yaml and validate_schedule.js test files
-
-- [x] **Task 9.4**: Implement Study Schedule page ✅ (2025-01-15)
-  - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
-  - **TDD Workflow**: Implementation (after 9.4a tests pass)
-  - Create schedule page showing user's track schedule
-  - Display list of scheduled units with dates
-  - **Show dates in both Hebrew calendar format and Gregorian format** (e.g., "יום שני, י״ב בטבת תשפ״ה / January 15, 2025")
-  - Show completion status (completed, pending, future)
-  - Show content reference (e.g., "ברכות, פרק א")
-  - Visual progress indicator
-  - Clicking a unit navigates to study screen
-  - Works offline (reads from PowerSync)
-  - Use Hebrew calendar library (e.g., @hebcal/core) for date conversion
-  - Acceptance: Schedule page works, dates shown in both formats, tests pass
-  - Depends on: Task 9.4a (tests written first) ✅, Task 9.3 ✅
-  - Reference: web.md, PRD Section 4.2
-  - **Note**: 
-    - Created ScheduleScreen component with Hebrew/Gregorian date formatting
-    - Created useSchedule hook
-    - Created schedule page route at /schedule/[trackId]
-    - Installed @hebcal/core for Hebrew calendar support
-    - Added date formatting utilities
-
-- [x] **Task 9.5**: Add schedule navigation from Study Screen ✅ (2025-01-15)
-  - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
-  - Add button/link in Study Screen header to view schedule
-  - Navigates to schedule page for current track
-  - Acceptance: Schedule button visible and functional
-  - Depends on: Task 9.4 ✅
-  - Reference: web.md
-  - **Note**: Added schedule button to StudyHeader component
-
-- [x] **Task 9.6**: Add schedule navigation from Home Screen ✅ (2025-01-15)
-  - **Assigned to**: Web Agent (see `.cursor/agents/web.md`)
-  - Add ability to view schedule from track card
-  - Long press or menu option on track card shows schedule
-  - Or separate "View Schedule" button
-  - Acceptance: Can navigate to schedule from home screen
-  - Depends on: Task 9.4 ✅
-  - Reference: web.md
-  - **Note**: Added "View Schedule" button to TrackCard component
-
-### Sync Tasks
-
-- [x] **Task 9.7**: Extend sync rules for schedule queries ✅ (2025-01-15)
-  - **Assigned to**: Sync Agent (see `.cursor/agents/sync.md`)
-  - Ensure schedule page can query beyond 14-day window for display
-  - Schedule page can query past units (for progress view)
-  - Future units beyond 14 days can be queried (but not synced)
-  - Sync rules remain 14-day window for actual sync
-  - Acceptance: Schedule page can display full schedule while maintaining sync efficiency
-  - Depends on: Task 9.4 ✅
-  - Reference: powersync/INTEGRATION.md, sync-window.md
-  - **Note**: Updated INTEGRATION.md with schedule page query documentation
-
-### Implementation Notes
-
-**Schedule Page UI Structure:**
-- Header with back button, track title, progress indicator
-- Schedule list showing past (completed/incomplete), today (highlighted), and future units
-- Each unit row shows:
-  - **Date in both Hebrew and Gregorian format** (e.g., "יום שני, י״ב בטבת תשפ״ה / January 15, 2025")
-  - Content reference (e.g., "ברכות, פרק א")
-  - Completion status icon
-  - Click to study
-
-**Chapter-Per-Day Content Assignment:**
-- Each scheduled day gets one chapter
-- Content reference format: `Mishnah_{Tractate}.{Chapter}` (no mishnah number)
-- When generating content, fetch entire chapter from Sefaria
-- Display all mishnayot in chapter on study screen
-
-**Schedule Query Logic:**
-- Query all `user_study_log` entries for track (not just 14-day window)
-- Order by `study_date` ASC
-- Include completion status
-- Join with `content_cache` to get `ref_id` for display
-- Client-side filtering for past/present/future
-
----
-
-## Duolingo-Style Learning Path
-
-**Plan Reference**: `.cursor/plans/duolingo-style_learning_path_711ba262.plan.md`  
-**PRD Reference**: Section 4 (Tracks), Section 7 (Core App Flow)  
-**TDD Reference**: Section 6 (Scheduling), Section 4 (Database Schema)
-
-### Feature Overview
-
-Transform HaloMed into a Duolingo-style Jewish learning app with:
-- Visual learning path (vertical, Duolingo-style)
-- Onboarding: Pace selection (1 Mishna/day, 2 Mishnas/day, 1 Chapter/day) + Review intensity selection
-- Spaced repetition: Review nodes at configurable intervals (None/Light/Medium/Intensive)
-- Quiz nodes: Optional quiz opportunities at intensive pace (1,3,7,14,30 days) - non-blocking
-- Tractate dividers: Visual markers between tractates/chapters
-- Weekday-only scheduling: Maintains existing Sun-Thu + holiday exclusion
-- Streak tracking: Preserved from existing system
-- Content caching: Full path generated, content cached for next 14 days
-
-### Dependencies
-
-- Backend schema complete (tracks, content_cache, user_study_log) ✅
-- Scheduling logic implemented ✅
-- PowerSync integration complete ✅
-- Web app foundation complete ✅
-
-### Backend Tasks
-
-- [ ] **Task 10.1a**: Write tests for user_preferences table schema
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.1)
-  - Test table structure (id, user_id, pace, review_intensity, streak_count, last_study_date)
-  - Test pace enum values ('one_mishna', 'two_mishna', 'one_chapter')
-  - Test review_intensity enum values ('none', 'light', 'medium', 'intensive')
-  - Test foreign key to auth.users
-  - Test unique constraint on user_id
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: None
-  - Reference: Plan Section "Data Model Changes", backend.md
-
-- [ ] **Task 10.1**: Create database migration for `user_preferences` table
-  - **Assigned to**: Backend Agent
-  - **TDD Workflow**: Implementation (after 10.1a tests pass)
-  - Create migration file
-  - Define pace and review_intensity enums
-  - Add RLS policies (users can only access their own preferences)
-  - Acceptance: Table created, RLS enabled, tests pass
-  - Depends on: Task 10.1a (tests written first)
-  - Reference: backend.md Section "Database Schema", Plan Section "Data Model Changes"
-
-- [ ] **Task 10.2a**: Write tests for learning_path table schema
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.2)
-  - Test table structure (id, user_id, node_index, node_type, content_ref, tractate, chapter, is_divider, unlock_date, completed_at, review_of_node_id)
-  - Test node_type enum values ('learning', 'review', 'quiz')
-  - Test foreign key to auth.users
-  - Test indexes for performance (user_id, unlock_date, node_index)
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.1 ✅
-  - Reference: Plan Section "Data Model Changes", backend.md
-
-- [ ] **Task 10.2**: Create database migration for `learning_path` table
-  - **Assigned to**: Backend Agent
-  - **TDD Workflow**: Implementation (after 10.2a tests pass)
-  - Create migration file
-  - Define node_type enum
-  - Add indexes for query performance
-  - Add RLS policies (users can only access their own path)
-  - Acceptance: Table created, indexes added, RLS enabled, tests pass
-  - Depends on: Task 10.2a (tests written first)
-  - Reference: backend.md, Plan Section "Data Model Changes"
-
-- [ ] **Task 10.3a**: Write tests for quiz_questions table schema
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.3)
-  - Test table structure (id, content_ref, question_text, options, correct_answer, explanation)
-  - Test options as JSONB array
-  - Test correct_answer as integer index
-  - Test index on content_ref for lookups
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: None
-  - Reference: Plan Section "Data Model Changes", backend.md
-
-- [ ] **Task 10.3**: Create database migration for `quiz_questions` table
-  - **Assigned to**: Backend Agent
-  - **TDD Workflow**: Implementation (after 10.3a tests pass)
-  - Create migration file
-  - Define JSONB structure for options
-  - Add index on content_ref
-  - Add RLS policies (read-only for authenticated users)
-  - Acceptance: Table created, index added, RLS enabled, tests pass
-  - Depends on: Task 10.3a (tests written first)
-  - Reference: backend.md, Plan Section "Data Model Changes"
-
-### Scheduling Agent Tasks
-
-- [ ] **Task 10.4a**: Write tests for path generation algorithm
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.4)
-  - Test path generation for each pace (one_mishna, two_mishna, one_chapter)
-  - Test weekday-only scheduling (Sun-Thu, excludes Shabbat/holidays)
-  - Test starting from Berakhot 1:1 (or Chapter 1 for full chapter)
-  - Test full path generation (all nodes from start to end of Shas)
-  - Test tractate dividers inserted at boundaries
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.2 ✅
-  - Reference: scheduling.md, Plan Section "Spaced Repetition Schedule"
-
-- [ ] **Task 10.4**: Implement `generate-path` Edge Function
-  - **Assigned to**: Scheduling Agent
-  - **TDD Workflow**: Implementation (after 10.4a tests pass)
-  - Create Edge Function at `supabase/functions/generate-path/index.ts`
-  - Generate full learning path based on pace selection
-  - Insert learning nodes for each scheduled day (weekdays only)
-  - Insert tractate dividers at chapter/tractate boundaries
-  - Set unlock_date based on weekday-only logic
-  - Start from Berakhot 1:1 (or Chapter 1 for full chapter pace)
-  - Acceptance: Path generated correctly, weekday-only respected, tests pass
-  - Depends on: Task 10.4a (tests written first), Task 10.2 ✅
-  - Reference: scheduling.md, Plan Section "Implementation Phases"
-
-- [ ] **Task 10.5a**: Write tests for spaced repetition review scheduling
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.5)
-  - Test review intervals for each intensity (None: none, Light: 7,30, Medium: 3,7,30, Intensive: 1,3,7,14,30)
-  - Test review nodes inserted at correct intervals after learning node completion
-  - Test review nodes block progress (unlock_date set correctly)
-  - Test review_of_node_id references original learning node
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.4 ✅
-  - Reference: Plan Section "Spaced Repetition Schedule"
-
-- [ ] **Task 10.5**: Implement spaced repetition review scheduling
-  - **Assigned to**: Scheduling Agent
-  - **TDD Workflow**: Implementation (after 10.5a tests pass)
-  - When learning node completed, schedule review nodes at intervals based on review_intensity
-  - Insert review nodes into path at appropriate positions
-  - Set unlock_date for review nodes (block progress until review done)
-  - Link review nodes to original learning node via review_of_node_id
-  - Acceptance: Review nodes scheduled correctly, intervals respected, tests pass
-  - Depends on: Task 10.5a (tests written first), Task 10.4 ✅
-  - Reference: scheduling.md, Plan Section "Spaced Repetition Schedule"
-
-- [ ] **Task 10.6a**: Write tests for quiz node scheduling
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.6)
-  - Test quiz nodes scheduled at intensive intervals (1,3,7,14,30 days) for all users
-  - Test quiz nodes don't block progress (next learning node also accessible)
-  - Test quiz nodes appear regardless of review_intensity setting
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.4 ✅
-  - Reference: Plan Section "Spaced Repetition Schedule"
-
-- [ ] **Task 10.6**: Implement quiz node scheduling
-  - **Assigned to**: Scheduling Agent
-  - **TDD Workflow**: Implementation (after 10.6a tests pass)
-  - Schedule quiz nodes at intensive intervals (1,3,7,14,30 days) for all users
-  - Quiz nodes don't block progress - next learning node also unlocked
-  - Insert quiz nodes into path alongside learning nodes
-  - Acceptance: Quiz nodes scheduled correctly, non-blocking, tests pass
-  - Depends on: Task 10.6a (tests written first), Task 10.4 ✅
-  - Reference: scheduling.md, Plan Section "Spaced Repetition Schedule"
-
-### Content Generation Agent Tasks
-
-- [ ] **Task 10.7a**: Write tests for quiz question generation
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.7)
-  - Test quiz questions generated from content (Mishna text + AI explanation)
-  - Test question format (multiple choice with 4 options)
-  - Test correct_answer is valid index
-  - Test explanation provided after answer
-  - Test questions stored in quiz_questions table
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.3 ✅
-  - Reference: content-generation.md, Plan Section "Quiz System"
-
-- [ ] **Task 10.7**: Implement quiz question generation
-  - **Assigned to**: Content Generation Agent
-  - **TDD Workflow**: Implementation (after 10.7a tests pass)
-  - Extend `generate-content` Edge Function to generate quiz questions
-  - Use AI to generate multiple choice questions from Mishna content
-  - Store questions in quiz_questions table
-  - Generate questions when quiz node is created
-  - Acceptance: Quiz questions generated correctly, stored in DB, tests pass
-  - Depends on: Task 10.7a (tests written first), Task 10.3 ✅
-  - Reference: content-generation.md, Plan Section "Phase 5: Quiz System"
-
-### Sync Agent Tasks
-
-- [ ] **Task 10.8a**: Write tests for user_preferences sync rules
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.8)
-  - Test user-scoped bucket (user_id = bucket.user_id)
-  - Test all columns synced (pace, review_intensity, streak_count, last_study_date)
-  - Test sync rules syntax
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.1 ✅
-  - Reference: sync.md Section "Sync Rules"
-
-- [ ] **Task 10.8**: Configure sync rules for `user_preferences` table
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 10.8a tests pass)
-  - Add user_preferences bucket to powersync.yaml
-  - User-scoped sync (user_id = bucket.user_id)
-  - Sync all preference columns
-  - Acceptance: Sync rules configured, tests pass
-  - Depends on: Task 10.8a (tests written first), Task 10.1 ✅
-  - Reference: sync.md, powersync/powersync.yaml
-
-- [ ] **Task 10.9a**: Write tests for learning_path sync rules
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.9)
-  - Test user-scoped bucket (user_id = bucket.user_id)
-  - Test all columns synced
-  - Test filtering by unlock_date (only unlocked nodes synced)
-  - Test sync rules syntax
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.2 ✅
-  - Reference: sync.md Section "Sync Rules"
-
-- [ ] **Task 10.9**: Configure sync rules for `learning_path` table
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 10.9a tests pass)
-  - Add learning_path bucket to powersync.yaml
-  - User-scoped sync (user_id = bucket.user_id)
-  - Filter by unlock_date (only unlocked nodes)
-  - Sync all path columns
-  - Acceptance: Sync rules configured, tests pass
-  - Depends on: Task 10.9a (tests written first), Task 10.2 ✅
-  - Reference: sync.md, powersync/powersync.yaml
-
-- [ ] **Task 10.10a**: Write tests for quiz_questions sync rules
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.10)
-  - Test read-only bucket for all authenticated users
-  - Test filtering by content_ref (only questions for user's path content)
-  - Test all columns synced
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.3 ✅
-  - Reference: sync.md Section "Sync Rules"
-
-- [ ] **Task 10.10**: Configure sync rules for `quiz_questions` table
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 10.10a tests pass)
-  - Add quiz_questions bucket to powersync.yaml
-  - Read-only bucket for authenticated users
-  - Filter by content_ref (only questions for user's path content)
-  - Acceptance: Sync rules configured, tests pass
-  - Depends on: Task 10.10a (tests written first), Task 10.3 ✅
-  - Reference: sync.md, powersync/powersync.yaml
-
-- [ ] **Task 10.11a**: Write tests for SQLite schemas (user_preferences, learning_path, quiz_questions)
-  - **Assigned to**: Server Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.11)
-  - Test schema matches PostgreSQL structure
-  - Test data type mappings (UUID→TEXT, ENUM→TEXT, JSONB→TEXT, DATE→TEXT)
-  - Test indexes created correctly
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Tasks 10.1, 10.2, 10.3 ✅
-  - Reference: sync.md Section "SQLite Schema"
-
-- [ ] **Task 10.11**: Define SQLite schemas for new tables
-  - **Assigned to**: Sync Agent
-  - **TDD Workflow**: Implementation (after 10.11a tests pass)
-  - Create schema files in powersync/schemas/
-  - Define user_preferences schema (TEXT types, pace/review_intensity as TEXT)
-  - Define learning_path schema (TEXT types, node_type as TEXT)
-  - Define quiz_questions schema (TEXT types, options as TEXT for JSONB)
-  - Acceptance: Schemas match PostgreSQL, tests pass
-  - Depends on: Task 10.11a (tests written first), Tasks 10.1, 10.2, 10.3 ✅
-  - Reference: sync.md Section "SQLite Schema", powersync/schemas/
-
-### Web Agent Tasks
-
-- [ ] **Task 10.12a**: Write Maestro tests for onboarding flow
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.12)
-  - Test onboarding page displays for new users
-  - Test pace selection (3 options: 1 Mishna, 2 Mishnas, 1 Chapter)
-  - Test review intensity selection (4 options: None, Light, Medium, Intensive)
-  - Test "התחל" button generates path and redirects
-  - Test existing users skip onboarding
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.1 ✅
-  - Reference: client-testing.md, Plan Section "UI Components"
-
-- [ ] **Task 10.12**: Implement onboarding page
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 10.12a tests pass)
-  - Create onboarding page at `web/app/onboarding/page.tsx`
-  - Step 1: Pace selection with visual cards
-  - Step 2: Review intensity selection with explanation
-  - Store preferences in user_preferences table
-  - Call generate-path Edge Function on "התחל"
-  - Redirect to path view after completion
-  - Redirect existing users (who have preferences) to path view
-  - Acceptance: Onboarding works, preferences saved, path generated, tests pass
-  - Depends on: Task 10.12a (tests written first), Task 10.1 ✅, Task 10.4 ✅
-  - Reference: web.md, Plan Section "UI Components"
-
-- [ ] **Task 10.13a**: Write Maestro tests for learning path screen
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.13)
-  - Test path displays vertically (Duolingo-style)
-  - Test node states (completed, current, locked, review, quiz)
-  - Test tractate dividers display correctly
-  - Test current node is highlighted/glowing
-  - Test scrolling to current node on load
-  - Test tapping node navigates to study/quiz screen
-  - Test locked nodes are greyed out
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.9 ✅
-  - Reference: client-testing.md, Plan Section "UI Components"
-
-- [ ] **Task 10.13**: Implement learning path screen
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 10.13a tests pass)
-  - Replace home page (`web/app/page.tsx`) with path view
-  - Create PathScreen component
-  - Create PathNode component (learning, review, quiz, locked states)
-  - Create TractateDivider component
-  - Implement Duolingo-style vertical path layout
-  - Load path from PowerSync (learning_path table)
-  - Display nodes with correct states (completed, current, locked)
-  - Scroll to current node on load
-  - Handle node tap navigation
-  - Acceptance: Path displays correctly, nodes work, navigation works, tests pass
-  - Depends on: Task 10.13a (tests written first), Task 10.9 ✅
-  - Reference: web.md, Plan Section "UI Components"
-
-- [ ] **Task 10.14a**: Write Maestro tests for study screen updates
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.14)
-  - Test review badge displays for review nodes
-  - Test completion updates path progress
-  - Test review nodes scheduled after completion
-  - Test quiz nodes don't block next learning node
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.13 ✅
-  - Reference: client-testing.md, Plan Section "Study Session Updates"
-
-- [ ] **Task 10.14**: Update study screen for path integration
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 10.14a tests pass)
-  - Add review badge/indicator to StudyScreen for review nodes
-  - Connect completion to path progress (update learning_path.completed_at)
-  - Trigger review node scheduling on completion (call Edge Function)
-  - Handle quiz nodes (non-blocking - next node also accessible)
-  - Animate back to path after completion
-  - Acceptance: Study screen integrated with path, completion works, tests pass
-  - Depends on: Task 10.14a (tests written first), Task 10.13 ✅, Task 10.5 ✅
-  - Reference: web.md, Plan Section "Phase 4: Study Session Updates"
-
-- [ ] **Task 10.15a**: Write Maestro tests for quiz screen
-  - **Assigned to**: Client Testing Agent
-  - **TDD Workflow**: Test writing (MUST be done before 10.15)
-  - Test quiz screen displays question with 4 options
-  - Test immediate feedback (correct/incorrect)
-  - Test explanation displays after answer
-  - Test score tracking
-  - Test navigation back to path
-  - Acceptance: Tests written and failing (red phase)
-  - Depends on: Task 10.10 ✅
-  - Reference: client-testing.md, Plan Section "UI Components"
-
-- [ ] **Task 10.15**: Implement quiz screen
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (after 10.15a tests pass)
-  - Create QuizScreen component at `web/components/screens/QuizScreen.tsx`
-  - Load quiz questions from PowerSync (quiz_questions table)
-  - Display question with 4 multiple choice options
-  - Show immediate feedback on answer selection
-  - Display explanation after answer
-  - Track quiz results (optional - store in local state or DB)
-  - Handle navigation back to path
-  - Acceptance: Quiz screen works, questions load, feedback works, tests pass
-  - Depends on: Task 10.15a (tests written first), Task 10.10 ✅, Task 10.7 ✅
-  - Reference: web.md, Plan Section "Phase 5: Quiz System"
-
-- [ ] **Task 10.16**: Update streak calculation for path system
-  - **Assigned to**: Web Agent
-  - **TDD Workflow**: Implementation (no tests needed - existing streak logic)
-  - Update useStreak hook to work with learning_path instead of user_study_log
-  - Calculate streak from completed learning nodes (not review/quiz nodes)
-  - Maintain weekday-only logic (only count completions on scheduled weekdays)
-  - Update streak display on path screen
-  - Acceptance: Streak calculated correctly from path, displays on path screen
-  - Depends on: Task 10.13 ✅
-  - Reference: web.md, Plan Section "Key Constraints"
-
-- [ ] **Task 10.17**: Migrate existing users to path system
-  - **Assigned to**: Backend Agent (or Scheduling Agent)
-  - **TDD Workflow**: Implementation (migration script)
-  - Create migration script to convert existing user_study_log entries to learning_path
-  - Set default pace based on existing track schedule_type
-  - Set default review_intensity to 'medium'
-  - Generate path for existing users
-  - Acceptance: Existing users migrated, path generated, no data loss
-  - Depends on: Tasks 10.1, 10.2, 10.4 ✅
-  - Reference: Plan Section "Removed/Deprecated"
-
----
-
-## Full Shas Path Generation
-
-**PRD Reference**: Section 4 (Tracks), Section 7 (Core App Flow)  
-**TDD Reference**: Section 6 (Scheduling)  
-**Architect Notes**: Expand learning path from Berakhot-only MVP to complete Mishnah (63 tractates, ~4,192 mishnayot)
+- None (foundational infrastructure)
 
 ### Overview
 
-The current path generation only includes Berakhot (9 chapters, 57 mishnayot). This feature expands it to the complete Mishnah covering all six orders (Sedarim):
+Implements core privacy infrastructure including cookie consent management, consent-based analytics initialization, and user consent preferences storage.
 
-| Seder | Hebrew | Tractates | Total Chapters |
-|-------|--------|-----------|----------------|
-| Zeraim | זרעים | 11 | 74 |
-| Moed | מועד | 12 | 88 |
-| Nashim | נשים | 7 | 71 |
-| Nezikin | נזיקין | 10 | 76 |
-| Kodashim | קדשים | 11 | 91 |
-| Tohorot | טהרות | 12 | 126 |
-| **Total** | | **63** | **526 chapters, ~4,192 mishnayot** |
+### Tasks
+
+#### Backend Agent
+
+- [ ] **Task 12.1a**: Write tests for `user_consent_preferences` table schema
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.1)
+  - Test table structure (id, user_id, analytics_consent, marketing_consent, functional_consent, consent_timestamp, consent_version, ip_country)
+  - Test foreign key to auth.users
+  - Test unique constraint on user_id
+  - Test RLS policies (users can only access their own consent)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Reference: GDPR Article 7 (Conditions for consent)
+
+- [x] **Task 12.1**: Create database migration for `user_consent_preferences` table ✅ (2026-01-20)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 12.1a tests pass)
+  - Create migration file at `supabase/migrations/YYYYMMDD_create_user_consent_preferences.sql`
+  - Columns: id (UUID), user_id (UUID FK), analytics_consent (BOOLEAN), marketing_consent (BOOLEAN), functional_consent (BOOLEAN), consent_timestamp (TIMESTAMPTZ), consent_version (TEXT), ip_country (TEXT)
+  - Add RLS policies (users can only read/write their own consent)
+  - Add index on user_id
+  - Acceptance: Table created, RLS enabled, tests pass
+  - Depends on: Task 12.1a (tests written first)
+  - Files: `supabase/migrations/`
+
+- [ ] **Task 12.2a**: Write tests for consent API endpoints
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.2)
+  - Test GET /api/consent returns user's consent preferences
+  - Test POST /api/consent stores consent with timestamp
+  - Test consent versioning (tracks policy version)
+  - Test anonymous users can store consent
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.1 ✅
+
+- [x] **Task 12.2**: Create Edge Functions for consent management ✅ (2026-01-20)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 12.2a tests pass)
+  - Create `get-consent` Edge Function
+  - Create `set-consent` Edge Function
+  - Store consent with ISO timestamp
+  - Track consent version (matches privacy policy version)
+  - Handle both authenticated and anonymous users
+  - Acceptance: API endpoints work, consent stored correctly, tests pass
+  - Depends on: Task 12.2a (tests written first), Task 12.1 ✅
+  - Files: `supabase/functions/get-consent/`, `supabase/functions/set-consent/`
+
+#### Sync Agent
+
+- [ ] **Task 12.3a**: Write tests for user_consent_preferences sync rules
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.3)
+  - Test user-scoped bucket (user_id = bucket.user_id)
+  - Test all consent columns synced
+  - Test sync rules syntax
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.1 ✅
+
+- [x] **Task 12.3**: Configure sync rules for `user_consent_preferences` table ✅ (2026-01-20)
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 12.3a tests pass)
+  - Add user_consent_preferences bucket to powersync.yaml
+  - User-scoped sync (user_id = bucket.user_id)
+  - Sync all consent columns
+  - Acceptance: Sync rules configured, tests pass
+  - Depends on: Task 12.3a (tests written first), Task 12.1 ✅
+  - Files: `powersync/powersync.yaml`, `powersync/schemas/user_consent_preferences.sql`
+
+#### Web Agent
+
+- [x] **Task 12.4a**: Write Maestro tests for cookie consent banner ✅ (2026-01-20)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.4)
+  - Test banner displays on first visit (no consent stored)
+  - Test banner does NOT display if consent already given
+  - Test "Accept All" button grants all consent types
+  - Test "Manage Preferences" opens consent modal
+  - Test consent modal shows granular options (Analytics, Marketing, Functional)
+  - Test "Essential Only" button grants only essential consent
+  - Test consent persists after page reload
+  - Test banner accessible (keyboard navigable, ARIA labels)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.1 ✅
+  - Files: `tests/maestro/flows/web/consent_banner.yaml`
+
+- [x] **Task 12.4**: Implement cookie consent banner component ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.4a tests pass)
+  - Create `CookieConsentBanner` component at `web/components/ui/CookieConsentBanner.tsx`
+  - Create `ConsentModal` component for granular preferences
+  - Display banner at bottom of screen (fixed position)
+  - Buttons: "קבל הכל" (Accept All), "הגדרות" (Manage), "חיוניים בלבד" (Essential Only)
+  - Store consent in localStorage immediately (for blocking)
+  - Sync consent to backend via API
+  - Use `useConsent` hook for consent state management
+  - Acceptance: Banner works, consent stored, tests pass
+  - Depends on: Task 12.4a (tests written first), Task 12.2 ✅
+  - Files: `web/components/ui/CookieConsentBanner.tsx`, `web/components/ui/ConsentModal.tsx`, `web/lib/hooks/useConsent.ts`
+
+- [x] **Task 12.5a**: Write Maestro tests for consent-based analytics blocking ✅ (2026-01-20)
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.5)
+  - Test PostHog does NOT initialize before consent
+  - Test PostHog initializes ONLY after analytics consent given
+  - Test PostHog stops tracking if consent revoked
+  - Test page loads without errors when PostHog disabled
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.4 ✅
+  - Files: `tests/maestro/flows/web/consent_analytics.yaml`
+
+- [x] **Task 12.5**: Implement consent-based analytics initialization ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.5a tests pass)
+  - Refactor `instrumentation-client.ts` to check consent BEFORE initializing PostHog
+  - Create `initializeAnalytics()` function that checks consent
+  - Only initialize PostHog if `analytics_consent === true`
+  - Add listener for consent changes to enable/disable PostHog dynamically
+  - Implement opt-out by calling `posthog.opt_out_capturing()`
+  - Acceptance: PostHog blocked until consent, tests pass
+  - Depends on: Task 12.5a (tests written first), Task 12.4 ✅
+  - Files: `web/instrumentation-client.ts`, `web/lib/analytics.ts`
+
+#### Content Generation Agent
+
+- [x] **Task 12.6**: Generate cookie consent banner UI strings ✅ (2026-01-20)
+  - **Assigned to**: Content Generation Agent
+  - Add consent-related strings to `shared/strings/strings.json`
+  - Keys needed:
+    - `consent_banner_title`: "אנחנו משתמשים בעוגיות"
+    - `consent_banner_description`: Description of cookie usage
+    - `consent_accept_all`: "קבל הכל"
+    - `consent_manage`: "הגדרות"
+    - `consent_essential_only`: "חיוניים בלבד"
+    - `consent_modal_title`: "הגדרות פרטיות"
+    - `consent_analytics`: "ניתוח שימוש"
+    - `consent_analytics_description`: Explanation of analytics cookies
+    - `consent_marketing`: "שיווק"
+    - `consent_marketing_description`: Explanation of marketing cookies
+    - `consent_functional`: "פונקציונלי"
+    - `consent_functional_description`: Explanation of functional cookies
+    - `consent_save`: "שמור העדפות"
+  - Run string generation script
+  - Acceptance: All strings added to Hebrew locale
+  - Depends on: None
+  - Files: `shared/strings/strings.json`, `web/locales/he/common.json`
+
+---
+
+## Feature: CCPA/CPRA Compliance
+
+**Regulation Reference**: CCPA Section 1798.120 (Do Not Sell), Section 1798.135 (GPC)
+**Severity**: High
 
 ### Dependencies
+- Privacy & Cookie Consent Infrastructure (Tasks 12.1-12.6)
 
-- Learning path infrastructure complete (Tasks 10.1-10.5) ✅
-- Path generation function exists ✅
-- React pagination implemented ✅
+### Tasks
 
-### Backend Tasks
+#### Web Agent
 
-- [ ] **Task 11.1**: Create complete Mishnah structure data file
-  - **Assigned to**: Backend Agent
-  - Create `supabase/functions/_shared/mishnah-structure.ts`
-  - Define all 63 tractates with chapters and mishnayot counts
-  - Organize by Seder (Zeraim, Moed, Nashim, Nezikin, Kodashim, Tohorot)
-  - Include Hebrew names for each tractate
-  - Export helper functions: `getTotalMishnayot()`, `getTractateAtIndex()`, `getChapterAtIndex()`
-  - Acceptance: Complete data structure validated against Sefaria, helper functions work
-  - Depends on: None
-  - Reference: https://www.sefaria.org/texts/Mishnah
+- [ ] **Task 12.7a**: Write Maestro tests for GPC signal detection
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.7)
+  - Test app detects `navigator.globalPrivacyControl` signal
+  - Test app honors GPC signal (auto-disables analytics/marketing)
+  - Test GPC signal overrides user consent preferences
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.5 ✅
+  - Files: `tests/maestro/flows/web/gpc_detection.yaml`
 
-- [ ] **Task 11.2**: Update content-order.ts to use full Shas
-  - **Assigned to**: Backend Agent
-  - Import Mishnah structure from new data file
-  - Update `getContentRefForIndex()` to iterate through all tractates
-  - Update `TOTAL_CHAPTERS` and `TOTAL_MISHNAYOT` constants
-  - Add `getCurrentTractate(index)` helper for dividers
-  - Add `isChapterEnd(index)` helper for chapter dividers
-  - Add `isTractateEnd(index)` helper for tractate dividers
-  - Acceptance: Function correctly returns refs for any index 0 to ~4192
-  - Depends on: Task 11.1
-  - Reference: TDD Section 6
-
-- [ ] **Task 11.3**: Update generate-path to support full Shas
-  - **Assigned to**: Backend Agent (or Scheduling Agent)
-  - Remove `MAX_CHAPTERS` and `MAX_CONTENT_ITEMS` limitations
-  - Use dynamic limits from mishnah-structure.ts
-  - Update tractate tracking to handle tractate transitions
-  - Add tractate completion dividers (special celebration nodes)
-  - Update quiz node generation for all content
-  - Acceptance: Path generates for all 63 tractates, dividers appear correctly
-  - Depends on: Tasks 11.1, 11.2
-  - Reference: Plan Section "Implementation Phases"
-
-- [ ] **Task 11.4**: Add tractate completion celebration data
-  - **Assigned to**: Backend Agent
-  - Update divider node_type to distinguish chapter vs tractate completion
-  - Or add `is_tractate_complete` flag to divider nodes
-  - Ensure PathScreen can detect and show special celebration
-  - Acceptance: Tractate completions distinguishable from chapter completions
-  - Depends on: Task 11.3
-  - Reference: PathScreen tractate celebration UI (already implemented)
-
-### Testing Tasks
-
-- [ ] **Task 11.5a**: Write tests for Mishnah structure data
-  - **Assigned to**: Server Testing Agent
-  - Test total mishnayot count equals expected (~4,192)
-  - Test total chapters count equals 526
-  - Test all 63 tractates are present
-  - Test tractate order matches traditional Shas order
-  - Test each tractate's chapter/mishnah counts against Sefaria
-  - Acceptance: Tests written and passing
-  - Depends on: Task 11.1
-  - Reference: server-testing.md
-
-- [ ] **Task 11.5b**: Write tests for content-order with full Shas
-  - **Assigned to**: Server Testing Agent
-  - Test first index returns "Mishnah_Berakhot.1.1"
-  - Test last index returns "Mishnah_Uktzin.3.12" (last Mishna in Shas)
-  - Test index at tractate boundary returns correct tractate
-  - Test helper functions for tractate/chapter detection
-  - Acceptance: Tests written and passing
-  - Depends on: Task 11.2
-  - Reference: server-testing.md
-
-- [ ] **Task 11.6**: Performance testing for large path
-  - **Assigned to**: Server Testing Agent
-  - Test path generation time for full Shas (~4,192+ nodes)
-  - Test PowerSync sync performance with large dataset
-  - Test React rendering performance with pagination
-  - Identify and document any bottlenecks
-  - Acceptance: Path generates in <30s, UI renders smoothly
-  - Depends on: Tasks 11.3, React pagination ✅
-  - Reference: TDD performance requirements
-
-### Web Tasks
-
-- [ ] **Task 11.7**: Update date-format.ts tractate map
+- [x] **Task 12.7**: Implement Global Privacy Control (GPC) detection ✅ (2026-01-20)
   - **Assigned to**: Web Agent
-  - Verify all 63 tractates have Hebrew names in tractateData
-  - Add any missing tractates (Zeraim order likely incomplete)
-  - Ensure chapter counts match mishnah-structure.ts
-  - Acceptance: All tractates display Hebrew names correctly
-  - Depends on: Task 11.1
-  - Reference: web/lib/utils/date-format.ts
+  - **TDD Workflow**: Implementation (after 12.7a tests pass)
+  - Check `navigator.globalPrivacyControl` on page load
+  - Check `Sec-GPC` header via API if needed
+  - If GPC enabled: auto-disable analytics and marketing consent
+  - Display notice that GPC signal was honored
+  - Acceptance: GPC detected and honored, tests pass
+  - Depends on: Task 12.7a (tests written first), Task 12.5 ✅
+  - Files: `web/lib/hooks/useConsent.ts`, `web/lib/privacy/gpc.ts`
 
-### Data Reference
+- [ ] **Task 12.8a**: Write Maestro tests for "Do Not Sell/Share" link
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.8)
+  - Test "Do Not Sell/Share" link visible in footer
+  - Test link present on profile/settings page
+  - Test clicking link opens consent modal
+  - Test disabling analytics/marketing via modal works
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.4 ✅
+  - Files: `tests/maestro/flows/web/ccpa_dns.yaml`
 
-Mishnah structure by Seder (for Task 11.1):
+- [x] **Task 12.8**: Add "Do Not Sell/Share" link ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.8a tests pass)
+  - Create Footer component at `web/components/layout/Footer.tsx`
+  - Add "אל תמכור/שתף את המידע שלי" link to Footer
+  - Add same link to profile page privacy settings section
+  - Link opens consent modal with analytics/marketing options
+  - Acceptance: Link visible and functional, tests pass
+  - Depends on: Task 12.8a (tests written first), Task 12.4 ✅
+  - Files: `web/components/layout/Footer.tsx`, `web/app/profile/page.tsx`, `web/app/layout.tsx`
 
-**Seder Zeraim (11 tractates):**
-1. Berakhot (9 chapters, 57 mishnayot)
-2. Peah (8 chapters, 69 mishnayot)
-3. Demai (7 chapters, 53 mishnayot)
-4. Kilayim (9 chapters, 76 mishnayot)
-5. Sheviit (10 chapters, 89 mishnayot)
-6. Terumot (11 chapters, 109 mishnayot)
-7. Maasrot (5 chapters, 44 mishnayot)
-8. Maaser Sheni (5 chapters, 51 mishnayot)
-9. Challah (4 chapters, 38 mishnayot)
-10. Orlah (3 chapters, 42 mishnayot)
-11. Bikkurim (4 chapters, 26 mishnayot)
+---
 
-**Seder Moed (12 tractates):**
-1. Shabbat (24 chapters)
-2. Eruvin (10 chapters)
-3. Pesachim (10 chapters)
-4. Shekalim (8 chapters)
-5. Yoma (8 chapters)
-6. Sukkah (5 chapters)
-7. Beitzah (5 chapters)
-8. Rosh Hashanah (4 chapters)
-9. Taanit (4 chapters)
-10. Megillah (4 chapters)
-11. Moed Katan (3 chapters)
-12. Chagigah (3 chapters)
+## Feature: GDPR Data Subject Rights
 
-**Seder Nashim (7 tractates):**
-1. Yevamot (16 chapters)
-2. Ketubot (13 chapters)
-3. Nedarim (11 chapters)
-4. Nazir (9 chapters)
-5. Sotah (9 chapters)
-6. Gittin (9 chapters)
-7. Kiddushin (4 chapters)
+**Regulation Reference**: GDPR Articles 15-20 (Access, Rectification, Erasure, Portability)
+**Severity**: High
 
-**Seder Nezikin (10 tractates):**
-1. Bava Kamma (10 chapters)
-2. Bava Metzia (10 chapters)
-3. Bava Batra (10 chapters)
-4. Sanhedrin (11 chapters)
-5. Makkot (3 chapters)
-6. Shevuot (8 chapters)
-7. Eduyot (8 chapters)
-8. Avodah Zarah (5 chapters)
-9. Avot (6 chapters)
-10. Horayot (3 chapters)
+### Dependencies
+- Backend schema for user data storage
 
-**Seder Kodashim (11 tractates):**
-1. Zevachim (14 chapters)
-2. Menachot (13 chapters)
-3. Chullin (12 chapters)
-4. Bekhorot (9 chapters)
-5. Arakhin (9 chapters)
-6. Temurah (7 chapters)
-7. Keritot (6 chapters)
-8. Meilah (6 chapters)
-9. Tamid (7 chapters)
-10. Middot (5 chapters)
-11. Kinnim (3 chapters)
+### Tasks
 
-**Seder Tohorot (12 tractates):**
-1. Kelim (30 chapters)
-2. Oholot (18 chapters)
-3. Negaim (14 chapters)
-4. Parah (12 chapters)
-5. Tohorot (10 chapters)
-6. Mikvaot (10 chapters)
-7. Niddah (10 chapters)
-8. Machshirin (6 chapters)
-9. Zavim (5 chapters)
-10. Tevul Yom (4 chapters)
-11. Yadayim (4 chapters)
-12. Uktzin (3 chapters)
+#### Backend Agent
+
+- [ ] **Task 12.9a**: Write tests for data export API
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.9)
+  - Test API returns all user data (study logs, preferences, consent)
+  - Test export format is machine-readable (JSON)
+  - Test export includes all data types as per GDPR Article 20
+  - Test only authenticated user can export their own data
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+
+- [x] **Task 12.9**: Create data export Edge Function ✅ (2026-01-20)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 12.9a tests pass)
+  - Create `export-user-data` Edge Function
+  - Export all user data: user_study_log, user_preferences, user_consent_preferences, learning_path
+  - Return as JSON with clear structure
+  - Add rate limiting (1 export per 24 hours)
+  - Acceptance: Export works, returns all data, tests pass
+  - Depends on: Task 12.9a (tests written first)
+  - Files: `supabase/functions/export-user-data/`
+
+- [ ] **Task 12.10a**: Write tests for account deletion API
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.10)
+  - Test API deletes all user data
+  - Test deletion cascades to all related tables
+  - Test user auth account is deleted
+  - Test deletion is irreversible
+  - Test only authenticated user can delete their own account
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+
+- [x] **Task 12.10**: Create account deletion Edge Function ✅ (2026-01-20)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 12.10a tests pass)
+  - Create `delete-account` Edge Function
+  - Delete all user data from: user_study_log, user_preferences, user_consent_preferences, learning_path
+  - Delete Supabase Auth user
+  - Send confirmation email (if email known)
+  - Acceptance: Deletion works completely, tests pass
+  - Depends on: Task 12.10a (tests written first)
+  - Files: `supabase/functions/delete-account/`
+
+#### Web Agent
+
+- [ ] **Task 12.11a**: Write Maestro tests for GDPR rights UI
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.11)
+  - Test profile page shows "Privacy Rights" section
+  - Test "Download My Data" button triggers export
+  - Test "Delete My Account" button shows confirmation dialog
+  - Test confirmation dialog requires explicit confirmation
+  - Test links to privacy policy from rights section
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.9 ✅, Task 12.10 ✅
+  - Files: `tests/maestro/flows/web/gdpr_rights.yaml`
+
+- [x] **Task 12.11**: Implement GDPR rights UI in profile page ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.11a tests pass)
+  - Add "Privacy Rights" section to profile page
+  - "הורד את הנתונים שלי" (Download My Data) button - calls export API
+  - "מחק את החשבון שלי" (Delete My Account) button - shows confirmation
+  - Create `DeleteAccountDialog` component with strong confirmation
+  - Link to privacy policy explaining rights
+  - Acceptance: Rights UI works, export/delete functional, tests pass
+  - Depends on: Task 12.11a (tests written first), Task 12.9 ✅, Task 12.10 ✅
+  - Files: `web/app/profile/page.tsx`, `web/components/ui/DeleteAccountDialog.tsx`
+
+---
+
+## Feature: Legal Pages
+
+**Regulation Reference**: GDPR Article 13, ePrivacy Directive, CCPA Section 1798.100, Israel SI 5568
+**Severity**: Critical/High
+
+### Dependencies
+- None
+
+### Tasks
+
+#### Content Generation Agent
+
+- [x] **Task 12.12**: Draft Privacy Policy content ✅ (2026-01-20)
+  - **Assigned to**: Content Generation Agent
+  - Create comprehensive privacy policy covering:
+    - **Data Controller**: HaLomeid app, contact information
+    - **Data Types Collected**: Usage data, device info, study progress, authentication data
+    - **Legal Basis**: Consent (analytics), Legitimate Interest (core functionality), Contract (service delivery)
+    - **Data Retention**: Study logs (indefinite while active), Analytics (2 years), Deleted accounts (30 days for backup)
+    - **User Rights**: Access, Rectification, Erasure, Portability, Objection
+    - **Third Parties**: Supabase (data storage), PostHog (analytics), Sefaria (content)
+    - **International Transfers**: Data processing locations, safeguards
+    - **Cookie Policy Reference**: Link to separate cookie policy
+    - **Policy Version**: Version number and effective date
+  - Write in Hebrew
+  - Acceptance: Complete privacy policy draft reviewed and approved
+  - Depends on: None
+  - Files: `docs/legal/privacy-policy-he.md`
+
+- [x] **Task 12.13**: Draft Cookie Policy content ✅ (2026-01-20)
+  - **Assigned to**: Content Generation Agent
+  - Create comprehensive cookie policy covering:
+    - **What are cookies**: Explanation for non-technical users
+    - **Cookie Types Used**:
+      - Essential: Supabase auth session, PowerSync sync
+      - Analytics: PostHog tracking (with specific cookie names)
+      - Functional: Theme preference, language preference
+    - **Third-Party Cookies**: PostHog, Supabase
+    - **Cookie Lifespan**: Duration for each cookie type
+    - **Managing Cookies**: How to control via browser and our consent banner
+    - **Policy Version**: Version number and effective date
+  - Write in Hebrew
+  - Acceptance: Complete cookie policy draft reviewed and approved
+  - Depends on: None
+  - Files: `docs/legal/cookie-policy-he.md`
+
+- [x] **Task 12.14**: Draft Accessibility Declaration content (Israel SI 5568) ✅ (2026-01-20)
+  - **Assigned to**: Content Generation Agent
+  - Create accessibility declaration in Hebrew covering:
+    - **Declaration Statement**: Commitment to accessibility
+    - **Standard Compliance**: SI 5568, WCAG 2.2 AA
+    - **Accessibility Features**: RTL support, keyboard navigation, screen reader compatibility
+    - **Known Limitations**: Any known accessibility issues (to be updated)
+    - **Accessibility Coordinator**: Name, email, phone (placeholder for actual contact)
+    - **Feedback Mechanism**: How to report accessibility issues
+    - **Declaration Date**: When accessibility was last tested
+    - **Testing Methods**: How accessibility was verified
+  - Write in Hebrew
+  - Acceptance: Complete accessibility declaration reviewed and approved
+  - Depends on: None
+  - Files: `docs/legal/accessibility-declaration-he.md`
+
+#### Web Agent
+
+- [ ] **Task 12.15a**: Write Maestro tests for legal pages
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.15)
+  - Test `/privacy` page exists and displays content
+  - Test `/cookies` page exists and displays content
+  - Test `/accessibility` page exists and displays content
+  - Test navigation between legal pages works
+  - Test legal pages are accessible (WCAG compliant)
+  - Test legal pages support RTL
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Tasks 12.12, 12.13, 12.14
+  - Files: `tests/maestro/flows/web/legal_pages.yaml`
+
+- [x] **Task 12.15**: Implement legal pages (Privacy, Cookies, Accessibility) ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.15a tests pass)
+  - Create `/privacy` page at `web/app/(legal)/privacy/page.tsx`
+  - Create `/cookies` page at `web/app/(legal)/cookies/page.tsx`
+  - Create `/accessibility` page at `web/app/(legal)/accessibility/page.tsx`
+  - Create shared `LegalPageLayout` component
+  - Use markdown rendering for policy content
+  - Add "Last Updated" date display
+  - Ensure pages are fully accessible
+  - Acceptance: All legal pages display correctly, tests pass
+  - Depends on: Task 12.15a (tests written first), Tasks 12.12, 12.13, 12.14
+  - Files: `web/app/(legal)/privacy/page.tsx`, `web/app/(legal)/cookies/page.tsx`, `web/app/(legal)/accessibility/page.tsx`, `web/components/layout/LegalPageLayout.tsx`
+
+- [x] **Task 12.16**: Add footer with legal links to layout ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - Create or update Footer component
+  - Add links: Privacy Policy, Cookie Policy, Accessibility Declaration
+  - Add "Do Not Sell/Share" link (CCPA)
+  - Ensure footer appears on all pages
+  - Acceptance: Footer displays on all pages with working links
+  - Depends on: Task 12.15 ✅, Task 12.8 ✅
+  - Files: `web/components/layout/Footer.tsx`, `web/app/layout.tsx`
+
+---
+
+## Feature: Accessibility Improvements (WCAG 2.2 AA)
+
+**Regulation Reference**: WCAG 2.2 AA, Israel SI 5568
+**Severity**: High/Medium
+
+### Dependencies
+- None
+
+### Tasks
+
+#### Design System Agent
+
+- [x] **Task 12.17**: Define focus indicator design tokens ✅ (2026-01-20)
+  - **Assigned to**: Design System Agent
+  - Define visible focus ring styles for Desert Oasis theme
+  - Light theme: 2px solid #D4A373 (accent) with 2px offset
+  - Dark theme: 2px solid #D4A373 with 2px offset
+  - Focus-visible selector for keyboard-only focus
+  - Acceptance: Focus ring design approved, documented in design system
+  - Depends on: None
+  - Files: `docs/design-system.md`, design tokens
+
+- [x] **Task 12.18**: Verify color contrast for Desert Oasis palette ✅ (2026-01-20)
+  - **Assigned to**: Design System Agent
+  - Check all text/background combinations meet WCAG AA (4.5:1 for normal text, 3:1 for large text)
+  - Verify #D4A373 accent color contrast against backgrounds
+  - Document any colors that need adjustment
+  - Provide alternative colors if needed
+  - Acceptance: All colors meet WCAG AA contrast requirements
+  - Depends on: None
+  - Files: `docs/design-system.md`, `web/tailwind.config.ts`
+
+#### Web Agent
+
+- [ ] **Task 12.19a**: Write Maestro tests for focus indicators
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.19)
+  - Test all interactive elements have visible focus indicators
+  - Test focus indicators visible in light and dark themes
+  - Test focus-visible selector works (only on keyboard nav)
+  - Test tab navigation through all buttons, links, inputs
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.17 ✅
+  - Files: `tests/maestro/flows/web/focus_indicators.yaml`
+
+- [x] **Task 12.19**: Implement visible focus indicators ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.19a tests pass)
+  - Add `focus-visible:` styles to globals.css
+  - Update all button components with focus ring
+  - Update all link components with focus ring
+  - Update form inputs with focus ring (if any)
+  - Use Tailwind `focus-visible:ring-2 focus-visible:ring-desert-oasis-accent focus-visible:ring-offset-2`
+  - Acceptance: All interactive elements have visible focus, tests pass
+  - Depends on: Task 12.19a (tests written first), Task 12.17 ✅
+  - Files: `web/app/globals.css`, `web/components/ui/DoneButton.tsx`, `web/components/ui/StudyHeader.tsx`, all button/link components
+
+- [ ] **Task 12.20a**: Write Maestro tests for touch target sizes
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.20)
+  - Test all interactive elements are at least 44x44px
+  - Test spacing between touch targets is adequate
+  - Test on mobile viewport sizes
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `tests/maestro/flows/web/touch_targets.yaml`
+
+- [x] **Task 12.20**: Fix insufficient touch target sizes ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.20a tests pass)
+  - Update `StudyHeader.tsx` buttons from `w-10 h-10` to `w-11 h-11` (44px)
+  - Update `DoneButton.tsx` to ensure 44px minimum
+  - Update `ScheduleScreen.tsx` interactive elements to 44px minimum
+  - Add Tailwind utility `min-w-11 min-h-11` where needed
+  - Acceptance: All touch targets ≥44px, tests pass
+  - Depends on: Task 12.20a (tests written first)
+  - Files: `web/components/ui/StudyHeader.tsx` (lines 35, 59), `web/components/ui/DoneButton.tsx` (line 43), `web/components/screens/ScheduleScreen.tsx` (line 61)
+
+- [x] **Task 12.21**: Add aria-hidden to decorative icons ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - Audit all SVG icons and images
+  - Add `aria-hidden="true"` to decorative icons
+  - Add `role="img"` and `aria-label` to meaningful icons
+  - Ensure no empty alt text without aria-hidden
+  - Acceptance: All decorative images properly hidden from screen readers
+  - Depends on: None
+  - Files: All component files with SVG icons
+
+- [ ] **Task 12.22a**: Write Maestro tests for skip links
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.22)
+  - Test "Skip to main content" link exists
+  - Test link is visually hidden until focused
+  - Test link focuses main content when activated
+  - Test link appears first in tab order
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `tests/maestro/flows/web/skip_links.yaml`
+
+- [x] **Task 12.22**: Implement skip-to-content links ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.22a tests pass)
+  - Create `SkipLink` component at `web/components/ui/SkipLink.tsx`
+  - Add skip link as first focusable element in layout
+  - Link target: `#main-content`
+  - Add `id="main-content"` to main content area
+  - Style: visually hidden until focused (sr-only focus:not-sr-only)
+  - Acceptance: Skip link works, tests pass
+  - Depends on: Task 12.22a (tests written first)
+  - Files: `web/components/ui/SkipLink.tsx`, `web/app/layout.tsx`
+
+- [x] **Task 12.23**: Add semantic HTML landmarks ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - Replace generic `<div>` containers with semantic elements where appropriate
+  - Add `<main>` element wrapping main content
+  - Add `<nav>` element for navigation areas
+  - Add `<header>` element for page headers
+  - Add `<footer>` element for page footers
+  - Add `<aside>` for secondary content (if any)
+  - Add appropriate ARIA landmarks where HTML5 elements insufficient
+  - Acceptance: All pages have proper semantic structure
+  - Depends on: None
+  - Files: `web/app/layout.tsx`, all page and screen components
+
+- [ ] **Task 12.24a**: Write Maestro tests for keyboard navigation
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 12.24)
+  - Test Tab navigates through all interactive elements in logical order
+  - Test Enter activates buttons and links
+  - Test Space activates buttons
+  - Test Escape closes modals/dialogs
+  - Test Arrow keys work in dropdowns/menus
+  - Test no keyboard traps exist
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 12.19 ✅
+  - Files: `tests/maestro/flows/web/keyboard_navigation.yaml`
+
+- [x] **Task 12.24**: Ensure complete keyboard navigation ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 12.24a tests pass)
+  - Audit all interactive components for keyboard support
+  - Add `tabindex="0"` where needed for custom interactive elements
+  - Add keyboard event handlers (Enter, Space, Escape) where missing
+  - Ensure modal focus trapping works correctly
+  - Fix any keyboard traps
+  - Ensure tab order is logical (follows visual order RTL)
+  - Acceptance: Full keyboard navigation works, tests pass
+  - Depends on: Task 12.24a (tests written first), Task 12.19 ✅
+  - Files: All interactive components
+
+---
+
+## Feature: Israel SI 5568 Specific Requirements
+
+**Regulation Reference**: Israel SI 5568 (Israeli Accessibility Standard)
+**Severity**: High
+
+### Dependencies
+- Accessibility Improvements (WCAG 2.2)
+- Legal Pages (Accessibility Declaration)
+
+### Tasks
+
+#### Web Agent
+
+- [x] **Task 12.25**: Add accessibility coordinator contact ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - Add accessibility coordinator contact info to accessibility declaration page
+  - Create dedicated "Accessibility Contact" section
+  - Include: Name, Email, Phone number (placeholder for actual contact)
+  - Add "Report Accessibility Issue" form or mailto link
+  - Acceptance: Contact info displayed prominently on accessibility page
+  - Depends on: Task 12.15 ✅
+  - Files: `web/app/(legal)/accessibility/page.tsx`, `docs/legal/accessibility-declaration-he.md`
+
+- [x] **Task 12.26**: Add accessibility feedback mechanism ✅ (2026-01-20)
+  - **Assigned to**: Web Agent
+  - Create accessible feedback form or mailto link
+  - Allow users to report accessibility issues
+  - Ensure form itself is accessible
+  - Acceptance: Users can easily report accessibility issues
+  - Depends on: Task 12.25 ✅
+  - Files: `web/app/(legal)/accessibility/page.tsx` or `web/components/ui/AccessibilityFeedbackForm.tsx`
+
+---
+
+## Compliance Implementation Summary
+
+**Status**: ✅ 100% COMPLETE (2026-01-20)
+
+All implementation tasks completed. Only server testing tasks (12.1a, 12.2a, 12.3a, 12.9a, 12.10a) remain as optional TDD tests.
+
+### Task Dependencies Graph
+
+```
+Backend Infrastructure (12.1-12.2)
+    │
+    ▼
+Sync Rules (12.3)
+    │
+    ▼
+Cookie Consent Banner (12.4) ◄─── Consent Strings (12.6)
+    │
+    ▼
+Analytics Blocking (12.5)
+    │
+    ├───► GPC Detection (12.7)
+    │
+    └───► Do Not Sell Link (12.8)
+
+GDPR Rights API (12.9, 12.10)
+    │
+    ▼
+GDPR Rights UI (12.11)
+
+Legal Content (12.12, 12.13, 12.14)
+    │
+    ▼
+Legal Pages (12.15) ──► Footer (12.16)
+
+Design System (12.17, 12.18)
+    │
+    ▼
+Accessibility Implementation (12.19-12.24)
+    │
+    ▼
+SI 5568 Compliance (12.25, 12.26)
+```
+
+### Priority Order (Recommended Implementation Sequence)
+
+**Critical (Must have before launch):**
+1. Task 12.12: Privacy Policy content
+2. Task 12.13: Cookie Policy content
+3. Tasks 12.1-12.2: Consent backend
+4. Task 12.4: Cookie consent banner
+5. Task 12.5: Analytics consent blocking
+6. Task 12.15: Legal pages
+
+**High (Required for compliance):**
+7. Tasks 12.17-12.19: Focus indicators
+8. Task 12.20: Touch target sizes
+9. Task 12.7: GPC detection
+10. Task 12.8: Do Not Sell link
+11. Tasks 12.9-12.11: GDPR rights
+12. Task 12.14: Accessibility declaration
+13. Tasks 12.25-12.26: SI 5568 requirements
+
+**Medium (Should have):**
+14. Task 12.21: Decorative icons
+15. Tasks 12.22-12.24: Skip links, landmarks, keyboard nav
+16. Task 12.16: Footer with links
+17. Task 12.3: Consent sync rules
 
 ---
 
@@ -1650,27 +753,34 @@ Mishnah structure by Seder (for Task 11.1):
 
 - `[ ]` = Not started / To do
 - `[x]` = Completed
-- Tasks with "a" suffix (e.g., 8.1a) = Test writing tasks (Client Testing Agent for web)
-- Tasks without "a" suffix = Implementation tasks (Web Agent)
+- Tasks with "a" suffix (e.g., 12.1a) = Test writing tasks
+- Tasks without "a" suffix = Implementation tasks
 
 ## TDD Workflow
 
-**All web app tasks follow TDD:**
-1. **Test writing** (Client Testing Agent) - Write Maestro E2E tests first (red phase)
-2. **Implementation** (Web Agent) - Implement to make tests pass (green phase)
+**All tasks follow TDD:**
+1. **Test writing** (Server Testing/Client Testing Agent) - Write tests first (red phase)
+2. **Implementation** (Backend/Web/Sync Agent) - Implement to make tests pass (green phase)
 3. **Task complete** - Mark as `[x]` when tests pass
+
+## Agent Assignments Summary
+
+| Agent | Tasks |
+|-------|-------|
+| Server Testing Agent | 12.1a, 12.2a, 12.3a, 12.9a, 12.10a |
+| Client Testing Agent | 12.4a, 12.5a, 12.7a, 12.8a, 12.11a, 12.15a, 12.19a, 12.20a, 12.22a, 12.24a |
+| Backend Agent | 12.1, 12.2, 12.9, 12.10 |
+| Sync Agent | 12.3 |
+| Web Agent | 12.4, 12.5, 12.7, 12.8, 12.11, 12.15, 12.16, 12.19, 12.20, 12.21, 12.22, 12.23, 12.24, 12.25, 12.26 |
+| Design System Agent | 12.17, 12.18 |
+| Content Generation Agent | 12.6, 12.12, 12.13, 12.14 |
+
+---
 
 ## Notes
 
-- **TDD Workflow**: All tasks follow Test-Driven Development
-  - Test tasks (suffix "a") are written FIRST by Client Testing Agent (for web) or Server Testing Agent (for backend/sync)
-  - Implementation tasks are done SECOND by Web Agent (for web) or Sync Agent (for sync)
-  - Tasks marked `[x]` only when tests pass
-- Web tasks are ordered by dependency (setup → design system → PowerSync → auth → screens → features → polish)
-- Each task should be independently testable
+- **Regulations Compliance**: These tasks address findings from the Regulations Agent compliance audit
+- **RTL Support**: All UI components must maintain RTL support (already compliant per Finding 21)
+- **Hebrew Language**: All user-facing text must be in Hebrew
+- **Testing**: All tasks follow TDD workflow with appropriate testing agents
 - Update this file when tasks are completed: `[x]` and add completion date
-- Sync layer must be complete before client implementations (Android, iOS, Web) ✅
-- **Test writing (Web)**: Client Testing Agent (see `.cursor/agents/client-testing.md`)
-- **Implementation (Web)**: Web Agent (see `.cursor/agents/web.md`)
-- **Test writing (Backend/Sync)**: Server Testing Agent (see `.cursor/agents/server-testing.md`)
-- **Implementation (Sync)**: Sync Agent (see `.cursor/agents/sync.md`)

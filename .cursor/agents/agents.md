@@ -27,6 +27,7 @@ HaLomeid uses a multi-agent architecture to develop an offline-first, multi-plat
 | Client Testing | `client-testing.md` | Maestro E2E tests |
 | Server Testing | `server-testing.md` | Supabase/Deno tests |
 | Security | `security.md` | Pre-commit security checks |
+| Regulations | `regulations.md` | GDPR, CCPA, accessibility, cookies compliance |
 | PR | `pr.md` | Pull Request workflow, merging to main |
 
 ## Agent Hierarchy
@@ -104,6 +105,7 @@ HaLomeid uses a multi-agent architecture to develop an offline-first, multi-plat
 | Content generation | Backend, Scheduling |
 | Scheduling logic | Backend |
 | Any commit | Security |
+| Privacy, cookies, accessibility | Regulations |
 
 ## Reference Documents
 

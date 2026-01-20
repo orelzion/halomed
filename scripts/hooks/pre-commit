@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Pre-commit hook: Security scanning for secrets and sensitive data
-# Based on .cursor/agents/security.md
+# Pre-commit hook: Security and Regulations scanning
+# Based on .cursor/agents/security.md and .cursor/agents/regulations.md
 
 echo "🔒 Running security checks..."
 
@@ -123,4 +123,20 @@ if [ $ERRORS_FOUND -eq 1 ]; then
 fi
 
 echo "✅ Security checks passed!"
+echo ""
+
+# Run regulations compliance checks
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+if [ -f "$REPO_ROOT/scripts/regulations-check.sh" ]; then
+    "$REPO_ROOT/scripts/regulations-check.sh"
+    REGULATIONS_EXIT=$?
+    if [ $REGULATIONS_EXIT -ne 0 ]; then
+        exit $REGULATIONS_EXIT
+    fi
+else
+    echo "⚠️  Regulations check script not found, skipping..."
+fi
+
 exit 0

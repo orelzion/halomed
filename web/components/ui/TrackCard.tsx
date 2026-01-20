@@ -73,6 +73,7 @@ export function TrackCard({ track, streak, hasStudiedToday }: TrackCardProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
               className={`transition-all duration-300 ${hasStudiedToday ? 'text-desert-oasis-accent' : 'text-[var(--text-secondary)] opacity-30'}`}
+              aria-hidden="true"
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -117,6 +118,7 @@ export function TrackCard({ track, streak, hasStudiedToday }: TrackCardProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
               className="text-desert-oasis-accent"
+              aria-hidden="true"
             >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />

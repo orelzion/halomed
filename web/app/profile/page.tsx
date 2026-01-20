@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 import posthog from 'posthog-js';
+import { DeleteAccountDialog } from '@/components/ui/DeleteAccountDialog';
 
 // Back arrow icon
 function ArrowRightIcon({ className = '' }: { className?: string }) {
@@ -37,10 +38,36 @@ function UserIcon({ className = '' }: { className?: string }) {
   );
 }
 
+// Download icon
+function DownloadIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" x2="12" y1="15" y2="3" />
+    </svg>
+  );
+}
+
+// Delete icon
+function DeleteIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    </svg>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const { user, session } = useAuthContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -60,6 +87,92 @@ export default function ProfilePage() {
       console.error('Error logging out:', error);
       posthog.captureException(error);
       setIsLoggingOut(false);
+    }
+  };
+
+  const handleDownloadData = async () => {
+    if (!session) {
+      setMessage({ type: 'error', text: 'נדרשת התחברות להורדת נתונים' });
+      return;
+    }
+
+    setIsDownloading(true);
+    setMessage(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('export-user-data', {
+        body: {},
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Create a blob and download it
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `halomed-export-${user?.id}-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setMessage({ type: 'success', text: 'הנתונים הורדו בהצלחה' });
+      posthog.capture('user_data_exported');
+    } catch (error) {
+      console.error('Error downloading data:', error);
+      posthog.captureException(error);
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'שגיאה בהורדת הנתונים' 
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!session) {
+      setMessage({ type: 'error', text: 'נדרשת התחברות למחיקת חשבון' });
+      return;
+    }
+
+    setIsDeleting(true);
+    setMessage(null);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: {},
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Capture deletion event before signing out
+      posthog.capture('user_account_deleted');
+      posthog.reset();
+
+      // Sign out and redirect
+      await supabase.auth.signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      posthog.captureException(error);
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'שגיאה במחיקת החשבון' 
+      });
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -116,13 +229,60 @@ export default function ProfilePage() {
             disabled={isLoggingOut}
             className="w-full flex items-center gap-4 p-4 bg-white/80 dark:bg-gray-800/50 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group disabled:opacity-50"
           >
-            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
-              <LogoutIcon className="text-red-600 dark:text-red-400 w-5 h-5" />
+            <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
+              <LogoutIcon className="text-red-600 dark:text-red-400 w-5 h-5" aria-hidden="true" />
             </div>
             <span className="font-explanation text-red-600 dark:text-red-400 font-semibold">
               {isLoggingOut ? 'מתנתק...' : 'התנתק'}
             </span>
           </button>
+        </div>
+
+        {/* Privacy Rights Section */}
+        <div className="mt-8">
+          <h2 className="font-source text-lg font-semibold text-[var(--text-primary)] mb-4">
+            זכויות פרטיות
+          </h2>
+          <div className="space-y-3">
+            {/* Download Data button */}
+            <button
+              onClick={handleDownloadData}
+              disabled={isDownloading || isAnonymous}
+              className="w-full flex items-center gap-4 p-4 bg-white/80 dark:bg-gray-800/50 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group disabled:opacity-50"
+            >
+              <div className="w-11 h-11 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                <DownloadIcon className="text-blue-600 dark:text-blue-400 w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="font-explanation text-blue-600 dark:text-blue-400 font-semibold">
+                {isDownloading ? 'מוריד...' : 'הורד את הנתונים שלי'}
+              </span>
+            </button>
+
+            {/* Delete Account button */}
+            <button
+              onClick={() => setIsDeleteDialogOpen(true)}
+              disabled={isDeleting || isAnonymous}
+              className="w-full flex items-center gap-4 p-4 bg-white/80 dark:bg-gray-800/50 rounded-2xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group disabled:opacity-50"
+            >
+              <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center group-hover:bg-red-200 dark:group-hover:bg-red-900/50 transition-colors">
+                <DeleteIcon className="text-red-600 dark:text-red-400 w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="font-explanation text-red-600 dark:text-red-400 font-semibold">
+                מחק את החשבון שלי
+              </span>
+            </button>
+          </div>
+
+          {/* Success/Error message */}
+          {message && (
+            <div className={`mt-4 p-4 rounded-xl ${
+              message.type === 'success' 
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' 
+                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200'
+            }`}>
+              <p className="font-explanation text-sm">{message.text}</p>
+            </div>
+          )}
         </div>
 
         {/* Future sections placeholder */}
@@ -145,6 +305,13 @@ export default function ProfilePage() {
           </div>
         </div>
         */}
+
+        {/* Delete Account Dialog */}
+        <DeleteAccountDialog
+          isOpen={isDeleteDialogOpen}
+          onClose={() => setIsDeleteDialogOpen(false)}
+          onConfirm={handleDeleteAccount}
+        />
       </div>
     </div>
   );

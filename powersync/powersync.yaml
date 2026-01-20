@@ -70,3 +70,14 @@ bucket_definitions:
             AND content_ref IS NOT NULL
             AND unlock_date <= CURRENT_DATE + INTERVAL '60 days'
         )
+
+  # User consent preferences (user-scoped)
+  # Syncs only the current user's consent preferences for GDPR/privacy compliance
+  user_consent_bucket:
+    parameters:
+      - user_id: token.user_id
+    data:
+      - SELECT id, user_id, analytics_consent, marketing_consent, functional_consent,
+               consent_timestamp, consent_version, ip_country, created_at, updated_at
+        FROM user_consent_preferences
+        WHERE user_id = bucket.user_id

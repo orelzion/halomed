@@ -18,5 +18,5 @@ cp "$SCRIPT_DIR/hooks/pre-push" "$HOOKS_DIR/pre-push"
 chmod +x "$HOOKS_DIR/pre-push"
 
 echo "✅ Git hooks installed!"
-echo "   - pre-commit: Security scanning for secrets"
+echo "   - pre-commit: Security scanning + Regulations compliance checks"
 echo "   - pre-push: TypeScript type checking"

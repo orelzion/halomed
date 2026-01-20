@@ -67,5 +67,20 @@
   "quiz_explanation": "הסבר",
   "quiz_continue": "המשך",
   "review_badge": "חזרה",
-  "back": "חזור"
+  "back": "חזור",
+  "consent_banner_title": "אנחנו משתמשים בעוגיות",
+  "consent_banner_description": "אנו משתמשים בעוגיות כדי לשפר את חוויית השימוש שלך באפליקציה. עוגיות חיוניות נדרשות לתפקוד הבסיסי, ועוגיות אחרות עוזרות לנו להבין כיצד האפליקציה משמשת אותך.",
+  "consent_accept_all": "קבל הכל",
+  "consent_manage": "הגדרות",
+  "consent_essential_only": "חיוניים בלבד",
+  "consent_modal_title": "הגדרות פרטיות",
+  "consent_analytics": "ניתוח שימוש",
+  "consent_analytics_description": "עוזר לנו להבין כיצד משתמשים באפליקציה כדי לשפר אותה",
+  "consent_marketing": "שיווק",
+  "consent_marketing_description": "כרגע לא בשימוש",
+  "consent_functional": "פונקציונלי",
+  "consent_functional_description": "שומר את ההעדפות שלך כמו ערכת נושא ושפה",
+  "consent_save": "שמור העדפות",
+  "consent_withdraw": "ניתן לשנות את ההעדפות בכל עת",
+  "consent_gpc_notice": "זוהה אות Global Privacy Control (GPC) - העדפות הפרטיות שלך יושמו אוטומטית"
 }

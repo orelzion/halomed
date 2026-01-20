@@ -52,13 +52,27 @@ export function createCorsHeaders(options: CorsOptions = {}): Headers {
 
 /**
  * Handles OPTIONS preflight requests
+ * Returns a 200 OK response with CORS headers for preflight requests
  */
 export function handleCorsPreflight(request: Request, options: CorsOptions = {}): Response | null {
   if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: createCorsHeaders(options),
+    const headers = createCorsHeaders(options);
+    // Set Content-Type to avoid issues with some browsers
+    headers.set('Content-Type', 'text/plain');
+    return new Response('ok', {
+      status: 200,
+      headers,
     });
   }
   return null;
 }
+
+/**
+ * Legacy export for backwards compatibility
+ * Some older functions may use this pattern
+ */
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
+};

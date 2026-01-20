@@ -40,7 +40,7 @@ export function DoneButton({ isCompleted, onClick, disabled }: DoneButtonProps) 
       <div className="flex items-center justify-center px-3 py-3 border-l border-desert-oasis-muted/50 dark:border-gray-600/30">
         <div
           className={`
-            flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 shadow-sm
+            flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-300 shadow-sm
             ${isCompleted 
               ? 'bg-desert-oasis-accent/20 dark:bg-desert-oasis-accent/30' 
               : 'bg-desert-oasis-muted/20 dark:bg-gray-700/30'
@@ -57,6 +57,7 @@ export function DoneButton({ isCompleted, onClick, disabled }: DoneButtonProps) 
             strokeLinecap="round"
             strokeLinejoin="round"
             className={`transition-all duration-300 ${isCompleted ? 'text-desert-oasis-accent' : 'text-[var(--text-secondary)] opacity-30'}`}
+            aria-hidden="true"
           >
             <polyline points="20 6 9 17 4 12" />
           </svg>

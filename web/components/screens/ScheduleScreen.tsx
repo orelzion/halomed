@@ -54,11 +54,11 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
       className="min-h-screen bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary"
     >
       {/* Header */}
-      <div className="sticky top-0 bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary z-10 border-b border-desert-oasis-muted dark:border-gray-700 p-4">
+      <header className="sticky top-0 bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary z-10 border-b border-desert-oasis-muted dark:border-gray-700 p-4">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           <button
             onClick={() => router.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
+            className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-desert-oasis-card dark:hover:bg-desert-oasis-dark-card transition-colors"
             aria-label="חזור"
           >
             <svg
@@ -72,6 +72,7 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
               strokeLinejoin="round"
               className="text-[var(--text-primary)]"
               style={{ transform: 'scaleX(-1)' }}
+              aria-hidden="true"
             >
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
@@ -81,7 +82,7 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
           </h1>
           <ThemeToggle />
         </div>
-      </div>
+      </header>
 
       {/* Schedule List */}
       <div
@@ -99,11 +100,11 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
           <>
             {/* Past Units */}
             {pastUnits.length > 0 && (
-              <div>
-                <h2 className="text-lg font-source text-[var(--text-secondary)] mb-3">
+              <section aria-labelledby="schedule-past-heading">
+                <h2 id="schedule-past-heading" className="text-lg font-source text-[var(--text-secondary)] mb-3">
                   {t('schedule_past')}
                 </h2>
-                <div className="space-y-2">
+                <div className="space-y-2" role="list" aria-label="יחידות קודמות">
                   {pastUnits.map((unit) => (
                     <ScheduleUnit
                       key={unit.id}
@@ -113,16 +114,16 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Today */}
             {todayUnits.length > 0 && (
-              <div>
-                <h2 className="text-lg font-source text-desert-oasis-accent mb-3">
+              <section aria-labelledby="schedule-today-heading">
+                <h2 id="schedule-today-heading" className="text-lg font-source text-desert-oasis-accent mb-3">
                   {t('schedule_today')}
                 </h2>
-                <div className="space-y-2">
+                <div className="space-y-2" role="list" aria-label="יחידות להיום">
                   {todayUnits.map((unit) => (
                     <ScheduleUnit
                       key={unit.id}
@@ -132,16 +133,16 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Future Units */}
             {futureUnits.length > 0 && (
-              <div>
-                <h2 className="text-lg font-source text-[var(--text-secondary)] mb-3">
+              <section aria-labelledby="schedule-future-heading">
+                <h2 id="schedule-future-heading" className="text-lg font-source text-[var(--text-secondary)] mb-3">
                   {t('schedule_future')}
                 </h2>
-                <div className="space-y-2">
+                <div className="space-y-2" role="list" aria-label="יחידות עתידיות">
                   {futureUnits.map((unit) => (
                     <ScheduleUnit
                       key={unit.id}
@@ -151,7 +152,7 @@ export function ScheduleScreen({ trackId }: ScheduleScreenProps) {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Progress Indicator */}
@@ -199,14 +200,17 @@ function ScheduleUnit({ unit, onClick, isToday }: ScheduleUnitProps) {
   const contentFormatted = formatContentRef(unit.content_ref_id, unit.content_he_ref);
 
   return (
-    <div
+    <button
+      type="button"
       id="schedule_unit"
       data-testid={`schedule_unit_${unit.id}`}
       onClick={onClick}
+      aria-label={`${contentFormatted || 'יחידת לימוד'}, ${dateFormatted}${unit.is_completed ? ', הושלם' : ''}`}
       className={`
-        relative overflow-hidden rounded-2xl cursor-pointer
+        relative overflow-hidden rounded-2xl cursor-pointer w-full text-right
         transition-all duration-300 ease-out
         hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-desert-oasis-accent focus-visible:ring-offset-2
         ${unit.is_completed 
           ? 'bg-gradient-to-br from-desert-oasis-card to-desert-oasis-accent/10 dark:from-desert-oasis-dark-card dark:to-desert-oasis-accent/20 ring-2 ring-desert-oasis-accent/30' 
           : isToday
@@ -227,7 +231,7 @@ function ScheduleUnit({ unit, onClick, isToday }: ScheduleUnitProps) {
         >
           <div
             className={`
-              flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300 shadow-sm
+              flex items-center justify-center w-11 h-11 rounded-xl transition-all duration-300 shadow-sm
               ${unit.is_completed 
                 ? 'bg-desert-oasis-accent/20 dark:bg-desert-oasis-accent/30' 
                 : 'bg-desert-oasis-muted/20 dark:bg-gray-700/30'
@@ -244,6 +248,7 @@ function ScheduleUnit({ unit, onClick, isToday }: ScheduleUnitProps) {
               strokeLinecap="round"
               strokeLinejoin="round"
               className={`transition-all duration-300 ${unit.is_completed ? 'text-desert-oasis-accent' : 'text-[var(--text-secondary)] opacity-30'}`}
+              aria-hidden="true"
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
@@ -265,6 +270,6 @@ function ScheduleUnit({ unit, onClick, isToday }: ScheduleUnitProps) {
           </p>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
