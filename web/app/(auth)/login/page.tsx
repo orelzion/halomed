@@ -10,7 +10,7 @@ import { Mascot } from '@/components/ui/Mascot';
 export default function LoginPage() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user, loading, signInAnonymously, signInWithGoogle, signInWithApple } = useAuthContext();
+  const { user, loading, signInAnonymously, signInWithGoogle } = useAuthContext();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,23 +75,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleAppleLogin = async () => {
-    setIsSigningIn(true);
-    try {
-      const { error } = await signInWithApple();
-      if (error) {
-        console.error('Apple login error:', error);
-        posthog.captureException(error);
-        setIsSigningIn(false);
-      }
-      // OAuth redirect will happen automatically if successful
-      // PostHog identification is handled in the auth callback
-    } catch (error) {
-      console.error('Apple login error:', error);
-      posthog.captureException(error);
-      setIsSigningIn(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -158,14 +141,15 @@ export default function LoginPage() {
           </button>
 
           <button
-            onClick={handleAppleLogin}
-            disabled={isSigningIn}
-            className="w-full py-4 px-6 bg-black hover:bg-gray-800 text-white rounded-xl font-explanation text-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled
+            title="בקרוב - התחברות עם Apple"
+            className="w-full py-4 px-6 bg-black/50 text-white/50 rounded-xl font-explanation text-lg cursor-not-allowed flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
             </svg>
             {t('sign_in_with_apple')}
+            <span className="text-xs opacity-70">(בקרוב)</span>
           </button>
         </div>
       </div>

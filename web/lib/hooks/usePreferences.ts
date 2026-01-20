@@ -44,14 +44,25 @@ export function usePreferences() {
         const db = getPowerSyncDatabase();
         if (!db) {
           console.log('[usePreferences] No PowerSync database');
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
 
         console.log('[usePreferences] Querying PowerSync for user_id:', user.id);
-        const prefsResult = await db.getAll(
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('PowerSync query timeout')), 5000);
+        });
+        
+        const queryPromise = db.getAll(
           'SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1',
           [user.id]
         );
+        
+        const prefsResult = await Promise.race([queryPromise, timeoutPromise]);
         const prefs = normalizeRows<UserPreferencesRecord>(prefsResult);
         console.log('[usePreferences] PowerSync result:', prefs);
 
@@ -62,6 +73,7 @@ export function usePreferences() {
       } catch (error) {
         console.error('[usePreferences] Error loading preferences:', error);
         if (isMounted) {
+          setPreferences(null);
           setLoading(false);
         }
       }

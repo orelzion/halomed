@@ -83,3 +83,39 @@ export async function signOut(): Promise<{ error: Error | null }> {
     return { error: err instanceof Error ? err : new Error('Unknown error') };
   }
 }
+
+/**
+ * Link Google identity to current user (for anonymous users)
+ * This converts an anonymous user to a permanent account while preserving their data
+ */
+export async function linkGoogleIdentity(): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?linking=true`,
+      },
+    });
+    return { error: error ? new Error(error.message) : null };
+  } catch (err) {
+    return { error: err instanceof Error ? err : new Error('Unknown error') };
+  }
+}
+
+/**
+ * Link Apple identity to current user (for anonymous users)
+ * This converts an anonymous user to a permanent account while preserving their data
+ */
+export async function linkAppleIdentity(): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase.auth.linkIdentity({
+      provider: 'apple',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?linking=true`,
+      },
+    });
+    return { error: error ? new Error(error.message) : null };
+  } catch (err) {
+    return { error: err instanceof Error ? err : new Error('Unknown error') };
+  }
+}
