@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
+import { supabase } from '@/lib/supabase/client';
 import type { Database } from '@/lib/powersync/schema';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 
@@ -39,12 +40,31 @@ export function usePreferences() {
       return [];
     };
 
+    // Fallback to Supabase if PowerSync returns empty
+    const loadFromSupabase = async (): Promise<UserPreferencesRecord | null> => {
+      console.log('[usePreferences] Falling back to Supabase for user_id:', user.id);
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('[usePreferences] Supabase fallback error:', error);
+        return null;
+      }
+      console.log('[usePreferences] Supabase fallback result:', data);
+      return data as UserPreferencesRecord | null;
+    };
+
     const loadPreferences = async () => {
       try {
         const db = getPowerSyncDatabase();
         if (!db) {
-          console.log('[usePreferences] No PowerSync database');
+          console.log('[usePreferences] No PowerSync database, using Supabase');
+          const supabasePrefs = await loadFromSupabase();
           if (isMounted) {
+            setPreferences(supabasePrefs);
             setLoading(false);
           }
           return;
@@ -66,15 +86,36 @@ export function usePreferences() {
         const prefs = normalizeRows<UserPreferencesRecord>(prefsResult);
         console.log('[usePreferences] PowerSync result:', prefs);
 
+        // If PowerSync returns empty, try Supabase as fallback
+        // This handles cases where PowerSync hasn't synced yet (e.g., after account linking)
+        if (prefs.length === 0) {
+          console.log('[usePreferences] PowerSync empty, trying Supabase fallback');
+          const supabasePrefs = await loadFromSupabase();
+          if (isMounted) {
+            setPreferences(supabasePrefs);
+            setLoading(false);
+          }
+          return;
+        }
+
         if (isMounted) {
           setPreferences(prefs[0] || null);
           setLoading(false);
         }
       } catch (error) {
         console.error('[usePreferences] Error loading preferences:', error);
-        if (isMounted) {
-          setPreferences(null);
-          setLoading(false);
+        // On error, try Supabase fallback
+        try {
+          const supabasePrefs = await loadFromSupabase();
+          if (isMounted) {
+            setPreferences(supabasePrefs);
+            setLoading(false);
+          }
+        } catch {
+          if (isMounted) {
+            setPreferences(null);
+            setLoading(false);
+          }
         }
       }
     };
