@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
-import { signInAnonymously, signInWithGoogle, signInWithApple, signOut as supabaseSignOut } from '@/lib/supabase/auth';
+import { signInAnonymously, signInWithGoogle, signInWithApple, signOut as supabaseSignOut, linkGoogleIdentity, linkAppleIdentity } from '@/lib/supabase/auth';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -50,6 +50,14 @@ export function useAuth() {
     return await supabaseSignOut();
   };
 
+  const linkGoogle = async () => {
+    return await linkGoogleIdentity();
+  };
+
+  const linkApple = async () => {
+    return await linkAppleIdentity();
+  };
+
   return {
     user,
     session,
@@ -58,5 +66,7 @@ export function useAuth() {
     signInWithGoogle,
     signInWithApple,
     signOut,
+    linkGoogleIdentity: linkGoogle,
+    linkAppleIdentity: linkApple,
   };
 }

@@ -110,9 +110,10 @@ export default function OnboardingPage() {
 
       const pathResult = await pathResponse.json();
       
-      // If path already exists, that's okay - user might be re-doing onboarding
+      // If path already exists, that's okay - user might be re-doing onboarding or linking account
       if (!pathResponse.ok) {
-        if (pathResult.message?.includes('already exists')) {
+        const errorDetails = pathResult.details || pathResult.message || pathResult.error || '';
+        if (errorDetails.includes('already exists') || errorDetails.includes('already')) {
           console.log('[Onboarding] Path already exists, continuing...');
         } else {
           console.error('[Onboarding] Error generating path:', pathResult);

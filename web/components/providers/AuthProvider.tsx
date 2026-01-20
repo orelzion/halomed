@@ -12,6 +12,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signInWithApple: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
+  linkGoogleIdentity: () => Promise<{ error: Error | null }>;
+  linkAppleIdentity: () => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

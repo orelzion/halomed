@@ -4,17 +4,25 @@ import { useEffect, useState } from 'react';
 import { getPowerSyncDatabase } from '@/lib/powersync/database';
 import type { Database } from '@/lib/powersync/schema';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import { usePowerSync } from '@/components/providers/PowerSyncProvider';
 
 type UserPreferencesRecord = Database['user_preferences'];
 
 export function usePreferences() {
   const { user } = useAuthContext();
+  const { hasSynced } = usePowerSync();
   const [preferences, setPreferences] = useState<UserPreferencesRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setLoading(false);
+      return;
+    }
+
+    // Wait for PowerSync to complete first sync before querying
+    if (!hasSynced) {
+      console.log('[usePreferences] Waiting for PowerSync first sync...');
       return;
     }
 
@@ -44,6 +52,9 @@ export function usePreferences() {
         const db = getPowerSyncDatabase();
         if (!db) {
           console.log('[usePreferences] No PowerSync database');
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
 
@@ -62,6 +73,7 @@ export function usePreferences() {
       } catch (error) {
         console.error('[usePreferences] Error loading preferences:', error);
         if (isMounted) {
+          setPreferences(null);
           setLoading(false);
         }
       }
@@ -69,6 +81,7 @@ export function usePreferences() {
 
     loadPreferences();
 
+    // Set up watch for reactive updates
     const db = getPowerSyncDatabase();
     if (!db) {
       return () => {
@@ -80,14 +93,16 @@ export function usePreferences() {
       'SELECT * FROM user_preferences WHERE user_id = ?',
       [user.id],
       {
-        onResult: async () => {
+        onResult: (results) => {
           if (isMounted) {
-            await loadPreferences();
+            const prefs = normalizeRows<UserPreferencesRecord>(results);
+            console.log('[usePreferences] Watch update:', prefs);
+            setPreferences(prefs[0] || null);
           }
         },
         onError: (error) => {
           if (isMounted) {
-            console.error('Error watching preferences:', error);
+            console.error('[usePreferences] Watch error:', error);
           }
         },
       }
@@ -96,7 +111,7 @@ export function usePreferences() {
     return () => {
       isMounted = false;
     };
-  }, [user]);
+  }, [user, hasSynced]);
 
   return { preferences, loading };
 }

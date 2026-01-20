@@ -10,6 +10,49 @@ import { StudyPlanCard } from '@/components/ui/StudyPlanCard';
 import { ChangePlanDialog } from '@/components/ui/ChangePlanDialog';
 import { useTranslation } from '@/lib/i18n';
 
+// Google icon
+function GoogleIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
+    </svg>
+  );
+}
+
+// Apple icon
+function AppleIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+    </svg>
+  );
+}
+
+// Link icon
+function LinkIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
 // Back arrow icon
 function ArrowRightIcon({ className = '' }: { className?: string }) {
   return (
@@ -66,12 +109,13 @@ function DeleteIcon({ className = '' }: { className?: string }) {
 export default function ProfilePage() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { user, session } = useAuthContext();
+  const { user, session, linkGoogleIdentity } = useAuthContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isChangePlanDialogOpen, setIsChangePlanDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleLogout = async () => {
@@ -181,6 +225,28 @@ export default function ProfilePage() {
     }
   };
 
+  const handleLinkGoogle = async () => {
+    setIsLinkingGoogle(true);
+    setMessage(null);
+    try {
+      const { error } = await linkGoogleIdentity();
+      if (error) {
+        throw error;
+      }
+      // OAuth redirect will happen automatically if successful
+      posthog.capture('account_link_started', { provider: 'google' });
+    } catch (error) {
+      console.error('Error linking Google account:', error);
+      posthog.captureException(error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'שגיאה בקישור החשבון',
+      });
+      setIsLinkingGoogle(false);
+    }
+  };
+
+
   // Get user display info
   const email = user?.email;
   const isAnonymous = !email;
@@ -193,7 +259,7 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/')}
               className="p-2 -m-2 rounded-full hover:bg-desert-oasis-muted/20 dark:hover:bg-gray-700/30 transition-colors"
             >
               <ArrowRightIcon className="text-[var(--text-primary)]" />
@@ -219,21 +285,59 @@ export default function ProfilePage() {
               </p>
               {isAnonymous && (
                 <p className="font-explanation text-sm text-[var(--text-secondary)]">
-                  התחבר כדי לשמור את ההתקדמות שלך
+                  קשר חשבון כדי לשמור את ההתקדמות שלך
                 </p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Study Plan Card */}
-        <div className="mb-6">
-          <StudyPlanCard onChangePlan={() => setIsChangePlanDialogOpen(true)} />
-        </div>
+        {/* Connect Account Section - Only for anonymous users */}
+        {isAnonymous && (
+          <div className="bg-gradient-to-br from-desert-oasis-accent/10 to-desert-oasis-accent/5 dark:from-desert-oasis-accent/20 dark:to-desert-oasis-accent/10 border border-desert-oasis-accent/30 rounded-2xl p-6 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-desert-oasis-accent/20 flex items-center justify-center">
+                <LinkIcon className="text-desert-oasis-accent w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="font-source text-lg font-semibold text-[var(--text-primary)]">
+                  קשר חשבון
+                </h2>
+                <p className="font-explanation text-sm text-[var(--text-secondary)]">
+                  כל ההתקדמות שלך תישמר
+                </p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={handleLinkGoogle}
+                disabled={isLinkingGoogle}
+                className="w-full py-3 px-4 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl font-explanation transition-colors disabled:opacity-50 flex items-center justify-center gap-3 shadow-sm"
+              >
+                <GoogleIcon />
+                <span>{isLinkingGoogle ? 'מקשר...' : 'המשך עם Google'}</span>
+              </button>
 
-        {/* Actions */}
-        <div className="space-y-3">
-          {/* Logout button */}
+              <button
+                disabled
+                title="בקרוב - התחברות עם Apple"
+                className="w-full py-3 px-4 bg-black/50 text-white/50 rounded-xl font-explanation cursor-not-allowed flex items-center justify-center gap-3 shadow-sm"
+              >
+                <AppleIcon />
+                <span>המשך עם Apple</span>
+                <span className="text-xs opacity-70">(בקרוב)</span>
+              </button>
+            </div>
+
+            <p className="mt-4 text-xs text-center text-[var(--text-secondary)] font-explanation">
+              הנתונים שלך ישמרו ותוכל להתחבר מכל מכשיר
+            </p>
+          </div>
+        )}
+
+        {/* Logout button */}
+        <div className="mb-6">
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
@@ -246,6 +350,11 @@ export default function ProfilePage() {
               {isLoggingOut ? 'מתנתק...' : 'התנתק'}
             </span>
           </button>
+        </div>
+
+        {/* Study Plan Card */}
+        <div className="mb-6">
+          <StudyPlanCard onChangePlan={() => setIsChangePlanDialogOpen(true)} />
         </div>
 
         {/* Privacy Rights Section */}
@@ -294,27 +403,6 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
-
-        {/* Future sections placeholder */}
-        {/* 
-        <div className="mt-8">
-          <h2 className="font-source text-lg font-semibold text-[var(--text-primary)] mb-4">
-            הגדרות
-          </h2>
-          <div className="space-y-3">
-            Settings items will go here
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <h2 className="font-source text-lg font-semibold text-[var(--text-primary)] mb-4">
-            סטטיסטיקות
-          </h2>
-          <div className="space-y-3">
-            Stats will go here
-          </div>
-        </div>
-        */}
 
         {/* Delete Account Dialog */}
         <DeleteAccountDialog

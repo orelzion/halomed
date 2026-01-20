@@ -4,7 +4,7 @@
  * Reference: powersync/INTEGRATION.md
  */
 
-import { PowerSyncDatabase } from '@powersync/web';
+import { PowerSyncDatabase, WASQLiteOpenFactory } from '@powersync/web';
 import { AppSchema } from './schema';
 
 let powerSyncDatabase: PowerSyncDatabase | null = null;
@@ -15,10 +15,17 @@ export function getPowerSyncDatabase() {
       return null;
     }
 
+    // Create factory with explicit worker paths pointing to copied assets
+    const factory = new WASQLiteOpenFactory({
+      dbFilename: 'halomed.db',
+      worker: '/@powersync/worker/WASQLiteDB.umd.js',
+    });
+
     powerSyncDatabase = new PowerSyncDatabase({
       schema: AppSchema,
-      database: {
-        dbFilename: 'halomed.db',
+      database: factory,
+      sync: {
+        worker: '/@powersync/worker/SharedSyncImplementation.umd.js',
       },
     });
   }
