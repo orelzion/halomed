@@ -404,27 +404,6 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Future sections placeholder */}
-        {/* 
-        <div className="mt-8">
-          <h2 className="font-source text-lg font-semibold text-[var(--text-primary)] mb-4">
-            הגדרות
-          </h2>
-          <div className="space-y-3">
-            Settings items will go here
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <h2 className="font-source text-lg font-semibold text-[var(--text-primary)] mb-4">
-            סטטיסטיקות
-          </h2>
-          <div className="space-y-3">
-            Stats will go here
-          </div>
-        </div>
-        */}
-
         {/* Delete Account Dialog */}
         <DeleteAccountDialog
           isOpen={isDeleteDialogOpen}
