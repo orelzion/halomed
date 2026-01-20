@@ -6,6 +6,9 @@ import { useAuthContext } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 import posthog from 'posthog-js';
 import { DeleteAccountDialog } from '@/components/ui/DeleteAccountDialog';
+import { StudyPlanCard } from '@/components/ui/StudyPlanCard';
+import { ChangePlanDialog } from '@/components/ui/ChangePlanDialog';
+import { useTranslation } from '@/lib/i18n';
 
 // Back arrow icon
 function ArrowRightIcon({ className = '' }: { className?: string }) {
@@ -62,9 +65,11 @@ function DeleteIcon({ className = '' }: { className?: string }) {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user, session } = useAuthContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isChangePlanDialogOpen, setIsChangePlanDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -221,6 +226,11 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Study Plan Card */}
+        <div className="mb-6">
+          <StudyPlanCard onChangePlan={() => setIsChangePlanDialogOpen(true)} />
+        </div>
+
         {/* Actions */}
         <div className="space-y-3">
           {/* Logout button */}
@@ -311,6 +321,15 @@ export default function ProfilePage() {
           isOpen={isDeleteDialogOpen}
           onClose={() => setIsDeleteDialogOpen(false)}
           onConfirm={handleDeleteAccount}
+        />
+
+        {/* Change Plan Dialog */}
+        <ChangePlanDialog
+          isOpen={isChangePlanDialogOpen}
+          onClose={() => setIsChangePlanDialogOpen(false)}
+          onSuccess={() => {
+            setMessage({ type: 'success', text: t('change_plan_success') });
+          }}
         />
       </div>
     </div>

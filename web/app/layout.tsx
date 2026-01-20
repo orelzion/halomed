@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PowerSyncProvider } from "@/components/providers/PowerSyncProvider";
+import { SyncStatusProvider } from "@/components/providers/SyncStatusProvider";
 import { getTranslation } from "@/lib/i18n";
 import { SkipLink } from "@/components/ui/SkipLink";
 import { CookieConsentBanner } from "@/components/ui/CookieConsentBanner";
@@ -64,13 +65,15 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <PowerSyncProvider>
-              <div className="min-h-screen flex flex-col">
-                <main id="main-content" className="flex-1">
-                  {children}
-                </main>
-                <Footer />
-              </div>
-              <CookieConsentBanner />
+              <SyncStatusProvider>
+                <div className="min-h-screen flex flex-col">
+                  <main id="main-content" className="flex-1">
+                    {children}
+                  </main>
+                  <Footer />
+                </div>
+                <CookieConsentBanner />
+              </SyncStatusProvider>
             </PowerSyncProvider>
           </AuthProvider>
         </ThemeProvider>
