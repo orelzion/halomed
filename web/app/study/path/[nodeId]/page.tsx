@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useTranslation } from '@/lib/i18n';
 import { usePathStudyUnit } from '@/lib/hooks/usePathStudyUnit';
 import { formatContentRef } from '@/lib/utils/date-format';
+import { isPlaceholderContent } from '@/lib/utils/content-validation';
 import { ExpandableSection } from '@/components/ui/ExpandableSection';
 import { DoneButton } from '@/components/ui/DoneButton';
 import { StudyHeader } from '@/components/ui/StudyHeader';
@@ -154,12 +155,23 @@ function PathStudyScreen({
     setIsCompleted(node?.completed_at !== null);
   }, [node]);
 
-  // Trigger content generation if missing
+  // Check if content is placeholder (needs regeneration)
+  const contentIsPlaceholder = content && isPlaceholderContent(content.ai_explanation_json);
+
+  // Trigger content generation if missing OR if content is placeholder
   useEffect(() => {
-    if (!loading && !content && contentRef && !isGenerating && !generationError) {
+    const needsGeneration = !loading && contentRef && !isGenerating && !generationError && 
+      (!content || contentIsPlaceholder);
+    
+    if (needsGeneration) {
       const generateContent = async () => {
         setIsGenerating(true);
         setGenerationError(null);
+        
+        if (contentIsPlaceholder) {
+          console.log('[PathStudyScreen] Detected placeholder content, regenerating:', contentRef);
+        }
+        
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
@@ -196,7 +208,7 @@ function PathStudyScreen({
 
       generateContent();
     }
-  }, [loading, content, contentRef, isGenerating, generationError]);
+  }, [loading, content, contentRef, isGenerating, generationError, contentIsPlaceholder]);
 
   const handleDone = async () => {
     const newState = !isCompleted;
@@ -210,13 +222,13 @@ function PathStudyScreen({
     await onCompletion(newState);
   };
 
-  if (loading || isGenerating) {
+  if (loading || isGenerating || contentIsPlaceholder) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
         <div className="text-center">
-          <Mascot mood={isGenerating ? 'thinking' : 'reading'} size="md" />
+          <Mascot mood={isGenerating || contentIsPlaceholder ? 'thinking' : 'reading'} size="md" />
           <p className="text-desert-oasis-accent font-explanation mt-4">
-            {isGenerating ? 'יוצר תוכן...' : t('loading_content')}
+            {isGenerating || contentIsPlaceholder ? 'יוצר תוכן...' : t('loading_content')}
           </p>
         </div>
       </div>
