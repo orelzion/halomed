@@ -14,6 +14,18 @@ export function usePreferences() {
   const [preferences, setPreferences] = useState<UserPreferencesRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Timeout to prevent infinite loading if PowerSync sync takes too long
+  useEffect(() => {
+    if (!user || hasSynced) return;
+    
+    const timeout = setTimeout(() => {
+      console.log('[usePreferences] PowerSync sync timeout, proceeding with empty preferences');
+      setLoading(false);
+    }, 10000); // 10 second timeout
+    
+    return () => clearTimeout(timeout);
+  }, [user, hasSynced]);
+
   useEffect(() => {
     if (!user) {
       setLoading(false);
@@ -60,10 +72,15 @@ export function usePreferences() {
 
         console.log('[usePreferences] Querying PowerSync for user_id:', user.id);
         
-        const prefsResult = await db.getAll(
-          'SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1',
-          [user.id]
-        );
+        // Add timeout to prevent hanging if PowerSync query stalls
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('PowerSync query timeout')), 10000);
+        });
+        
+        const prefsResult = await Promise.race([
+          db.getAll('SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1', [user.id]),
+          timeoutPromise
+        ]);
         const prefs = normalizeRows<UserPreferencesRecord>(prefsResult);
         console.log('[usePreferences] PowerSync result:', prefs);
 
@@ -89,25 +106,36 @@ export function usePreferences() {
       };
     }
 
-    db.watch(
-      'SELECT * FROM user_preferences WHERE user_id = ?',
-      [user.id],
-      {
-        onResult: async () => {
-          if (isMounted) {
-            await loadPreferences();
-          }
+    // Set up watch for reactive updates
+    let abortController: AbortController | null = null;
+    try {
+      abortController = new AbortController();
+      db.watch(
+        'SELECT * FROM user_preferences WHERE user_id = ?',
+        [user.id],
+        {
+          onResult: (results) => {
+            if (isMounted) {
+              const prefs = normalizeRows<UserPreferencesRecord>(results);
+              console.log('[usePreferences] Watch update:', prefs);
+              setPreferences(prefs[0] || null);
+            }
+          },
+          onError: (error) => {
+            if (isMounted) {
+              console.error('[usePreferences] Watch error:', error);
+            }
+          },
         },
-        onError: (error) => {
-          if (isMounted) {
-            console.error('Error watching preferences:', error);
-          }
-        },
-      }
-    );
+        { signal: abortController.signal }
+      );
+    } catch (watchError) {
+      console.error('[usePreferences] Failed to set up watch:', watchError);
+    }
 
     return () => {
       isMounted = false;
+      abortController?.abort();
     };
   }, [user, hasSynced]);
 
