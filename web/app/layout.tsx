@@ -28,6 +28,12 @@ export const metadata: Metadata = {
   description: t('daily_mishna'),
   manifest: '/manifest.json',
   themeColor: '#D4A373',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
   icons: {
     icon: [
       { url: '/favicon-16.png', sizes: '16x16', type: 'image/png' },

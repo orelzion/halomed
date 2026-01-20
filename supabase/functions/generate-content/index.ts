@@ -8,6 +8,7 @@ import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { validateAuth } from '../_shared/auth.ts';
 import { fetchText, fetchCommentaries, toSefariaRef, extractCommentatorName, fetchCommentaryText } from '../_shared/sefaria.ts';
 import { generateMishnahExplanation } from '../_shared/gemini.ts';
+import { isPlaceholderContent } from '../_shared/content-validation.ts';
 
 interface ContentGenerationRequest {
   ref_id: string;  // e.g., "Mishnah_Berakhot.1.1"
@@ -71,8 +72,27 @@ Deno.serve(async (req: Request) => {
       .eq('ref_id', ref_id)
       .single();
 
-    // If content exists and has he_ref, return cached content
-    if (existingContent && !fetchError && existingContent.he_ref) {
+    // Check if existing content is a placeholder (incomplete/failed generation)
+    const isExistingPlaceholder = existingContent && !fetchError && 
+      isPlaceholderContent(existingContent.ai_explanation_json);
+    
+    if (isExistingPlaceholder) {
+      console.log(`[generate-content] Found placeholder content for ${ref_id}, will regenerate`);
+      // Delete the placeholder content so we can regenerate
+      const { error: deleteError } = await supabase
+        .from('content_cache')
+        .delete()
+        .eq('id', existingContent.id);
+      
+      if (deleteError) {
+        console.error(`[generate-content] Failed to delete placeholder content: ${deleteError.message}`);
+      } else {
+        console.log(`[generate-content] Deleted placeholder content for ${ref_id}`);
+      }
+      // Continue to regenerate content below
+    }
+    // If content exists, has he_ref, and is NOT a placeholder, return cached content
+    else if (existingContent && !fetchError && existingContent.he_ref) {
       // Return cached content
       return new Response(
         JSON.stringify({
@@ -84,10 +104,8 @@ Deno.serve(async (req: Request) => {
         { status: 200, headers: corsHeaders }
       );
     }
-    
-    // If content exists but missing he_ref, we need to update it
-    // Fetch he_ref from Sefaria and update the existing entry
-    if (existingContent && !fetchError && !existingContent.he_ref) {
+    // If content exists but missing he_ref (and not placeholder), update it
+    else if (existingContent && !fetchError && !existingContent.he_ref) {
       const sefariaRef = toSefariaRef(ref_id);
       try {
         const sefariaText = await fetchText(sefariaRef);
@@ -249,33 +267,32 @@ Deno.serve(async (req: Request) => {
         
         aiExplanationJson = result;
       } catch (error) {
-        // If Gemini API fails, log error and use placeholder
+        // If Gemini API fails, return error - DO NOT cache placeholder
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error('Gemini API error:', errorMsg);
         
-        // Fallback to placeholder JSON structure
-        const sourcePreview = typeof sourceText === 'string' && sourceText.length > 0
-          ? sourceText.substring(0, 50)
-          : 'טקסט מקור';
-        aiExplanationJson = {
-          summary: `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`,
-          halakha: 'הרחבה זמינה בקרוב.',
-          opinions: [],
-          expansions: [],
-        };
+        return new Response(
+          JSON.stringify({ 
+            error: 'AI content generation failed',
+            details: errorMsg,
+            ref_id: ref_id,
+            retriable: true
+          }),
+          { status: 503, headers: corsHeaders }
+        );
       }
     } else {
-      // No API key - use placeholder
-      console.warn('GEMINI_API_KEY not set, using placeholder explanation');
-      const sourcePreview = typeof sourceText === 'string' && sourceText.length > 0
-        ? sourceText.substring(0, 50)
-        : 'טקסט מקור';
-      aiExplanationJson = {
-        summary: `הסבר אוטומטי זמין. טקסט המקור: ${sourcePreview}...`,
-        halakha: 'הרחבה זמינה בקרוב.',
-        opinions: [],
-        expansions: [],
-      };
+      // No API key - return error, DO NOT cache placeholder
+      console.error('GEMINI_API_KEY not set, cannot generate content');
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service not configured',
+          details: 'GEMINI_API_KEY environment variable is not set',
+          ref_id: ref_id,
+          retriable: false
+        }),
+        { status: 503, headers: corsHeaders }
+      );
     }
 
     // Store in content_cache

@@ -406,44 +406,46 @@ export function PathScreen() {
                   </span>
                 </div>
               )}
-              {/* Dev: Regenerate path button - always show in dev */}
-              <button
-                onClick={async () => {
-                  if (!confirm('Regenerate path with full Shas? This will delete your current path and all progress.')) {
-                    return;
-                  }
-                  try {
-                      const response = await fetch('/api/generate-path', {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${session?.access_token}`,
-                        },
-                        body: JSON.stringify({ 
-                          force: true,
-                          dev_offset_days: 4, // Start 4 days ago in dev mode
-                        }),
-                      });
-                    const result = await response.json();
-                    console.log('Path regeneration response:', { status: response.status, result });
-                    if (response.ok) {
-                      alert(`Path regenerated! ${result.message || 'Refresh the page to see changes.'}`);
-                      window.location.reload();
-                    } else {
-                      console.error('Path regeneration error:', result);
-                      const errorMsg = result.error || result.details || result.message || `HTTP ${response.status}`;
-                      alert(`Error: ${errorMsg}\n\nMake sure the generate-path Edge Function is deployed with the latest code.`);
+              {/* Dev: Regenerate path button - only show in development */}
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  onClick={async () => {
+                    if (!confirm('Regenerate path with full Shas? This will delete your current path and all progress.')) {
+                      return;
                     }
-                  } catch (error) {
-                    console.error('Path regeneration error:', error);
-                    alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                  }
-                }}
-                className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full font-explanation"
-                title="Regenerate learning path with full Shas (all 63 tractates)"
-              >
-                🔄 Regenerate
-              </button>
+                    try {
+                        const response = await fetch('/api/generate-path', {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session?.access_token}`,
+                          },
+                          body: JSON.stringify({ 
+                            force: true,
+                            dev_offset_days: 4, // Start 4 days ago in dev mode
+                          }),
+                        });
+                      const result = await response.json();
+                      console.log('Path regeneration response:', { status: response.status, result });
+                      if (response.ok) {
+                        alert(`Path regenerated! ${result.message || 'Refresh the page to see changes.'}`);
+                        window.location.reload();
+                      } else {
+                        console.error('Path regeneration error:', result);
+                        const errorMsg = result.error || result.details || result.message || `HTTP ${response.status}`;
+                        alert(`Error: ${errorMsg}\n\nMake sure the generate-path Edge Function is deployed with the latest code.`);
+                      }
+                    } catch (error) {
+                      console.error('Path regeneration error:', error);
+                      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                    }
+                  }}
+                  className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full font-explanation"
+                  title="Regenerate learning path with full Shas (all 63 tractates)"
+                >
+                  🔄 Regenerate
+                </button>
+              )}
               
               {/* Profile button */}
               <button
