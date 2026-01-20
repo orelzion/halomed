@@ -259,7 +259,7 @@ export default function ProfilePage() {
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/')}
               className="p-2 -m-2 rounded-full hover:bg-desert-oasis-muted/20 dark:hover:bg-gray-700/30 transition-colors"
             >
               <ArrowRightIcon className="text-[var(--text-primary)]" />
