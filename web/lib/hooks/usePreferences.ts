@@ -14,17 +14,18 @@ export function usePreferences() {
   const [preferences, setPreferences] = useState<UserPreferencesRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Timeout to prevent infinite loading if PowerSync sync takes too long
+  // Global timeout to prevent infinite loading regardless of PowerSync state
   useEffect(() => {
-    if (!user || hasSynced) return;
+    if (!user) return;
+    if (!loading) return; // Already loaded
     
     const timeout = setTimeout(() => {
-      console.log('[usePreferences] PowerSync sync timeout, proceeding with empty preferences');
+      console.log('[usePreferences] Global timeout reached, proceeding with current state');
       setLoading(false);
-    }, 10000); // 10 second timeout
+    }, 8000); // 8 second max wait
     
     return () => clearTimeout(timeout);
-  }, [user, hasSynced]);
+  }, [user, loading]);
 
   useEffect(() => {
     if (!user) {
