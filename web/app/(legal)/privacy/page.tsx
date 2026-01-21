@@ -159,7 +159,12 @@ export default function PrivacyPolicyPage() {
               </tr>
               <tr>
                 <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">Sefaria</td>
-                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">מקור תוכן</td>
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">מקור תוכן (פירושים)</td>
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">US (אין שיתוף מידע אישי)</td>
+              </tr>
+              <tr className="bg-desert-oasis-card/50 dark:bg-desert-oasis-dark-card/50">
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">ויקיטקסט (Hebrew Wikisource)</td>
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">מקור תוכן (טקסט המשנה)</td>
                 <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">US (אין שיתוף מידע אישי)</td>
               </tr>
             </tbody>

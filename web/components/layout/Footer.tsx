@@ -21,6 +21,9 @@ export function Footer() {
           <Link href="/accessibility" className="hover:text-desert-oasis-accent transition-colors">
             הצהרת נגישות
           </Link>
+          <Link href="/credits" className="hover:text-desert-oasis-accent transition-colors">
+            קרדיטים
+          </Link>
           <button
             onClick={handleDoNotSell}
             className="hover:text-desert-oasis-accent transition-colors"

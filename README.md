@@ -172,7 +172,8 @@ This project is private and not open for public use without permission.
 
 ## Acknowledgments
 
-- [Sefaria](https://www.sefaria.org/) — Torah texts and commentaries API
+- [Hebrew Wikisource (ויקיטקסט)](https://he.wikisource.org/wiki/משנה) — Mishnah source text
+- [Sefaria](https://www.sefaria.org/) — Commentaries and Torah texts API
 - [PowerSync](https://www.powersync.com/) — Offline-first sync
 - [Supabase](https://supabase.com/) — Backend infrastructure
 - [Vercel](https://vercel.com/) — Hosting platform
