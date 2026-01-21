@@ -24,6 +24,22 @@ The PR Agent handles the complete Pull Request workflow using GitHub CLI (`gh`),
 - Repository has `develop` and `main` branches
 - Personal SSH configured (`github.com-personal`)
 
+## Critical Rules
+
+### NEVER checkout main locally
+- **Always stay on `develop`** or feature branches
+- All changes to `main` happen through PRs only
+- Use `gh pr merge` to merge PRs, never `git merge` to main locally
+- If you accidentally checkout main, immediately switch back: `git checkout develop`
+
+### Feature Branch Cleanup
+- After merging a feature branch to develop, **delete it**:
+  ```bash
+  git branch -D feature/branch-name
+  git push origin --delete feature/branch-name  # if pushed
+  ```
+- Keep the repository clean - no stale branches
+
 ## PR Creation Workflow
 
 ### Step 1: Analyze Changes
@@ -90,12 +106,14 @@ gh pr edit <PR_NUMBER> --add-label "backend,web,sync"
 After review and approval:
 
 ```bash
-# Merge using squash strategy
+# Merge using squash strategy (preferred)
 gh pr merge <PR_NUMBER> --squash --delete-branch=false
 
 # Or merge with merge commit (preserves history)
 gh pr merge <PR_NUMBER> --merge --delete-branch=false
 ```
+
+**Note:** Use `--delete-branch=false` because we're merging `develop`, which we want to keep. Only delete feature branches.
 
 ### Step 6: Sync Develop with Main (REQUIRED)
 
@@ -108,6 +126,50 @@ git push origin develop
 ```
 
 This is required because squash merges create new commits on main that don't exist in develop's history. Without syncing, the next PR will have conflicts on any files that were changed.
+
+## Feature Branch Workflow
+
+When working on a complex feature that needs isolation:
+
+### 1. Create Feature Branch (from develop)
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b feature/my-feature
+```
+
+### 2. Work on Feature
+
+Make commits, push to remote if needed for backup:
+```bash
+git push -u origin feature/my-feature
+```
+
+### 3. Merge Feature to Develop
+
+```bash
+git checkout develop
+git pull origin develop
+git merge feature/my-feature --no-edit
+git push origin develop
+```
+
+### 4. Delete Feature Branch (REQUIRED)
+
+```bash
+# Delete local branch
+git branch -D feature/my-feature
+
+# Delete remote branch (if pushed)
+git push origin --delete feature/my-feature
+```
+
+### 5. Create PR to Main (when ready for production)
+
+Follow the PR creation workflow below.
+
+---
 
 ## Usage Examples
 
@@ -235,13 +297,20 @@ git checkout develop && git pull origin main && git push origin develop
 ## Branch Strategy
 
 ```
-main (production)
+main (production) ← NEVER checkout locally, only PRs
   ↑
-  └── PR (squash merge)
+  └── PR (squash merge via `gh pr merge`)
         ↑
-        develop (staging/development)
+        develop (staging/development) ← PRIMARY working branch
           ↑
-          └── feature branches (if any)
+          └── feature branches (temporary, delete after merge)
 ```
+
+### Key Principles
+
+1. **`develop` is the primary working branch** - Always work here or on feature branches
+2. **`main` is production** - Only modified through PRs, never directly
+3. **Feature branches are temporary** - Create for complex features, delete after merging to develop
+4. **Sync after PR merge** - After merging develop→main, sync develop with main
 
 **Important:** After each squash merge to main, develop must be synced with main to maintain alignment.
