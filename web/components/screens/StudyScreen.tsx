@@ -12,6 +12,7 @@ import { useAuthContext } from '@/components/providers/AuthProvider';
 import posthog from 'posthog-js';
 import { Mascot } from '@/components/ui/Mascot';
 import { CompletionToast } from '@/components/ui/CompletionToast';
+import ReactMarkdown from 'react-markdown';
 
 interface StudyScreenProps {
   trackId?: string;
@@ -219,14 +220,22 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
     >
       <StudyHeader title={headerTitle} trackId={trackId} />
       <div className="max-w-2xl mx-auto p-6 space-y-6">
-        {/* Source Text (Mishnah) */}
+        {/* Source Text (Mishnah) - Rendered as Markdown for structured display */}
         {sourceText && (
           <div
             id="mishna_text"
             data-testid="mishna_text"
             className="text-2xl font-source font-bold text-[var(--text-primary)] leading-relaxed"
           >
-            {sourceText}
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => (
+                  <p className="mb-3 last:mb-0">{children}</p>
+                ),
+              }}
+            >
+              {sourceText}
+            </ReactMarkdown>
           </div>
         )}
 

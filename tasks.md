@@ -1183,7 +1183,7 @@ Web: 13.6 (StudyPlanCard)          Web: 13.7 (ChangePlanDialog)
 **Created**: 2026-01-21  
 **PRD Reference**: Section 4.3 (Daily Learning Unit), Section 7.2 (Study Screen)  
 **TDD Reference**: Section 7 (Content Generation), Section 4.2 (content_cache schema)  
-**Status**: Not Started
+**Status**: ✅ Implementation Complete (2026-01-21)
 
 ### Overview
 
@@ -1362,7 +1362,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Depends on: None
   - Files: `tests/maestro/flows/web/mishna_markdown.yaml`
 
-- [ ] **Task 14.5**: Implement Markdown rendering for Mishna text in StudyScreen
+- [x] **Task 14.5**: Implement Markdown rendering for Mishna text in StudyScreen ✅ (2026-01-21)
   - **Assigned to**: Web Agent
   - **TDD Workflow**: Implementation (after 14.5a tests pass)
   - Install react-markdown: `npm install react-markdown`
@@ -1394,7 +1394,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Depends on: Task 14.5a (tests written first)
   - Files: `web/components/screens/StudyScreen.tsx`, `web/package.json`
 
-- [ ] **Task 14.6**: Update Mishna rendering in path study page
+- [x] **Task 14.6**: Update Mishna rendering in path study page ✅ (2026-01-21)
   - **Assigned to**: Web Agent
   - Update `web/app/study/path/[nodeId]/page.tsx` (lines 271-278)
   - Same Markdown rendering as StudyScreen
@@ -1420,7 +1420,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Depends on: Tasks 14.1-14.3
   - Files: `supabase/tests/scripts/migrate-to-wikisource.test.ts`
 
-- [ ] **Task 14.7**: Create data migration script for existing content
+- [x] **Task 14.7**: Create data migration script for existing content ✅ (2026-01-21)
   - **Assigned to**: Backend Agent
   - **TDD Workflow**: Implementation (after 14.7a tests pass)
   - Create `scripts/migrate-content-to-wikisource.ts`:
@@ -1458,7 +1458,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Acceptance: Migration applies cleanly
   - Depends on: None
   - Files: `supabase/migrations/`, `powersync/powersync.yaml`
-  - Note: Optional - only if you want to track which format each entry uses
+  - Note: Optional - skipped for now, not needed since all new content uses Wikisource
 
 ---
 
