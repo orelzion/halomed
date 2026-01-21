@@ -1176,6 +1176,365 @@ Web: 13.6 (StudyPlanCard)          Web: 13.7 (ChangePlanDialog)
 
 ---
 
+---
+
+## Feature: Wikisource Integration for Structured Mishna Text (Section 14)
+
+**Created**: 2026-01-21  
+**PRD Reference**: Section 4.3 (Daily Learning Unit), Section 7.2 (Study Screen)  
+**TDD Reference**: Section 7 (Content Generation), Section 4.2 (content_cache schema)  
+**Status**: Not Started
+
+### Overview
+
+Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get properly structured text with line breaks, punctuation, and paragraph formatting. Commentaries will continue to come from Sefaria. The Mishna text will be stored as Markdown in `source_text_he` and rendered with Markdown components on the frontend.
+
+### Motivation
+
+- Sefaria returns Mishna text as flat, unformatted strings
+- Wikisource has structured text with line breaks, question marks, and logical paragraph breaks
+- Better readability for users studying the Mishna
+- Example: https://he.wikisource.org/wiki/משנה_ברכות_א_ניקוד
+
+### Technical Approach
+
+1. **Wikisource API**: Uses MediaWiki API at `https://he.wikisource.org/w/api.php`
+2. **Page naming**: `משנה_[מסכת]_[פרק]_ניקוד` (vocalized Mishna pages)
+3. **Wikitext parsing**: Convert wikitext markup to Markdown
+4. **Hybrid approach**: Wikisource for Mishna text, Sefaria for commentaries and `heRef`
+5. **Data migration**: Update existing `content_cache` entries with new structured format
+
+### Dependencies
+- Content generation edge function exists (`generate-content`)
+- Sefaria integration exists (`_shared/sefaria.ts`)
+- content_cache table exists with `source_text_he` column
+
+---
+
+### Backend Agent Tasks
+
+- [ ] **Task 14.1a**: Write tests for Wikisource API integration
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 14.1)
+  - Test `fetchMishnaFromWikisource` fetches page content
+  - Test tractate name mapping (English to Hebrew)
+  - Test chapter number to Hebrew letter conversion (1→א, 2→ב, etc.)
+  - Test handling of API errors (timeout, 404, rate limiting)
+  - Test retry logic with exponential backoff
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `supabase/tests/logic/wikisource.test.ts`
+
+- [ ] **Task 14.1**: Create Wikisource API integration utility
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 14.1a tests pass)
+  - Create `supabase/functions/_shared/wikisource.ts`
+  - Implement `fetchMishnaChapter(tractate: string, chapter: number)`:
+    - Build page name: `משנה_${tractateHebrew}_${chapterHebrew}_ניקוד`
+    - Call MediaWiki API: `action=parse&page={pageName}&prop=wikitext&format=json`
+    - Return raw wikitext content
+  - Implement tractate name mapping (e.g., `Berakhot` → `ברכות`)
+  - Implement `toHebrewLetter(num: number)` for chapter conversion
+  - Add retry logic with exponential backoff (same pattern as sefaria.ts)
+  - Add request timeout handling
+  - Acceptance: API integration works, tests pass
+  - Depends on: Task 14.1a (tests written first)
+  - Files: `supabase/functions/_shared/wikisource.ts`
+  - Reference: TDD 7 (Content Generation patterns)
+
+- [ ] **Task 14.2a**: Write tests for wikitext to Markdown parser
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 14.2)
+  - Test extraction of specific mishna by number (e.g., `[(א)]`, `[(ב)]`)
+  - Test removal of wikitext markup (links, templates, etc.)
+  - Test preservation of line breaks as paragraph breaks
+  - Test preservation of punctuation (?, !, etc.)
+  - Test removal of mishna number markers from output
+  - Test handling of edge cases (empty, malformed wikitext)
+  - Test Hebrew text integrity (no corruption)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 14.1
+  - Files: `supabase/tests/logic/wikisource-parser.test.ts`
+
+- [ ] **Task 14.2**: Implement wikitext to Markdown parser
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 14.2a tests pass)
+  - Add to `supabase/functions/_shared/wikisource.ts`:
+  - Implement `parseWikitextToMarkdown(wikitext: string, mishnaNumber: number)`:
+    - Split wikitext by mishna markers `[(א)]`, `[(ב)]`, etc.
+    - Extract the specific mishna content
+    - Remove wiki links `[[...]]` → plain text
+    - Remove templates `{{...}}`
+    - Convert wiki formatting to Markdown (if any)
+    - Preserve line breaks as `\n\n` (paragraph breaks)
+    - Clean up extra whitespace
+    - Return clean Markdown string
+  - Implement `extractMishnaFromChapter(wikitext: string, mishnaNum: number)`
+  - Acceptance: Parser works correctly, tests pass
+  - Depends on: Task 14.2a (tests written first), Task 14.1
+  - Files: `supabase/functions/_shared/wikisource.ts`
+
+- [ ] **Task 14.3a**: Write tests for Sefaria ref to Wikisource mapping
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 14.3)
+  - Test parsing `Mishnah_Berakhot.1.1` → tractate: `ברכות`, chapter: 1, mishna: 1
+  - Test parsing `Mishnah_Shabbat.5.3` → tractate: `שבת`, chapter: 5, mishna: 3
+  - Test all 63 tractate name mappings
+  - Test handling of invalid refs
+  - Test edge cases (double-digit chapters, etc.)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `supabase/tests/logic/ref-mapping.test.ts`
+
+- [ ] **Task 14.3**: Implement Sefaria ref to Wikisource mapping
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 14.3a tests pass)
+  - Add to `supabase/functions/_shared/wikisource.ts`:
+  - Implement `parseSefariaRef(refId: string)`:
+    - Parse `Mishnah_Berakhot.1.1` format
+    - Return `{ tractate: string, chapter: number, mishnaNumber: number }`
+  - Create `TRACTATE_MAP` constant with all 63 tractate mappings:
+    - `Berakhot` → `ברכות`
+    - `Shabbat` → `שבת`
+    - etc.
+  - Acceptance: Mapping works for all tractates, tests pass
+  - Depends on: Task 14.3a (tests written first)
+  - Files: `supabase/functions/_shared/wikisource.ts`, `supabase/functions/_shared/mishnah-structure.ts` (reference)
+
+- [ ] **Task 14.4a**: Write tests for updated generate-content flow
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 14.4)
+  - Test Mishna text fetched from Wikisource (not Sefaria)
+  - Test `heRef` still fetched from Sefaria
+  - Test commentaries still fetched from Sefaria
+  - Test Markdown format stored in `source_text_he`
+  - Test fallback to Sefaria if Wikisource fails
+  - Test content_cache stores correct format
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Tasks 14.1, 14.2, 14.3
+  - Files: `supabase/tests/edge-functions/generate-content-wikisource.test.ts`
+
+- [ ] **Task 14.4**: Update `generate-content` to use Wikisource for Mishna text
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 14.4a tests pass)
+  - Modify `supabase/functions/generate-content/index.ts`:
+  - Import Wikisource utilities
+  - Change text fetching flow (around line 154-173):
+    ```typescript
+    // 1. Parse ref to get tractate, chapter, mishna
+    const { tractate, chapter, mishnaNumber } = parseSefariaRef(ref_id);
+    
+    // 2. Fetch structured text from Wikisource
+    let sourceText: string;
+    try {
+      const wikitext = await fetchMishnaChapter(tractate, chapter);
+      sourceText = parseWikitextToMarkdown(wikitext, mishnaNumber);
+    } catch (error) {
+      // Fallback to Sefaria if Wikisource fails
+      console.warn('Wikisource fetch failed, falling back to Sefaria:', error);
+      const sefariaText = await fetchText(sefariaRef);
+      sourceText = sefariaText.he;
+    }
+    
+    // 3. Still get heRef from Sefaria
+    const sefariaText = await fetchText(sefariaRef);
+    heRef = sefariaText.heRef;
+    ```
+  - Keep commentary fetching from Sefaria unchanged
+  - Acceptance: Integration works, tests pass
+  - Depends on: Task 14.4a (tests written first), Tasks 14.1-14.3
+  - Files: `supabase/functions/generate-content/index.ts`
+  - Reference: Current implementation at lines 154-234
+
+---
+
+### Web Agent Tasks
+
+- [ ] **Task 14.5a**: Write Maestro tests for Markdown rendering of Mishna text
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 14.5)
+  - Test Mishna text renders with paragraph breaks
+  - Test Hebrew text displays correctly (RTL)
+  - Test styling is consistent with existing design
+  - Test long texts don't overflow
+  - Test questions (?) render distinctly (if styled)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `tests/maestro/flows/web/mishna_markdown.yaml`
+
+- [ ] **Task 14.5**: Implement Markdown rendering for Mishna text in StudyScreen
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 14.5a tests pass)
+  - Install react-markdown: `npm install react-markdown`
+  - Update `web/components/screens/StudyScreen.tsx` (lines 223-230):
+    ```tsx
+    import ReactMarkdown from 'react-markdown';
+    
+    // Replace plain text rendering with Markdown
+    {sourceText && (
+      <div
+        id="mishna_text"
+        data-testid="mishna_text"
+        className="text-2xl font-source font-bold text-[var(--text-primary)] leading-relaxed"
+      >
+        <ReactMarkdown
+          components={{
+            p: ({ children }) => (
+              <p className="mb-4 last:mb-0">{children}</p>
+            ),
+          }}
+        >
+          {sourceText}
+        </ReactMarkdown>
+      </div>
+    )}
+    ```
+  - Ensure RTL support maintained
+  - Acceptance: Markdown renders correctly, tests pass
+  - Depends on: Task 14.5a (tests written first)
+  - Files: `web/components/screens/StudyScreen.tsx`, `web/package.json`
+
+- [ ] **Task 14.6**: Update Mishna rendering in path study page
+  - **Assigned to**: Web Agent
+  - Update `web/app/study/path/[nodeId]/page.tsx` (lines 271-278)
+  - Same Markdown rendering as StudyScreen
+  - Ensure consistent styling between both study views
+  - Acceptance: Both study pages render Markdown correctly
+  - Depends on: Task 14.5
+  - Files: `web/app/study/path/[nodeId]/page.tsx`
+
+---
+
+### Data Migration Tasks
+
+- [ ] **Task 14.7a**: Write tests for data migration script
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 14.7)
+  - Test script fetches all existing content_cache entries
+  - Test script correctly calls Wikisource for each ref
+  - Test script updates `source_text_he` with Markdown
+  - Test script handles Wikisource failures gracefully (skip, log)
+  - Test script tracks progress and can resume
+  - Test script doesn't corrupt existing data on failure
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Tasks 14.1-14.3
+  - Files: `supabase/tests/scripts/migrate-to-wikisource.test.ts`
+
+- [ ] **Task 14.7**: Create data migration script for existing content
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 14.7a tests pass)
+  - Create `scripts/migrate-content-to-wikisource.ts`:
+    - Connect to Supabase with service role key
+    - Query all entries from `content_cache`
+    - For each entry:
+      1. Parse `ref_id` to get tractate, chapter, mishna
+      2. Fetch Mishna from Wikisource
+      3. Parse to Markdown
+      4. Update `source_text_he` in database
+      5. Log progress
+    - Handle failures:
+      - Log failed refs
+      - Continue with next entry
+      - Output summary at end
+    - Add `--dry-run` flag for testing
+    - Add `--limit N` flag for partial migration
+  - Acceptance: Script works, tests pass
+  - Depends on: Task 14.7a (tests written first), Tasks 14.1-14.3
+  - Files: `scripts/migrate-content-to-wikisource.ts`
+  - Reference: TDD 4.2 (content_cache schema)
+
+- [ ] **Task 14.8**: Create database migration for format tracking (optional)
+  - **Assigned to**: Backend Agent
+  - Create migration `supabase/migrations/YYYYMMDDHHMMSS_add_source_format_version.sql`:
+    ```sql
+    -- Add column to track source text format version
+    ALTER TABLE content_cache 
+    ADD COLUMN IF NOT EXISTS source_format_version INTEGER DEFAULT 1;
+    
+    COMMENT ON COLUMN content_cache.source_format_version IS 
+      '1 = Sefaria plain text, 2 = Wikisource Markdown';
+    ```
+  - Update sync rules if needed
+  - Acceptance: Migration applies cleanly
+  - Depends on: None
+  - Files: `supabase/migrations/`, `powersync/powersync.yaml`
+  - Note: Optional - only if you want to track which format each entry uses
+
+---
+
+### Task Dependencies Graph
+
+```
+Server Testing: 14.1a ──► Backend: 14.1 (Wikisource API)
+                              │
+                              ▼
+Server Testing: 14.2a ──► Backend: 14.2 (Wikitext parser)
+                              │
+Server Testing: 14.3a ──► Backend: 14.3 (Ref mapping)
+                              │
+                              ▼
+Server Testing: 14.4a ──► Backend: 14.4 (Update generate-content)
+                              │
+                              ▼
+Client Testing: 14.5a ──► Web: 14.5 (Markdown in StudyScreen)
+                              │
+                              ▼
+                         Web: 14.6 (Markdown in path page)
+
+Server Testing: 14.7a ──► Backend: 14.7 (Migration script)
+                              │
+                              ▼
+                         Backend: 14.8 (Format version column - optional)
+```
+
+### Implementation Order (Recommended)
+
+**Phase 1: Backend Foundation**
+1. Task 14.3 - Ref mapping (no external deps)
+2. Task 14.1 - Wikisource API integration
+3. Task 14.2 - Wikitext parser
+4. Task 14.4 - Update generate-content
+
+**Phase 2: Frontend**
+5. Task 14.5 - Markdown in StudyScreen
+6. Task 14.6 - Markdown in path page
+
+**Phase 3: Data Migration**
+7. Task 14.8 - Format version column (optional)
+8. Task 14.7 - Migration script
+9. Run migration on production data
+
+### Tractate Name Mapping Reference
+
+```typescript
+const TRACTATE_MAP: Record<string, string> = {
+  // Seder Zeraim
+  'Berakhot': 'ברכות',
+  'Peah': 'פאה',
+  'Demai': 'דמאי',
+  'Kilayim': 'כלאים',
+  'Sheviit': 'שביעית',
+  'Terumot': 'תרומות',
+  'Maasrot': 'מעשרות',
+  'Maaser_Sheni': 'מעשר שני',
+  'Challah': 'חלה',
+  'Orlah': 'ערלה',
+  'Bikkurim': 'ביכורים',
+  // ... (all 63 tractates)
+};
+```
+
+### Agent Assignments Summary (Section 14)
+
+| Agent | Tasks |
+|-------|-------|
+| Server Testing Agent | 14.1a, 14.2a, 14.3a, 14.4a, 14.7a |
+| Backend Agent | 14.1, 14.2, 14.3, 14.4, 14.7, 14.8 |
+| Client Testing Agent | 14.5a |
+| Web Agent | 14.5, 14.6 |
+
+---
+
 ## Notes
 
 - **Regulations Compliance**: These tasks address findings from the Regulations Agent compliance audit
