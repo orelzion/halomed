@@ -13,6 +13,7 @@ import { DoneButton } from '@/components/ui/DoneButton';
 import { StudyHeader } from '@/components/ui/StudyHeader';
 import { Mascot } from '@/components/ui/Mascot';
 import { CompletionToast } from '@/components/ui/CompletionToast';
+import ReactMarkdown from 'react-markdown';
 
 interface PathNode {
   id: string;
@@ -267,14 +268,28 @@ function PathStudyScreen({
       />
 
       <div className="max-w-2xl mx-auto p-4 space-y-6">
-        {/* Source text - BOLD */}
+        {/* Source text - BOLD, rendered as Markdown for structured display */}
         {content.source_text_he && (
           <div
             id="mishna_text"
             data-testid="mishna_text"
             className="text-2xl font-source font-bold text-[var(--text-primary)] leading-relaxed"
           >
-            {content.source_text_he}
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => (
+                  <p className="mb-3 last:mb-0">{children}</p>
+                ),
+                strong: ({ children }) => (
+                  <span className="text-[#8B4513]">{children}</span>
+                ),
+                hr: () => (
+                  <hr className="my-4 border-t border-[#D4A373] opacity-50" />
+                ),
+              }}
+            >
+              {content.source_text_he}
+            </ReactMarkdown>
           </div>
         )}
 

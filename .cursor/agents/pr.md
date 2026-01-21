@@ -16,6 +16,7 @@ The PR Agent handles the complete Pull Request workflow using GitHub CLI (`gh`),
 - Assign appropriate reviewers/labels
 - Run pre-merge checks
 - Merge PRs to main after approval
+- **Sync develop with main after merge** (prevents future conflicts)
 
 ## Prerequisites
 
@@ -96,6 +97,18 @@ gh pr merge <PR_NUMBER> --squash --delete-branch=false
 gh pr merge <PR_NUMBER> --merge --delete-branch=false
 ```
 
+### Step 6: Sync Develop with Main (REQUIRED)
+
+**CRITICAL:** After every squash merge, sync develop with main to prevent conflicts:
+
+```bash
+git checkout develop
+git pull origin main
+git push origin develop
+```
+
+This is required because squash merges create new commits on main that don't exist in develop's history. Without syncing, the next PR will have conflicts on any files that were changed.
+
 ## Usage Examples
 
 ### Create a Release PR
@@ -109,6 +122,9 @@ gh pr create --base main --head develop --title "Release: PWA fixes and content 
 
 # 3. After approval, merge
 gh pr merge --squash
+
+# 4. REQUIRED: Sync develop with main
+git checkout develop && git pull origin main && git push origin develop
 ```
 
 ### Quick Release (All-in-One)
@@ -118,6 +134,9 @@ For trusted releases where you want to merge immediately:
 ```bash
 # Create and auto-merge (if all checks pass)
 gh pr create --base main --head develop --title "Release: <title>" --body "<body>" && gh pr merge --squash --auto
+
+# REQUIRED: After merge completes, sync develop
+git checkout develop && git pull origin main && git push origin develop
 ```
 
 ## Agent Review Guidelines
@@ -171,12 +190,15 @@ Before merging to main:
 3. **Branch is up to date** - `git pull origin develop`
 4. **Main is stable** - Check production status
 
-## Post-Merge
+## Post-Merge Checklist (REQUIRED)
 
-After merging to main:
+After merging to main, **ALWAYS** complete these steps:
 
-1. **Verify deployment** - Check Vercel/production
-2. **Update develop** - Sync develop with main if needed
+1. **Sync develop with main** (REQUIRED - prevents merge conflicts)
+   ```bash
+   git checkout develop && git pull origin main && git push origin develop
+   ```
+2. **Verify deployment** - Check Vercel/production
 3. **Tag release** (optional) - `git tag v1.x.x && git push --tags`
 
 ## Commands Reference
@@ -199,6 +221,9 @@ gh pr merge <PR_NUMBER> --squash
 
 # Close PR without merging
 gh pr close <PR_NUMBER>
+
+# Sync develop after merge (REQUIRED)
+git checkout develop && git pull origin main && git push origin develop
 ```
 
 ## Integration with Other Agents
@@ -218,3 +243,5 @@ main (production)
           ↑
           └── feature branches (if any)
 ```
+
+**Important:** After each squash merge to main, develop must be synced with main to maintain alignment.

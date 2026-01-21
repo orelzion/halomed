@@ -23,6 +23,7 @@
     "posthog-node": "^5.21.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "serwist": "^9.5.0"
   },
   "devDependencies": {
