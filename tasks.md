@@ -1213,7 +1213,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
 
 ### Backend Agent Tasks
 
-- [ ] **Task 14.1a**: Write tests for Wikisource API integration
+- [x] **Task 14.1a**: Write tests for Wikisource API integration ✅ (2026-01-21)
   - **Assigned to**: Server Testing Agent
   - **TDD Workflow**: Test writing (MUST be done before 14.1)
   - Test `fetchMishnaFromWikisource` fetches page content
@@ -1225,7 +1225,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Depends on: None
   - Files: `supabase/tests/logic/wikisource.test.ts`
 
-- [ ] **Task 14.1**: Create Wikisource API integration utility
+- [x] **Task 14.1**: Create Wikisource API integration utility ✅ (2026-01-21)
   - **Assigned to**: Backend Agent
   - **TDD Workflow**: Implementation (after 14.1a tests pass)
   - Create `supabase/functions/_shared/wikisource.ts`
@@ -1242,7 +1242,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Files: `supabase/functions/_shared/wikisource.ts`
   - Reference: TDD 7 (Content Generation patterns)
 
-- [ ] **Task 14.2a**: Write tests for wikitext to Markdown parser
+- [x] **Task 14.2a**: Write tests for wikitext to Markdown parser ✅ (2026-01-21)
   - **Assigned to**: Server Testing Agent
   - **TDD Workflow**: Test writing (MUST be done before 14.2)
   - Test extraction of specific mishna by number (e.g., `[(א)]`, `[(ב)]`)
@@ -1254,9 +1254,9 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Test Hebrew text integrity (no corruption)
   - Acceptance: Tests written and failing (red phase)
   - Depends on: Task 14.1
-  - Files: `supabase/tests/logic/wikisource-parser.test.ts`
+  - Files: `supabase/tests/logic/wikisource.test.ts` (combined with 14.1a)
 
-- [ ] **Task 14.2**: Implement wikitext to Markdown parser
+- [x] **Task 14.2**: Implement wikitext to Markdown parser ✅ (2026-01-21)
   - **Assigned to**: Backend Agent
   - **TDD Workflow**: Implementation (after 14.2a tests pass)
   - Add to `supabase/functions/_shared/wikisource.ts`:
@@ -1274,7 +1274,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Depends on: Task 14.2a (tests written first), Task 14.1
   - Files: `supabase/functions/_shared/wikisource.ts`
 
-- [ ] **Task 14.3a**: Write tests for Sefaria ref to Wikisource mapping
+- [x] **Task 14.3a**: Write tests for Sefaria ref to Wikisource mapping ✅ (2026-01-21)
   - **Assigned to**: Server Testing Agent
   - **TDD Workflow**: Test writing (MUST be done before 14.3)
   - Test parsing `Mishnah_Berakhot.1.1` → tractate: `ברכות`, chapter: 1, mishna: 1
@@ -1284,9 +1284,9 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Test edge cases (double-digit chapters, etc.)
   - Acceptance: Tests written and failing (red phase)
   - Depends on: None
-  - Files: `supabase/tests/logic/ref-mapping.test.ts`
+  - Files: `supabase/tests/logic/wikisource.test.ts` (combined)
 
-- [ ] **Task 14.3**: Implement Sefaria ref to Wikisource mapping
+- [x] **Task 14.3**: Implement Sefaria ref to Wikisource mapping ✅ (2026-01-21)
   - **Assigned to**: Backend Agent
   - **TDD Workflow**: Implementation (after 14.3a tests pass)
   - Add to `supabase/functions/_shared/wikisource.ts`:
@@ -1314,7 +1314,7 @@ Replace Sefaria as the source for Mishna text with Hebrew Wikisource to get prop
   - Depends on: Tasks 14.1, 14.2, 14.3
   - Files: `supabase/tests/edge-functions/generate-content-wikisource.test.ts`
 
-- [ ] **Task 14.4**: Update `generate-content` to use Wikisource for Mishna text
+- [x] **Task 14.4**: Update `generate-content` to use Wikisource for Mishna text ✅ (2026-01-21)
   - **Assigned to**: Backend Agent
   - **TDD Workflow**: Implementation (after 14.4a tests pass)
   - Modify `supabase/functions/generate-content/index.ts`:
