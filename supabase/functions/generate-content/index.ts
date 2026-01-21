@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { validateAuth } from '../_shared/auth.ts';
 import { fetchText, fetchCommentaries, toSefariaRef, extractCommentatorName, fetchCommentaryText } from '../_shared/sefaria.ts';
+import { fetchMishnaFromWikisource } from '../_shared/wikisource.ts';
 import { generateMishnahExplanation } from '../_shared/gemini.ts';
 import { isPlaceholderContent } from '../_shared/content-validation.ts';
 
@@ -153,24 +154,59 @@ Deno.serve(async (req: Request) => {
     // Convert ref_id to Sefaria format
     const sefariaRef = toSefariaRef(ref_id);
 
-    // Fetch source text from Sefaria
+    // Fetch source text - try Wikisource first for structured text, fallback to Sefaria
     let sourceText: string;
     let heRef: string | null = null;
+    let textSource: 'wikisource' | 'sefaria' = 'sefaria';
+    
+    // First, always fetch from Sefaria to get heRef (Hebrew reference for display)
+    let sefariaText: { he: string; heRef?: string } | null = null;
     try {
-      const sefariaText = await fetchText(sefariaRef);
-      sourceText = sefariaText.he;
+      sefariaText = await fetchText(sefariaRef);
       heRef = sefariaText.heRef || null;
+    } catch (error) {
+      console.warn(`Failed to fetch heRef from Sefaria: ${error}`);
+    }
+    
+    // Try Wikisource for structured Mishna text
+    try {
+      sourceText = await fetchMishnaFromWikisource(ref_id, 2);
+      textSource = 'wikisource';
+      console.log(`[generate-content] Fetched structured text from Wikisource for ${ref_id}`);
       
       if (!sourceText || sourceText.length === 0) {
-        throw new Error('Sefaria API returned empty Hebrew text');
+        throw new Error('Wikisource returned empty text');
       }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      return new Response(
-        JSON.stringify({ error: `Failed to fetch text from Sefaria: ${errorMsg}` }),
-        { status: 500, headers: corsHeaders }
-      );
+    } catch (wikisourceError) {
+      // Fallback to Sefaria if Wikisource fails
+      console.warn(`[generate-content] Wikisource failed for ${ref_id}, falling back to Sefaria:`, wikisourceError);
+      
+      if (sefariaText && sefariaText.he) {
+        sourceText = sefariaText.he;
+        textSource = 'sefaria';
+      } else {
+        // Need to fetch from Sefaria
+        try {
+          const freshSefariaText = await fetchText(sefariaRef);
+          sourceText = freshSefariaText.he;
+          heRef = freshSefariaText.heRef || heRef;
+          textSource = 'sefaria';
+          
+          if (!sourceText || sourceText.length === 0) {
+            throw new Error('Sefaria API returned empty Hebrew text');
+          }
+        } catch (sefariaError) {
+          const errorMsg = sefariaError instanceof Error ? sefariaError.message : String(sefariaError);
+          return new Response(
+            JSON.stringify({ error: `Failed to fetch text from both Wikisource and Sefaria: ${errorMsg}` }),
+            { status: 500, headers: corsHeaders }
+          );
+        }
+      }
     }
+    
+    console.log(`[generate-content] Using ${textSource} text for ${ref_id} (${sourceText.length} chars)`);
+    
 
     // Fetch classical commentaries from Sefaria (Bartenura, Mishnat Eretz Israel, Rambam)
     // Use text from links response to avoid extra API calls
