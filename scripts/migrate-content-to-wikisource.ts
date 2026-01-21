@@ -183,6 +183,31 @@ function extractMishnaFromWikitext(wikitext: string, mishnaNumber: number): stri
   throw new Error(`Mishna ${mishnaNumber} (${hebrewLetter}) not found in chapter`);
 }
 
+/**
+ * Bold rabbi names and titles in text
+ */
+function boldRabbiNames(text: string): string {
+  // Hebrew unicode range: \u0590-\u05FF includes letters and nikud marks
+  
+  // Bold "רבי X" or "רבן X" patterns
+  text = text.replace(
+    /(רַבִּי|רבי|רַבָּן|רבן)\s+([\u0590-\u05FF]+(?:\s+(?:בֶּן|בן|בַּר|בר)\s+[\u0590-\u05FF]+(?:\s+[\u0590-\u05FF]+)?)?)/gu,
+    '**$1 $2**'
+  );
+  
+  // Bold "בית שמאי" and "בית הלל"
+  text = text.replace(/(בֵּית\s+שַׁמַּאי|בית\s+שמאי)/gu, '**$1**');
+  text = text.replace(/(וּבֵית\s+הִלֵּל|בֵּית\s+הִלֵּל|בית\s+הלל)/gu, '**$1**');
+  
+  // Bold "חכמים" (the Sages)
+  text = text.replace(/(וַחֲכָמִים|חֲכָמִים|חכמים)/gu, '**$1**');
+  
+  // Clean up any double-bolding
+  text = text.replace(/\*\*\*\*/g, '**');
+  
+  return text;
+}
+
 function parseWikitextToMarkdown(rawWikitext: string): string {
   let text = rawWikitext;
   
@@ -196,13 +221,45 @@ function parseWikitextToMarkdown(rawWikitext: string): string {
   text = text.replace(/<ref[^>]*\/>/g, '');
   text = text.replace(/'''([^']+)'''/g, '**$1**');
   text = text.replace(/''([^']+)''/g, '*$1*');
-  text = text.replace(/^:+/gm, '');
-  text = text.replace(/\n{3,}/g, '\n\n');
+  
+  // Handle wiki indentation (colons at start of line)
+  // Add section separators when transitioning from indented to non-indented lines
+  const lines = text.split('\n');
+  const processedLines: string[] = [];
+  let prevWasIndented = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isIndented = line.startsWith(':');
+    const cleanLine = line.replace(/^:+/, '').trim();
+    
+    // Skip empty lines
+    if (!cleanLine) continue;
+    
+    // Add separator when transitioning from indented to non-indented (new section)
+    if (processedLines.length > 0 && !isIndented && prevWasIndented) {
+      processedLines.push('---'); // Markdown horizontal rule
+    }
+    
+    processedLines.push(cleanLine);
+    prevWasIndented = isIndented;
+  }
+  
+  text = processedLines.join('\n');
+  
   text = text.replace(/[ \t]+/g, ' ');
   text = text.replace(/^ +/gm, '');
   text = text.replace(/ +$/gm, '');
-  text = text.replace(/^\n+/, '');
   text = text.trim();
+  
+  // Bold rabbi names
+  text = boldRabbiNames(text);
+  
+  // Convert single newlines to double newlines for Markdown paragraph breaks
+  text = text.replace(/\n/g, '\n\n');
+  
+  // Clean up any triple+ newlines
+  text = text.replace(/\n{3,}/g, '\n\n');
   
   return text;
 }
@@ -218,6 +275,7 @@ async function fetchMishnaFromWikisource(refId: string): Promise<string> {
 async function main() {
   const args = Deno.args;
   const dryRun = args.includes('--dry-run');
+  const force = args.includes('--force');
   const limitArg = args.find(a => a.startsWith('--limit='));
   const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : undefined;
   const refArg = args.find(a => a.startsWith('--ref='));
@@ -233,6 +291,7 @@ async function main() {
     console.log('  SUPABASE_URL=... SUPABASE_SERVICE_KEY=... deno run --allow-net --allow-env --allow-read scripts/migrate-content-to-wikisource.ts');
     console.log('\nOptions:');
     console.log('  --dry-run    Show what would be updated without making changes');
+    console.log('  --force      Re-process entries even if already structured (useful after parser updates)');
     console.log('  --limit=N    Only process first N entries');
     console.log('  --ref=REF    Process only a specific ref_id');
     Deno.exit(1);
@@ -242,6 +301,7 @@ async function main() {
   
   console.log('=== Wikisource Migration Script ===');
   console.log(`Mode: ${dryRun ? 'DRY RUN (no changes will be made)' : 'LIVE'}`);
+  if (force) console.log('Force: Re-processing all entries');
   if (limit) console.log(`Limit: ${limit} entries`);
   if (specificRef) console.log(`Specific ref: ${specificRef}`);
   console.log('');
@@ -284,8 +344,8 @@ async function main() {
     const entry = entries[i];
     const progress = `[${i + 1}/${entries.length}]`;
     
-    // Check if already has structured text (contains newlines)
-    if (entry.source_text_he && entry.source_text_he.includes('\n')) {
+    // Check if already has structured text (contains newlines) - skip unless --force
+    if (!force && entry.source_text_he && entry.source_text_he.includes('\n')) {
       console.log(`${progress} ${entry.ref_id}: SKIPPED (already structured)`);
       results.skipped++;
       continue;

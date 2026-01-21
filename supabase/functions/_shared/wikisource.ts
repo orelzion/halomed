@@ -242,6 +242,33 @@ export function extractMishnaFromWikitext(wikitext: string, mishnaNumber: number
 }
 
 /**
+ * Bold rabbi names and titles in text
+ * Handles various forms: רבי, רבן, בית שמאי/הלל, חכמים
+ */
+function boldRabbiNames(text: string): string {
+  // Hebrew unicode range: \u0590-\u05FF includes letters and nikud marks
+  
+  // Bold "רבי X" or "רבן X" patterns
+  // Match title + name, with optional "בן Y" or "בר Y" continuation
+  text = text.replace(
+    /(רַבִּי|רבי|רַבָּן|רבן)\s+([\u0590-\u05FF]+(?:\s+(?:בֶּן|בן|בַּר|בר)\s+[\u0590-\u05FF]+(?:\s+[\u0590-\u05FF]+)?)?)/gu,
+    '**$1 $2**'
+  );
+  
+  // Bold "בית שמאי" and "בית הלל" (with various nikud forms)
+  text = text.replace(/(בֵּית\s+שַׁמַּאי|בית\s+שמאי)/gu, '**$1**');
+  text = text.replace(/(וּבֵית\s+הִלֵּל|בֵּית\s+הִלֵּל|בית\s+הלל)/gu, '**$1**');
+  
+  // Bold "חכמים" (the Sages)
+  text = text.replace(/(וַחֲכָמִים|חֲכָמִים|חכמים)/gu, '**$1**');
+  
+  // Clean up any double-bolding that might occur
+  text = text.replace(/\*\*\*\*/g, '**');
+  
+  return text;
+}
+
+/**
  * Clean wikitext and convert to Markdown
  * Removes wiki markup while preserving structure
  */
@@ -274,24 +301,49 @@ export function parseWikitextToMarkdown(rawWikitext: string): string {
   text = text.replace(/''([^']+)''/g, '*$1*');
   
   // Handle wiki indentation (colons at start of line)
-  // Multiple colons indicate deeper indentation - convert to paragraph structure
-  // Remove leading colons but preserve the line breaks
-  text = text.replace(/^:+/gm, '');
+  // Add section separators when transitioning from indented to non-indented lines
+  // This marks logical sections in the Mishna
+  const lines = text.split('\n');
+  const processedLines: string[] = [];
+  let prevWasIndented = false;
   
-  // Normalize line breaks - preserve paragraph structure
-  // Multiple newlines become paragraph breaks
-  text = text.replace(/\n{3,}/g, '\n\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isIndented = line.startsWith(':');
+    const cleanLine = line.replace(/^:+/, '').trim();
+    
+    // Skip empty lines
+    if (!cleanLine) continue;
+    
+    // Add separator when transitioning from indented to non-indented (new section)
+    // But not for the first line
+    if (processedLines.length > 0 && !isIndented && prevWasIndented) {
+      processedLines.push('---'); // Markdown horizontal rule
+    }
+    
+    processedLines.push(cleanLine);
+    prevWasIndented = isIndented;
+  }
+  
+  text = processedLines.join('\n');
   
   // Clean up extra whitespace
   text = text.replace(/[ \t]+/g, ' ');
   text = text.replace(/^ +/gm, '');
   text = text.replace(/ +$/gm, '');
   
-  // Remove empty lines at the start
-  text = text.replace(/^\n+/, '');
-  
   // Trim overall
   text = text.trim();
+  
+  // Bold rabbi names
+  text = boldRabbiNames(text);
+  
+  // Convert single newlines to double newlines for Markdown paragraph breaks
+  // This ensures each line becomes its own paragraph in Markdown rendering
+  text = text.replace(/\n/g, '\n\n');
+  
+  // Clean up any triple+ newlines that might result
+  text = text.replace(/\n{3,}/g, '\n\n');
   
   return text;
 }

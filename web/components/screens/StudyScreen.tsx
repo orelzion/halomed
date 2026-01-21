@@ -232,6 +232,12 @@ export function StudyScreen({ trackId, studyDate, contentRef, isReview, onComple
                 p: ({ children }) => (
                   <p className="mb-3 last:mb-0">{children}</p>
                 ),
+                strong: ({ children }) => (
+                  <span className="text-[#8B4513]">{children}</span>
+                ),
+                hr: () => (
+                  <hr className="my-4 border-t border-[#D4A373] opacity-50" />
+                ),
               }}
             >
               {sourceText}
