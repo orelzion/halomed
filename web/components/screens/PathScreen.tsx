@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePath } from '@/lib/hooks/usePath';
 import { usePathStreak } from '@/lib/hooks/usePathStreak';
 import { useTranslation } from '@/lib/i18n';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { formatContentRef, formatHebrewNumber, getTractateHebrew, isLastChapter } from '@/lib/utils/date-format';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { Mascot } from '@/components/ui/Mascot';
@@ -189,6 +189,7 @@ export function PathScreen() {
   const { streak } = usePathStreak();
   const { t } = useTranslation();
   const router = useRouter();
+  const pathname = usePathname();
   const currentRef = useRef<HTMLButtonElement>(null);
   const { session } = useAuthContext();
   const hasEnsuredContent = useRef(false);
@@ -258,14 +259,51 @@ export function PathScreen() {
     }
   }, [loading, nodes.length, session]);
 
-  // Scroll to current node on load
+  // Track previous pathname and currentNodeIndex to detect changes
+  const prevPathnameRef = useRef<string | null>(null);
+  const prevCurrentNodeIndexRef = useRef<number | null>(null);
+  
+  // Scroll to current node on load, when current node changes, and when returning to path screen
   useEffect(() => {
-    if (currentNodeIndex !== null && currentRef.current) {
-      setTimeout(() => {
-        currentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
+    const scrollToCurrent = () => {
+      if (currentNodeIndex !== null && currentRef.current) {
+        // Ensure the node is visible in the rendered list
+        const nodeIndex = currentNodeIndex;
+        if (nodeIndex < visibleCount) {
+          setTimeout(() => {
+            currentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
+        } else {
+          // If node is not visible yet, expand visible count first
+          setVisibleCount(Math.min(nodeIndex + 10, nodes.length));
+          // Then scroll after a delay to allow rendering
+          setTimeout(() => {
+            currentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+        }
+      }
+    };
+
+    // Only scroll if we're on the path screen (pathname is '/' or '/path')
+    const isOnPathScreen = pathname === '/' || pathname === '/path';
+    const wasOnPathScreen = prevPathnameRef.current === '/' || prevPathnameRef.current === '/path';
+    const justReturnedToPath = !wasOnPathScreen && isOnPathScreen;
+    const currentNodeChanged = prevCurrentNodeIndexRef.current !== currentNodeIndex;
+    
+    if (isOnPathScreen && !loading && nodes.length > 0 && currentNodeIndex !== null) {
+      // Scroll when:
+      // 1. Just returned to path screen from another page
+      // 2. Current node index changed (e.g., completed a node, new current node)
+      // 3. Initial load (prevPathnameRef is null)
+      if (justReturnedToPath || currentNodeChanged || prevPathnameRef.current === null) {
+        scrollToCurrent();
+      }
     }
-  }, [currentNodeIndex]);
+    
+    // Update refs
+    prevPathnameRef.current = pathname;
+    prevCurrentNodeIndexRef.current = currentNodeIndex;
+  }, [currentNodeIndex, visibleCount, nodes.length, loading, pathname]);
 
   // Wait for sync when nodes is empty (path might be generating/syncing)
   const [waitingForSync, setWaitingForSync] = useState(true);
