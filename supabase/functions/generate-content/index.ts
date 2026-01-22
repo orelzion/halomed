@@ -206,7 +206,6 @@ Deno.serve(async (req: Request) => {
     }
     
     console.log(`[generate-content] Using ${textSource} text for ${ref_id} (${sourceText.length} chars)`);
-    
 
     // Fetch classical commentaries from Sefaria (Bartenura, Mishnat Eretz Israel, Rambam)
     // Use text from links response to avoid extra API calls
