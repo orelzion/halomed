@@ -1,10 +1,10 @@
 # HaLomeid Web App
 
-Progressive Web App for daily Torah learning, built with Next.js 16, React, PowerSync, and Supabase.
+Progressive Web App for daily Torah learning, built with Next.js 16, React, RxDB, and Supabase.
 
 ## Features
 
-- ✅ **Offline-First**: PowerSync Web with IndexedDB SQLite
+- ✅ **Offline-First**: RxDB with IndexedDB and Supabase replication
 - ✅ **Authentication**: Anonymous, Google, and Apple OAuth
 - ✅ **PWA**: Installable with offline support
 - ✅ **Theme**: Light/Dark/System theme support
@@ -16,7 +16,7 @@ Progressive Web App for daily Torah learning, built with Next.js 16, React, Powe
 - **Framework**: Next.js 16.1.1 (App Router)
 - **UI**: React 19.2.3
 - **Styling**: Tailwind CSS 3.4.19
-- **Database**: PowerSync Web (IndexedDB SQLite)
+- **Database**: RxDB (IndexedDB with Supabase sync)
 - **Auth**: Supabase Auth JS
 - **PWA**: next-pwa 5.6.0
 - **Theme**: next-themes 0.4.6
@@ -36,7 +36,6 @@ Create a `.env.local` file in the `web/` directory:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_POWERSYNC_INSTANCE_ID=your_powersync_instance_id
 ```
 
 ### Installation
@@ -76,7 +75,8 @@ web/
 │   └── ui/                # UI components
 ├── lib/
 │   ├── hooks/             # Custom React hooks
-│   ├── powersync/         # PowerSync integration
+│   ├── database/          # RxDB database setup
+│   ├── sync/              # Supabase replication
 │   ├── supabase/          # Supabase client & auth
 │   └── i18n.ts            # i18n hook
 ├── locales/he/            # Hebrew translations

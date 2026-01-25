@@ -29,10 +29,13 @@ All platforms:
   - Edge Functions (scheduling, content generation)
 
 ### 2.2 Sync Layer
-- **PowerSync**
-  - Bi-directional sync
-  - SQLite on all platforms
-  - Sync rules restrict data to user-relevant scope
+- **Platform-Specific Solutions**
+  - **Web**: RxDB with Supabase Realtime plugin (IndexedDB)
+  - **Android**: Custom sync engine with Room (SQLite) + Supabase Realtime
+  - **iOS**: Custom sync engine with SQLite + Supabase Realtime
+  - All platforms implement 14-day rolling window filtering
+  - Bi-directional sync with conflict resolution (last-write-wins)
+  - Content generation during sync to ensure all lessons/quizzes available
 
 ### 2.3 Content Sources
 - **Sefaria API**
@@ -261,20 +264,34 @@ Users may join a track **at any point**, without a fixed global start date.
 
 ---
 
-## 8. Sync Strategy (PowerSync)
+## 8. Sync Strategy
 
 ### 8.1 Sync Window
 
-- Rolling 14-day window (forward only)
+- Rolling 14-day window (±14 days from current date)
+- Applied at query level (not in sync rules)
+- Forward and backward: includes recent history for streak calculation
 
 ### 8.2 Synced Data
 
-- user_study_log rows within window
+- user_study_log rows within 14-day window
 - content_cache rows referenced by those logs
+- tracks (all tracks, no filtering)
+- user_preferences (user-specific)
+- learning_path (user-specific, within window)
+- quiz_questions (referenced by content in window)
 
-### 8.3 Conflict Resolution
+### 8.3 Content Generation During Sync
 
-- is_completed: last-write-wins
+- During initial sync, ensure all content in 14-day window is generated
+- Generate quizzes for all content in window
+- Use existing Edge Functions: `generate-schedule`, `generate-content`, `generate-quiz`
+- Non-blocking: Content generation happens in background
+
+### 8.4 Conflict Resolution
+
+- Strategy: Last-write-wins based on `updated_at` timestamp
+- is_completed: resolved by `completed_at` timestamp
 - Streak is derived data, never stored as mutable state
 
 ### 8.4 Streak Calculation
@@ -322,21 +339,27 @@ Network is required only for:
 ### 10.1 Android
 
 - Kotlin + Jetpack Compose
-- PowerSync SQLite (encrypted)
+- Room (SQLite) for local storage
+- Custom sync engine with Supabase Realtime
 - WorkManager for periodic sync
+- Content generation during sync
 
 ### 10.2 iOS
 
 - Swift + SwiftUI
-- PowerSync SQLite
+- SQLite for local storage
+- Custom sync engine with Supabase Realtime
 - BGAppRefreshTask for periodic sync
+- Content generation during sync
 
 ### 10.3 Web
 
 - Next.js + React
 - Tailwind CSS
-- PowerSync Web (IndexedDB-backed SQLite)
+- RxDB (IndexedDB) for local storage
+- RxDB Supabase plugin for sync
 - PWA with service worker for offline reading
+- Content generation during sync
 
 ---
 
@@ -345,7 +368,8 @@ Network is required only for:
 ### 11.1 Row Level Security
 
 - user_study_log: auth.uid() = user_id
-- content_cache: accessed only via PowerSync sync rules tied to user logs
+- content_cache: accessed via sync queries filtered by user's study logs
+- All tables added to Supabase Realtime publication for live updates
 
 ---
 

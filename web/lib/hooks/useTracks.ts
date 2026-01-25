@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
-import type { Database } from '@/lib/powersync/schema';
+import { getDatabase } from '@/lib/database/database';
+import { useAuthContext } from '@/components/providers/AuthProvider';
 
-type TrackRecord = Database['tracks'];
-type UserStudyLogRecord = Database['user_study_log'];
-
-interface TrackWithStatus extends TrackRecord {
+interface TrackWithStatus {
+  id: string;
+  title: string;
+  source_endpoint?: string;
+  schedule_type: string;
+  start_date?: string;
   hasStudiedToday: boolean;
   todayLogId: string | null;
 }
@@ -16,33 +18,23 @@ export function useTracks() {
   const [tracks, setTracks] = useState<TrackWithStatus[]>([]);
   const [completedToday, setCompletedToday] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuthContext();
 
   useEffect(() => {
-    let isMounted = true;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
-    const normalizeRows = <T,>(result: any): T[] => {
-      if (Array.isArray(result)) {
-        return result as T[];
-      }
-      if (!result) {
-        return [];
-      }
-      if (Array.isArray(result.rows)) {
-        return result.rows as T[];
-      }
-      if (Array.isArray(result.rows?._array)) {
-        return result.rows._array as T[];
-      }
-      if (typeof result.rows?.item === 'function' && typeof result.rows?.length === 'number') {
-        return Array.from({ length: result.rows.length }, (_, i) => result.rows.item(i)) as T[];
-      }
-      return [];
-    };
+    let isMounted = true;
 
     const loadTracks = async () => {
       try {
-        const db = getPowerSyncDatabase();
+        const db = await getDatabase();
         if (!db) {
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
 
@@ -50,27 +42,35 @@ export function useTracks() {
         const today = new Date().toISOString().split('T')[0];
 
         // Get all tracks that have started
-        const tracksResult = await db.getAll(
-          'SELECT * FROM tracks WHERE start_date IS NULL OR start_date <= ?',
-          [today]
-        );
-        const allTracks = normalizeRows<TrackRecord>(tracksResult);
+        const allTracks = await db.tracks
+          .find({
+            selector: {
+              $or: [
+                { start_date: { $exists: false } },
+                { start_date: { $eq: undefined } },
+                { start_date: { $lte: today } },
+              ],
+            },
+          })
+          .exec();
 
         // Get today's study logs
-        const logsResult = await db.getAll(
-          'SELECT * FROM user_study_log WHERE study_date = ?',
-          [today]
-        );
-        const todayLogs = normalizeRows<UserStudyLogRecord>(logsResult);
+        const todayLogs = await db.user_study_log
+          .find({
+            selector: {
+              study_date: today,
+              user_id: user.id,
+            },
+          })
+          .exec();
 
         // Map tracks with status
-        const tracksWithStatus: TrackWithStatus[] = allTracks.map((track: TrackRecord) => {
-          const todayLog = todayLogs.find(
-            (log: UserStudyLogRecord) => log.track_id === track.id
-          );
+        const tracksWithStatus: TrackWithStatus[] = allTracks.map((trackDoc) => {
+          const track = trackDoc.toJSON();
+          const todayLog = todayLogs.find((log) => log.track_id === track.id);
           return {
             ...track,
-            hasStudiedToday: todayLog?.is_completed === 1,
+            hasStudiedToday: todayLog ? (todayLog.is_completed === 1 || (todayLog.is_completed as unknown) === true) : false,
             todayLogId: todayLog?.id || null,
           };
         });
@@ -79,9 +79,9 @@ export function useTracks() {
           setTracks(tracksWithStatus);
           setCompletedToday(
             todayLogs
-              .filter((log: UserStudyLogRecord) => log.is_completed === 1)
-              .map((log: UserStudyLogRecord) => log.track_id)
-              .filter((id): id is string => id !== null)
+              .filter((log) => log.is_completed === 1 || (log.is_completed as unknown) === true)
+              .map((log) => log.track_id)
+              .filter((id): id is string => id !== null && id !== undefined)
           );
           setLoading(false);
         }
@@ -95,36 +95,45 @@ export function useTracks() {
 
     loadTracks();
 
-    // Watch for changes using callback approach
-    // Note: watch() with callbacks returns void, so we use a mounted flag for cleanup
-    const db = getPowerSyncDatabase();
-    if (!db) {
-      return () => {
-        isMounted = false;
-      };
-    }
+    // Watch for changes using RxDB observables
+    const dbPromise = getDatabase();
+    dbPromise.then((db) => {
+      if (!db || !isMounted) return;
 
-    db.watch(
-      'SELECT * FROM tracks',
-      [],
-      {
-        onResult: async () => {
-          if (isMounted) {
-            await loadTracks();
-          }
-        },
-        onError: (error) => {
-          if (isMounted) {
-            console.error('Error watching tracks:', error);
-          }
-        },
-      }
-    );
+      // Watch tracks
+      const tracksQuery = db.tracks.find().$;
+      const tracksSubscription = tracksQuery.subscribe(async () => {
+        if (isMounted) {
+          await loadTracks();
+        }
+      });
+
+      // Watch user_study_log for today
+      const today = new Date().toISOString().split('T')[0];
+      const studyLogQuery = db.user_study_log
+        .find({
+          selector: {
+            study_date: today,
+            user_id: user.id,
+          },
+        })
+        .$;
+      const studyLogSubscription = studyLogQuery.subscribe(async () => {
+        if (isMounted) {
+          await loadTracks();
+        }
+      });
+
+      return () => {
+        tracksSubscription.unsubscribe();
+        studyLogSubscription.unsubscribe();
+      };
+    });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   return { tracks, completedToday, loading };
 }

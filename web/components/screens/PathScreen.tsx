@@ -7,6 +7,7 @@ import { useTranslation } from '@/lib/i18n';
 import { useRouter, usePathname } from 'next/navigation';
 import { formatContentRef, formatHebrewNumber, getTractateHebrew, isLastChapter } from '@/lib/utils/date-format';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import { supabase } from '@/lib/supabase/client';
 import { Mascot } from '@/components/ui/Mascot';
 import posthog from 'posthog-js';
 
@@ -195,6 +196,13 @@ export function PathScreen() {
   const hasEnsuredContent = useRef(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   
+  // Prevent browser scroll restoration on initial load
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+  }, []);
+  
   // Pagination state
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
   
@@ -259,54 +267,61 @@ export function PathScreen() {
     }
   }, [loading, nodes.length, session]);
 
-  // Track previous pathname and currentNodeIndex to detect changes
+  // Track if we've scrolled for this screen visit
+  const hasScrolledThisVisitRef = useRef(false);
   const prevPathnameRef = useRef<string | null>(null);
-  const prevCurrentNodeIndexRef = useRef<number | null>(null);
   
-  // Scroll to current node on load, when current node changes, and when returning to path screen
+  // Reset scroll tracking when navigating away from path screen
   useEffect(() => {
-    const scrollToCurrent = () => {
-      if (currentNodeIndex !== null && currentRef.current) {
-        // Ensure the node is visible in the rendered list
-        const nodeIndex = currentNodeIndex;
-        if (nodeIndex < visibleCount) {
-          setTimeout(() => {
-            currentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 100);
-        } else {
-          // If node is not visible yet, expand visible count first
-          setVisibleCount(Math.min(nodeIndex + 10, nodes.length));
-          // Then scroll after a delay to allow rendering
-          setTimeout(() => {
-            currentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }, 300);
-        }
-      }
-    };
-
-    // Only scroll if we're on the path screen (pathname is '/' or '/path')
     const isOnPathScreen = pathname === '/' || pathname === '/path';
     const wasOnPathScreen = prevPathnameRef.current === '/' || prevPathnameRef.current === '/path';
-    const justReturnedToPath = !wasOnPathScreen && isOnPathScreen;
-    const currentNodeChanged = prevCurrentNodeIndexRef.current !== currentNodeIndex;
     
-    if (isOnPathScreen && !loading && nodes.length > 0 && currentNodeIndex !== null) {
-      // Scroll when:
-      // 1. Just returned to path screen from another page
-      // 2. Current node index changed (e.g., completed a node, new current node)
-      // 3. Initial load (prevPathnameRef is null)
-      if (justReturnedToPath || currentNodeChanged || prevPathnameRef.current === null) {
-        scrollToCurrent();
-      }
+    // Reset when returning to path screen
+    if (isOnPathScreen && !wasOnPathScreen) {
+      hasScrolledThisVisitRef.current = false;
     }
     
-    // Update refs
     prevPathnameRef.current = pathname;
-    prevCurrentNodeIndexRef.current = currentNodeIndex;
-  }, [currentNodeIndex, visibleCount, nodes.length, loading, pathname]);
+  }, [pathname]);
+  
+  // Scroll to current node once when entering the path screen
+  useEffect(() => {
+    // Skip if we've already scrolled this visit
+    if (hasScrolledThisVisitRef.current) return;
+    
+    const isOnPathScreen = pathname === '/' || pathname === '/path';
+    if (!isOnPathScreen || loading || nodes.length === 0 || currentNodeIndex === null) return;
+    
+    // Verify that the node at currentNodeIndex is actually the current (uncompleted) node
+    const node = nodes[currentNodeIndex];
+    if (!node || !node.isCurrent || node.isLocked) return;
+    
+    // Ensure the node is visible in the rendered list
+    if (currentNodeIndex >= visibleCount) {
+      setVisibleCount(Math.min(currentNodeIndex + 10, nodes.length));
+      return;
+    }
+    
+    // Wait for ref to be attached to the DOM element
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (currentRef.current && !hasScrolledThisVisitRef.current) {
+          currentRef.current.scrollIntoView({ 
+            behavior: 'instant', 
+            block: 'center' 
+          });
+          hasScrolledThisVisitRef.current = true;
+        }
+      });
+    });
+  }, [currentNodeIndex, visibleCount, nodes.length, loading, pathname, nodes]);
 
   // Wait for sync when nodes is empty (path might be generating/syncing)
   const [waitingForSync, setWaitingForSync] = useState(true);
+  
+  // Check if we're still syncing (nodes count is much less than expected)
+  // Always declare hooks (React rules), but only use in dev
+  const [supabaseNodeCount, setSupabaseNodeCount] = useState<number | null>(null);
   
   useEffect(() => {
     if (!loading && nodes.length === 0) {
@@ -321,6 +336,29 @@ export function PathScreen() {
     }
   }, [loading, nodes.length]);
 
+  // Check Supabase count in development to show sync progress
+  useEffect(() => {
+    // Only check Supabase count in development
+    if (process.env.NODE_ENV === 'development' && session?.user.id) {
+      (async () => {
+        try {
+          const { count } = await supabase
+            .from('learning_path')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', session.user.id);
+          if (count !== null) {
+            setSupabaseNodeCount(count);
+          }
+        } catch {
+          // Ignore errors
+        }
+      })();
+    } else {
+      // In production, always set to null
+      setSupabaseNodeCount(null);
+    }
+  }, [session?.user.id, nodes.length]);
+
   // Show loading with mascot
   if (loading || (nodes.length === 0 && waitingForSync)) {
     return (
@@ -333,7 +371,7 @@ export function PathScreen() {
     );
   }
 
-  const handleGeneratePath = async () => {
+  const handleGeneratePath = async (force = false) => {
     if (isGenerating) return;
     
     setIsGenerating(true);
@@ -347,7 +385,7 @@ export function PathScreen() {
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ 
-          force: false, // Don't force if path exists
+          force, // Force regeneration if true
           dev_offset_days: 4, // Start 4 days ago in dev mode
         }),
       });
@@ -356,7 +394,8 @@ export function PathScreen() {
       console.log('Path generation response:', { status: response.status, result });
       
       if (response.ok) {
-        alert(`Path generated! ${result.message || 'Refresh the page to see your learning path.'}`);
+        const message = result.message || `Path generated! ${result.nodes_created || result.nodes?.length || 0} nodes created.`;
+        alert(message + ' Refresh the page to see your learning path.');
         window.location.reload();
       } else {
         console.error('Path generation error:', result);
@@ -383,7 +422,7 @@ export function PathScreen() {
           {session && (
             <div className="space-y-3">
               <button
-                onClick={handleGeneratePath}
+                onClick={() => handleGeneratePath()}
                 disabled={isGenerating}
                 className="w-full px-6 py-3 bg-desert-oasis-accent hover:bg-desert-oasis-accent/90 text-white rounded-xl font-explanation font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
@@ -412,7 +451,7 @@ export function PathScreen() {
       node_id: node.id,
       node_type: node.node_type,
       content_ref: node.content_ref,
-      is_completed: node.completed_at !== null,
+      is_completed: node.completed_at != null, // Use loose equality to handle both null and undefined
     });
 
     if (node.node_type === 'quiz' || node.node_type === 'weekly_quiz') {
@@ -423,8 +462,11 @@ export function PathScreen() {
   };
 
   // Calculate stats
-  const completedCount = nodes.filter(n => n.completed_at !== null && n.is_divider !== 1).length;
+  const completedCount = nodes.filter(n => n.completed_at != null && n.is_divider !== 1).length; // Use loose equality to handle both null and undefined
   const totalCount = nodes.filter(n => n.is_divider !== 1).length;
+  
+  // Check if we're still syncing (nodes count is much less than expected)
+  const isStillSyncing = process.env.NODE_ENV === 'development' && supabaseNodeCount !== null && nodes.length < supabaseNodeCount;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-desert-oasis-primary to-desert-oasis-secondary dark:from-desert-oasis-dark-primary dark:to-desert-oasis-dark-secondary">
@@ -443,47 +485,6 @@ export function PathScreen() {
                     {streak}
                   </span>
                 </div>
-              )}
-              {/* Dev: Regenerate path button - only show in development */}
-              {process.env.NODE_ENV === 'development' && (
-                <button
-                  onClick={async () => {
-                    if (!confirm('Regenerate path with full Shas? This will delete your current path and all progress.')) {
-                      return;
-                    }
-                    try {
-                        const response = await fetch('/api/generate-path', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session?.access_token}`,
-                          },
-                          body: JSON.stringify({ 
-                            force: true,
-                            dev_offset_days: 4, // Start 4 days ago in dev mode
-                          }),
-                        });
-                      const result = await response.json();
-                      console.log('Path regeneration response:', { status: response.status, result });
-                      if (response.ok) {
-                        alert(`Path regenerated! ${result.message || 'Refresh the page to see changes.'}`);
-                        window.location.reload();
-                      } else {
-                        console.error('Path regeneration error:', result);
-                        const errorMsg = result.error || result.details || result.message || `HTTP ${response.status}`;
-                        alert(`Error: ${errorMsg}\n\nMake sure the generate-path Edge Function is deployed with the latest code.`);
-                      }
-                    } catch (error) {
-                      console.error('Path regeneration error:', error);
-                      alert(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                    }
-                  }}
-                  className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-full font-explanation"
-                  aria-label="Regenerate learning path with full Shas (all 63 tractates)"
-                  title="Regenerate learning path with full Shas (all 63 tractates)"
-                >
-                  🔄 Regenerate
-                </button>
               )}
               
               {/* Profile button */}
@@ -506,6 +507,11 @@ export function PathScreen() {
               </span>
               <span className="text-sm font-explanation text-desert-oasis-accent font-semibold">
                 {completedCount} / {totalCount}
+                {isStillSyncing && supabaseNodeCount && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2" title="Replication in progress">
+                    (מסנכרן {nodes.length}/{supabaseNodeCount})
+                  </span>
+                )}
               </span>
             </div>
             <div className="h-2 bg-desert-oasis-muted/30 dark:bg-gray-700/50 rounded-full overflow-hidden">
@@ -527,7 +533,7 @@ export function PathScreen() {
           <div className="space-y-4" role="list" aria-label="דרך הלימוד">
             {nodes.slice(0, visibleCount).map((node, idx) => {
               const isDivider = node.is_divider === 1;
-              const isCompleted = node.completed_at !== null;
+              const isCompleted = node.completed_at != null; // Use loose equality to handle both null and undefined
               const isCurrent = node.isCurrent;
               const isLocked = node.isLocked;
               
@@ -553,16 +559,6 @@ export function PathScreen() {
               };
               
               if (isDivider) {
-                // Debug: Log divider info
-                console.log('[PathScreen] Divider node:', {
-                  id: node.id,
-                  tractate: node.tractate,
-                  chapter: node.chapter,
-                  unlock_date: node.unlock_date,
-                  node_index: node.node_index,
-                  idx: idx,
-                });
-                
                 // Convert tractate to Hebrew and chapter to Hebrew numeral
                 const tractateHebrew = node.tractate ? getTractateHebrew(node.tractate) || node.tractate : '';
                 const chapterHebrew = node.chapter ? formatHebrewNumber(node.chapter) : '';

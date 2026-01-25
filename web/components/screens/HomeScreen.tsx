@@ -5,8 +5,6 @@ import { useStreaks } from '@/lib/hooks/useStreak';
 import { TrackCard } from '@/components/ui/TrackCard';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTranslation } from '@/lib/i18n';
-import { useEffect, useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
 
 export function HomeScreen() {
   const { t } = useTranslation();

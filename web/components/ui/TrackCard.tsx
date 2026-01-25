@@ -4,9 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { useStudyUnit } from '@/lib/hooks/useStudyUnit';
 import { formatContentRef, formatDateDual } from '@/lib/utils/date-format';
-import type { Database } from '@/lib/powersync/schema';
 
-type TrackRecord = Database['tracks'];
+type TrackRecord = {
+  id: string;
+  title: string;
+  source_endpoint?: string;
+  schedule_type: string;
+  start_date?: string;
+};
 
 interface TrackCardProps {
   track: TrackRecord;

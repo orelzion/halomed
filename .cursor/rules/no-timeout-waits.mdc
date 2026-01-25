@@ -1,0 +1,51 @@
+---
+description: Never use setTimeout/polling to wait for data - use reactive patterns instead
+alwaysApply: true
+---
+
+# No Timeout-Based Waits
+
+**NEVER use setTimeout, setInterval, or polling loops to wait for data.**
+
+This is a code smell that indicates improper architecture.
+
+## Bad Patterns
+
+```typescript
+// ❌ BAD - Polling with timeouts
+while (Date.now() - startTime < maxWaitMs) {
+  const data = await db.collection.find().exec();
+  if (data.length > 0) break;
+  await new Promise(resolve => setTimeout(resolve, 500));
+}
+
+// ❌ BAD - Arbitrary delays
+await new Promise(resolve => setTimeout(resolve, 2000));
+await fetchData();
+```
+
+## Good Patterns
+
+```typescript
+// ✅ GOOD - Use RxDB reactive observables
+const data = await firstValueFrom(
+  db.collection.find({ selector }).$.pipe(
+    filter(docs => docs.length > 0),
+    take(1)
+  )
+);
+
+// ✅ GOOD - Return data from API directly
+const pathData = await response.json();
+await db.collection.bulkInsert(pathData.nodes);
+
+// ✅ GOOD - Use proper async/await with events
+await replicationState.awaitInSync();
+```
+
+## When Data Must Sync
+
+If data is created server-side and needs to appear client-side:
+1. **Return it from the API** and insert locally
+2. **Use RxDB observables** to reactively wait for changes
+3. **Trigger replication** and await its completion

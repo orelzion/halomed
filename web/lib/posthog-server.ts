@@ -6,10 +6,15 @@ let posthogClient: PostHog | null = null;
 const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
 const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
-export function getPostHogClient() {
+export function getPostHogClient(): PostHog | null {
+  const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (!posthogKey) {
+    // PostHog is optional in development
+    return null;
+  }
   if (!posthogClient) {
     posthogClient = new PostHog(
-      process.env.NEXT_PUBLIC_POSTHOG_KEY!,
+      posthogKey,
       {
         host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
         flushAt: 1,
@@ -22,6 +27,7 @@ export function getPostHogClient() {
 
 /**
  * Capture an event with environment tagging
+ * No-op if PostHog is not configured
  */
 export function captureServerEvent(
   distinctId: string,
@@ -29,6 +35,10 @@ export function captureServerEvent(
   properties?: Record<string, any>
 ) {
   const client = getPostHogClient();
+  if (!client) {
+    // PostHog not configured, skip event capture
+    return;
+  }
   client.capture({
     distinctId,
     event,
@@ -44,4 +54,11 @@ export async function shutdownPostHog() {
   if (posthogClient) {
     await posthogClient.shutdown();
   }
+}
+
+/**
+ * Check if PostHog is configured
+ */
+export function isPostHogConfigured(): boolean {
+  return !!process.env.NEXT_PUBLIC_POSTHOG_KEY;
 }

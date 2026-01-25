@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: serviceRoleKey,
+      'apikey': serviceRoleKey,
     },
     body: JSON.stringify({
       content_ref,
@@ -78,7 +78,10 @@ export async function POST(request: NextRequest) {
     content_ref: content_ref,
     question_count: quizData.questions?.length || 0,
   });
-  await getPostHogClient().shutdown();
+  const posthogClient = getPostHogClient();
+  if (posthogClient) {
+    await posthogClient.shutdown();
+  }
 
   return NextResponse.json(quizData);
 }

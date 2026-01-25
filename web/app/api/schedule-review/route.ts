@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: serviceRoleKey,
+      'apikey': serviceRoleKey,
     },
     body: JSON.stringify({
       user_id: user.id,

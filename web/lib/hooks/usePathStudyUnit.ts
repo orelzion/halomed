@@ -1,22 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
-import type { Database } from '@/lib/powersync/schema';
-
-type ContentCacheRecord = Database['content_cache'];
-type LearningPathRecord = Database['learning_path'];
+import { getDatabase } from '@/lib/database/database';
 
 interface StudyUnit {
-  content: ContentCacheRecord | null;
-  node: LearningPathRecord | null;
+  content: any | null;
+  node: any | null;
   explanationData: any;
   loading: boolean;
 }
 
 export function usePathStudyUnit(contentRef: string | null, nodeId: string | null): StudyUnit {
-  const [content, setContent] = useState<ContentCacheRecord | null>(null);
-  const [node, setNode] = useState<LearningPathRecord | null>(null);
+  const [content, setContent] = useState<any | null>(null);
+  const [node, setNode] = useState<any | null>(null);
   const [explanationData, setExplanationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,55 +24,39 @@ export function usePathStudyUnit(contentRef: string | null, nodeId: string | nul
 
     let isMounted = true;
 
-    const normalizeRows = <T,>(result: any): T[] => {
-      if (Array.isArray(result)) {
-        return result as T[];
-      }
-      if (!result) {
-        return [];
-      }
-      if (Array.isArray(result.rows)) {
-        return result.rows as T[];
-      }
-      if (Array.isArray(result.rows?._array)) {
-        return result.rows._array as T[];
-      }
-      if (typeof result.rows?.item === 'function' && typeof result.rows?.length === 'number') {
-        return Array.from({ length: result.rows.length }, (_, i) => result.rows.item(i)) as T[];
-      }
-      return [];
-    };
-
     const loadStudyUnit = async () => {
       try {
-        const db = getPowerSyncDatabase();
+        const db = await getDatabase();
         if (!db) {
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
 
         // Get path node
-        const nodeResult = await db.getAll(
-          'SELECT * FROM learning_path WHERE id = ?',
-          [nodeId]
-        );
-        const nodes = normalizeRows<LearningPathRecord>(nodeResult);
-        const pathNode = nodes[0] || null;
+        const nodeDoc = await db.learning_path.findOne(nodeId).exec();
+        const pathNode = nodeDoc ? nodeDoc.toJSON() : null;
 
-        // Get content
-        const contentResult = await db.getAll(
-          'SELECT * FROM content_cache WHERE ref_id = ?',
-          [contentRef]
-        );
-        const contents = normalizeRows<ContentCacheRecord>(contentResult);
-        const studyContent = contents[0] || null;
+        // Get content by ref_id
+        const contentDocs = await db.content_cache
+          .find({
+            selector: {
+              ref_id: contentRef,
+            },
+          })
+          .exec();
+
+        const studyContent = contentDocs.length > 0 ? contentDocs[0].toJSON() : null;
 
         // Parse explanation JSON
         let explanation = null;
         if (studyContent?.ai_explanation_json) {
           try {
-            explanation = typeof studyContent.ai_explanation_json === 'string'
-              ? JSON.parse(studyContent.ai_explanation_json)
-              : studyContent.ai_explanation_json;
+            explanation =
+              typeof studyContent.ai_explanation_json === 'string'
+                ? JSON.parse(studyContent.ai_explanation_json)
+                : studyContent.ai_explanation_json;
           } catch (e) {
             console.error('Error parsing explanation JSON:', e);
           }
@@ -97,6 +77,41 @@ export function usePathStudyUnit(contentRef: string | null, nodeId: string | nul
     };
 
     loadStudyUnit();
+
+    // Watch for changes
+    const dbPromise = getDatabase();
+    dbPromise.then((db) => {
+      if (!db || !isMounted) return;
+
+      // Watch learning_path
+      if (nodeId) {
+        const nodeQuery = db.learning_path.findOne(nodeId).$;
+        const nodeSubscription = nodeQuery.subscribe(async () => {
+          if (isMounted) {
+            await loadStudyUnit();
+          }
+        });
+
+        // Watch content_cache
+        const contentQuery = db.content_cache
+          .find({
+            selector: {
+              ref_id: contentRef,
+            },
+          })
+          .$;
+        const contentSubscription = contentQuery.subscribe(async () => {
+          if (isMounted) {
+            await loadStudyUnit();
+          }
+        });
+
+        return () => {
+          nodeSubscription.unsubscribe();
+          contentSubscription.unsubscribe();
+        };
+      }
+    });
 
     return () => {
       isMounted = false;

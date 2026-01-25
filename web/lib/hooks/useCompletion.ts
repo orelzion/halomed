@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
+import { getDatabase } from '@/lib/database/database';
 
 export function useCompletion() {
   const [isToggling, setIsToggling] = useState(false);
@@ -12,21 +12,27 @@ export function useCompletion() {
       const newState = !currentState;
       const now = new Date().toISOString();
 
-      const db = getPowerSyncDatabase();
+      const db = await getDatabase();
       if (!db) {
-        throw new Error('PowerSync database not available');
+        throw new Error('RxDB database not available');
       }
 
-      // Update local PowerSync database
-      // PowerSync will automatically detect this change and call uploadData()
-      await db.execute(
-        `UPDATE user_study_log 
-         SET is_completed = ?, completed_at = ?
-         WHERE id = ?`,
-        [newState ? 1 : 0, newState ? now : null, logId]
-      );
+      // Find the document
+      const doc = await db.user_study_log.findOne(logId).exec();
+      if (!doc) {
+        throw new Error('Study log not found');
+      }
 
-      console.log('[Completion] Local update complete, PowerSync will sync automatically');
+      // Update locally - RxDB will automatically sync via replication
+      await doc.update({
+        $set: {
+          is_completed: newState ? 1 : 0,
+          completed_at: newState ? now : null,
+          updated_at: now,
+        },
+      });
+
+      console.log('[Completion] Local update complete, RxDB will sync automatically');
     } catch (error) {
       console.error('Error toggling completion:', error);
       throw error;

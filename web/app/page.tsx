@@ -5,7 +5,6 @@ import { useAuthContext } from '@/components/providers/AuthProvider';
 import { usePreferences } from '@/lib/hooks/usePreferences';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
 
 export default function HomePage() {
   const { user, loading } = useAuthContext();
@@ -19,8 +18,8 @@ export default function HomePage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    // Only redirect to onboarding if preferences don't exist in PowerSync
-    // PowerSync is the source of truth
+    // Only redirect to onboarding if preferences don't exist in RxDB
+    // RxDB is the source of truth
     if (!loading && !prefsLoading && user && !preferences) {
       router.push('/onboarding');
     }

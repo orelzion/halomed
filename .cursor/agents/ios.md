@@ -7,12 +7,13 @@ model: composer-1
 
 ## Purpose
 
-The iOS Agent is responsible for implementing the iOS client using Swift and SwiftUI, including PowerSync integration, BGAppRefreshTask for background sync, and the "Desert Oasis" design system.
+The iOS Agent is responsible for implementing the iOS client using Swift and SwiftUI, including custom offline-first sync with SQLite and Supabase Realtime, BGAppRefreshTask for background sync, and the "Desert Oasis" design system.
 
 ## Responsibilities
 
 - Swift + SwiftUI setup
-- PowerSync SQLite integration
+- SQLite database for local storage
+- Custom sync engine with Supabase Realtime
 - BGAppRefreshTask for periodic sync
 - UI implementation (Home, Study screens)
 - Design system implementation with light/dark/system theme
@@ -23,7 +24,7 @@ The iOS Agent is responsible for implementing the iOS client using Swift and Swi
 ## Dependencies
 
 - **Receives tasks from**: Architect Agent
-- **Consults**: Design System Agent (UI specs, shared strings), Sync Agent (PowerSync), Backend Agent (API)
+- **Consults**: Design System Agent (UI specs, shared strings), Sync Agent (Custom Sync), Backend Agent (API)
 - **Coordinates with**: Client Testing Agent (Maestro tests)
 
 ## Technology Stack
@@ -32,7 +33,8 @@ The iOS Agent is responsible for implementing the iOS client using Swift and Swi
 |-----------|------------|
 | Language | Swift |
 | UI Framework | SwiftUI |
-| Local Database | SQLite (via PowerSync) |
+| Local Database | SQLite |
+| Sync | Custom Sync Engine + Supabase Realtime |
 | Background Sync | BGAppRefreshTask |
 | Authentication | Supabase Auth SDK |
 | Dependency Management | Swift Package Manager |
@@ -84,7 +86,12 @@ ios/
 │   │       └── Date+Extensions.swift
 │   ├── Data/
 │   │   ├── Local/
-│   │   │   └── PowerSyncManager.swift
+│   │   │   ├── Database.swift
+│   │   │   └── Models/
+│   │   ├── Sync/
+│   │   │   ├── SyncEngine.swift
+│   │   │   ├── InitialSync.swift
+│   │   │   └── ContentGenerator.swift
 │   │   ├── Remote/
 │   │   │   └── SupabaseClient.swift
 │   │   └── Repository/
@@ -399,57 +406,65 @@ struct DoneButton: View {
 }
 ```
 
-## PowerSync Integration
+## SQLite Database Integration
 
-### Setup (PowerSyncManager.swift)
+### Setup (Database.swift)
 
 ```swift
-import PowerSync
+import SQLite
 
-class PowerSyncManager: ObservableObject {
-    static let shared = PowerSyncManager()
+class Database {
+    static let shared = Database()
     
-    let database: PowerSyncDatabase
+    private let db: Connection
     
     private init() {
-        let schema = Schema(tables: [
-            Table(name: "user_study_log", columns: [
-                Column(name: "id", type: .text, primaryKey: true),
-                Column(name: "user_id", type: .text),
-                Column(name: "track_id", type: .text),
-                Column(name: "study_date", type: .text),
-                Column(name: "content_id", type: .text),
-                Column(name: "is_completed", type: .integer),
-                Column(name: "completed_at", type: .text)
-            ]),
-            Table(name: "content_cache", columns: [
-                Column(name: "id", type: .text, primaryKey: true),
-                Column(name: "ref_id", type: .text),
-                Column(name: "source_text_he", type: .text),
-                Column(name: "ai_explanation_he", type: .text),
-                Column(name: "ai_deep_dive_json", type: .text),
-                Column(name: "created_at", type: .text)
-            ]),
-            Table(name: "tracks", columns: [
-                Column(name: "id", type: .text, primaryKey: true),
-                Column(name: "title", type: .text),
-                Column(name: "source_endpoint", type: .text),
-                Column(name: "schedule_type", type: .text)
-            ])
-        ])
+        let path = NSSearchPathForDirectoriesInDomains(
+            .documentDirectory, .userDomainMask, true
+        ).first!
         
-        database = try! PowerSyncDatabase(
-            schema: schema,
-            dbFilename: "halomeid.db"
-        )
+        db = try! Connection("\(path)/halomeid.db")
+        
+        // Create tables
+        try! createTables()
     }
     
-    func connect(supabaseClient: SupabaseClient) async throws {
-        let connector = SupabaseConnector(client: supabaseClient)
-        try await database.connect(connector: connector)
+    private func createTables() throws {
+        // user_study_log table
+        try db.run(userStudyLog.create { t in
+            t.column(id, primaryKey: true)
+            t.column(userId)
+            t.column(trackId)
+            t.column(studyDate)
+            t.column(contentId)
+            t.column(isCompleted)
+            t.column(completedAt)
+            t.column(updatedAt)
+            t.column(deleted)
+        })
+        
+        // Similar for content_cache and tracks...
     }
 }
 ```
+
+## Custom Sync Integration
+
+### Sync Engine Setup
+
+**Files:**
+- `Data/Sync/SyncEngine.swift` - Main sync orchestration
+- `Data/Sync/InitialSync.swift` - Initial data download with 14-day window
+- `Data/Sync/IncrementalSync.swift` - Incremental updates via Realtime
+- `Data/Sync/ContentGenerator.swift` - Content generation during sync
+
+**Sync Flow:**
+1. Generate schedule (ensure content exists)
+2. Sync user_study_log within 14-day window
+3. Sync referenced content_cache
+4. Sync tracks (all)
+5. Generate quizzes for content in window
+6. Clean up old data outside window
 
 ## Background Sync (BGAppRefreshTask)
 
@@ -482,7 +497,8 @@ class BackgroundSync {
         
         let syncTask = Task {
             do {
-                try await PowerSyncManager.shared.database.sync()
+                let syncEngine = SyncEngine.shared
+                try await syncEngine.sync()
                 task.setTaskCompleted(success: true)
             } catch {
                 task.setTaskCompleted(success: false)

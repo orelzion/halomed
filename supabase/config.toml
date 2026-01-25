@@ -377,6 +377,32 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# Functions called from server-side API routes - no JWT verification needed
+# (authentication is handled by the API route before calling the function)
+[functions.generate-path]
+verify_jwt = false
+
+[functions.generate-content]
+verify_jwt = false
+
+[functions.generate-quiz]
+verify_jwt = false
+
+[functions.generate-schedule]
+verify_jwt = false
+
+[functions.update-preferences]
+verify_jwt = false
+
+[functions.schedule-review]
+verify_jwt = false
+
+[functions.query-schedule]
+verify_jwt = false
+
+[functions.ensure-content]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

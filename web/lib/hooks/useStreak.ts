@@ -1,46 +1,43 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
-import type { Database } from '@/lib/powersync/schema';
-
-type UserStudyLogRecord = Database['user_study_log'];
+import { getDatabase } from '@/lib/database/database';
+import { useAuthContext } from '@/components/providers/AuthProvider';
 
 /**
  * Calculate streak for a track
- * Reference: supabase/tests/sync/streak-calculation.test.ts
+ * Reference: TDD Section 8.4
  * Rules:
  * - Count consecutive completed units
  * - Only count if completed on scheduled day (completed_at matches study_date)
  * - Skip days without scheduled units
  * - Retroactive completions don't count
  */
-async function calculateStreak(
-  trackId: string,
-  userId: string
-): Promise<number> {
-  const db = getPowerSyncDatabase();
+async function calculateStreak(trackId: string, userId: string): Promise<number> {
+  const db = await getDatabase();
   if (!db) {
     return 0;
   }
 
   // Get all study logs for this track, ordered by study_date DESC
-  const result = await db.getAll(
-    `SELECT * FROM user_study_log 
-     WHERE track_id = ? AND user_id = ?
-     ORDER BY study_date DESC`,
-    [trackId, userId]
-  );
+  const logs = await db.user_study_log
+    .find({
+      selector: {
+        track_id: trackId,
+        user_id: userId,
+      },
+    })
+    .sort({ study_date: 'desc' })
+    .exec();
 
-  const logs = result as UserStudyLogRecord[];
-  
-  // Filter to only scheduled units (skip days without units)
-  const scheduledLogs = logs.filter(log => log.study_date);
   let streak = 0;
 
-  for (const log of scheduledLogs) {
-    // Skip if not completed
-    if (log.is_completed !== 1) {
+  for (const logDoc of logs) {
+    const log = logDoc.toJSON();
+
+    // Skip if not completed (handle both number 1 and boolean true from Supabase)
+    const isCompleted = log.is_completed === 1 || (log.is_completed as unknown) === true;
+    if (!isCompleted) {
       break;
     }
 
@@ -72,9 +69,10 @@ async function calculateStreak(
 export function useStreak(trackId: string | null) {
   const [streak, setStreak] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuthContext();
 
   useEffect(() => {
-    if (!trackId) {
+    if (!trackId || !user) {
       setStreak(0);
       setLoading(false);
       return;
@@ -84,18 +82,6 @@ export function useStreak(trackId: string | null) {
 
     const loadStreak = async () => {
       try {
-        // Get current user from auth
-        const { supabase } = await import('@/lib/supabase/client');
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-          if (isMounted) {
-            setStreak(0);
-            setLoading(false);
-          }
-          return;
-        }
-
         const streakCount = await calculateStreak(trackId, user.id);
         if (isMounted) {
           setStreak(streakCount);
@@ -112,35 +98,34 @@ export function useStreak(trackId: string | null) {
     loadStreak();
 
     // Watch for changes in user_study_log
-    // Note: watch() with callbacks returns void, so we use a mounted flag for cleanup
-    const db = getPowerSyncDatabase();
-    if (!db) {
-      return () => {
-        isMounted = false;
-      };
-    }
+    const dbPromise = getDatabase();
+    dbPromise.then((db) => {
+      if (!db || !isMounted) return;
 
-    db.watch(
-      'SELECT * FROM user_study_log WHERE track_id = ?',
-      [trackId],
-      {
-        onResult: async () => {
-          if (isMounted) {
-            await loadStreak();
-          }
-        },
-        onError: (error) => {
-          if (isMounted) {
-            console.error('Error watching study log:', error);
-          }
-        },
-      }
-    );
+      const studyLogQuery = db.user_study_log
+        .find({
+          selector: {
+            track_id: trackId,
+            user_id: user.id,
+          },
+        })
+        .$;
+
+      const subscription = studyLogQuery.subscribe(async () => {
+        if (isMounted) {
+          await loadStreak();
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    });
 
     return () => {
       isMounted = false;
     };
-  }, [trackId]);
+  }, [trackId, user]);
 
   return { streak, loading };
 }
@@ -151,36 +136,34 @@ export function useStreak(trackId: string | null) {
 export function useStreaks() {
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const { user } = useAuthContext();
 
   useEffect(() => {
+    if (!user) {
+      setStreaks({});
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const loadStreaks = async () => {
       try {
-        // Get current user
-        const { supabase } = await import('@/lib/supabase/client');
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
+        const db = await getDatabase();
+        if (!db) {
           if (isMounted) {
-            setStreaks({});
             setLoading(false);
           }
           return;
         }
 
         // Get all tracks
-        const db = getPowerSyncDatabase();
-        if (!db) {
-          return;
-        }
-
-        const tracksResult = await db.getAll<{ id: string }>('SELECT id FROM tracks');
-        const tracks = tracksResult;
+        const tracks = await db.tracks.find().exec();
 
         // Calculate streak for each track
         const streakMap: Record<string, number> = {};
-        for (const track of tracks) {
+        for (const trackDoc of tracks) {
+          const track = trackDoc.toJSON();
           streakMap[track.id] = await calculateStreak(track.id, user.id);
         }
 
@@ -199,35 +182,26 @@ export function useStreaks() {
     loadStreaks();
 
     // Watch for changes
-    // Note: watch() with callbacks returns void, so we use a mounted flag for cleanup
-    const db = getPowerSyncDatabase();
-    if (!db) {
-      return () => {
-        isMounted = false;
-      };
-    }
+    const dbPromise = getDatabase();
+    dbPromise.then((db) => {
+      if (!db || !isMounted) return;
 
-    db.watch(
-      'SELECT * FROM user_study_log',
-      [],
-      {
-        onResult: async () => {
-          if (isMounted) {
-            await loadStreaks();
-          }
-        },
-        onError: (error) => {
-          if (isMounted) {
-            console.error('Error watching study logs:', error);
-          }
-        },
-      }
-    );
+      const studyLogQuery = db.user_study_log.find().$;
+      const subscription = studyLogQuery.subscribe(async () => {
+        if (isMounted) {
+          await loadStreaks();
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    });
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   return { streaks, loading };
 }

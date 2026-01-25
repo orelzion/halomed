@@ -36,12 +36,6 @@ awk -F'=' '
   /^SUPABASE_DEV_PUBLISHABLE_KEY=/ {
     print "NEXT_PUBLIC_SUPABASE_ANON_KEY="$2
   }
-  /^SUPABASE_DEV_PUBLISHABLE_KEY=/ {
-    print "NEXT_PUBLIC_SUPABASE_ANON_KEY="$2
-  }
-  /^POWERSYNC_DEV_INSTANCE_ID=/ {
-    print "NEXT_PUBLIC_POWERSYNC_INSTANCE_ID="$2
-  }
 ' "$ROOT_DIR/.env" > "$WEB_DIR/.env.local"
 
 echo "✅ Created/updated web/.env.local"

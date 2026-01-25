@@ -7,16 +7,17 @@ model: fast
 
 ## Purpose
 
-The Sync Agent is responsible for configuring PowerSync for bi-directional synchronization between the Supabase backend and all client platforms (Android, iOS, Web).
+The Sync Agent is responsible for configuring platform-specific offline-first synchronization solutions between the Supabase backend and all client platforms (Android, iOS, Web).
 
 ## Responsibilities
 
-- PowerSync configuration and setup
-- Sync rules for all platforms
-- SQLite schema definitions
+- Platform-specific sync configuration and setup
+- Sync logic implementation for all platforms
+- Local database schema definitions
 - Conflict resolution strategies
 - Offline-first sync patterns
 - Sync window management (14-day rolling)
+- Content generation during sync
 
 ## Dependencies
 
@@ -26,107 +27,132 @@ The Sync Agent is responsible for configuring PowerSync for bi-directional synch
 
 ## Technology Stack
 
-| Platform | Sync Technology |
-|----------|-----------------|
-| Android | PowerSync Kotlin SDK |
-| iOS | PowerSync Swift SDK |
-| Web | PowerSync Web SDK (IndexedDB-backed SQLite) |
+| Platform | Sync Technology | Local Database |
+|----------|-----------------|----------------|
+| Web | RxDB with Supabase Plugin | RxDB (IndexedDB) |
+| Android | Custom Sync Engine | Room (SQLite) |
+| iOS | Custom Sync Engine | SQLite |
 
-## PowerSync Overview
+## Platform-Specific Sync Overview
 
-PowerSync provides:
-- Real-time bi-directional sync
-- Offline-first architecture
-- SQLite on all platforms
-- Automatic conflict resolution
+**Web (RxDB):**
+- RxDB with Supabase Realtime plugin
+- Automatic bi-directional sync
+- Query-level date filtering (14-day window)
+- Built-in conflict resolution
+- Content generation during sync
+
+**Android (Custom Sync):**
+- Room database for local SQLite storage
+- Supabase Realtime subscriptions for live updates
+- Custom sync engine with date filtering
+- WorkManager for background sync
+- Content generation during sync
+
+**iOS (Custom Sync):**
+- SQLite for local storage
+- Supabase Realtime subscriptions for live updates
+- Custom sync engine with date filtering
+- BGAppRefreshTask for background sync
+- Content generation during sync
 
 ## Sync Configuration
 
-### PowerSync Dashboard Setup
+### Shared Sync Strategy
 
-1. Create PowerSync instance
-2. Connect to Supabase database
-3. Configure sync rules
-4. Deploy to clients
+All platforms implement:
+- **14-day rolling window**: Sync data within ±14 days of current date
+- **Date filtering**: Applied at query level (not in sync rules)
+- **Content generation**: Ensure all lessons and quizzes in window are generated during sync
+- **Conflict resolution**: Last-write-wins based on `updated_at` timestamp
+- **Soft deletes**: Use `_deleted` boolean field instead of hard deletes
 
-### Sync Rules
+### Web (RxDB) Configuration
 
-```yaml
-# powersync.yaml
+**Files:**
+- `web/lib/database/database.ts` - RxDB instance
+- `web/lib/database/schemas.ts` - Collection schemas
+- `web/lib/sync/replication.ts` - Replication setup with date filtering
+- `web/lib/sync/content-generation.ts` - Content generation during sync
 
-bucket_definitions:
-  # User-specific study logs
-  user_data:
-    parameters:
-      - user_id: token.user_id
-    data:
-      - SELECT id, user_id, track_id, study_date, content_group_ref, is_completed, completed_at
-        FROM user_study_log
-        WHERE user_id = bucket.user_id
-          AND study_date >= CURRENT_DATE - INTERVAL '14 days'
-          AND study_date <= CURRENT_DATE + INTERVAL '14 days'
-
-  # Shared content (read-only)
-  content:
-    data:
-      - SELECT id, ref_id, content_group_ref, item_number, source_text_he, ai_explanation_he, ai_deep_dive_json, created_at
-        FROM content_cache
-        WHERE id IN (
-          SELECT content_group_ref FROM user_study_log 
-          WHERE study_date >= CURRENT_DATE - INTERVAL '14 days'
-            AND study_date <= CURRENT_DATE + INTERVAL '14 days'
-        )
-
-  # Track definitions (read-only)
-  tracks:
-    data:
-      - SELECT id, title, source_endpoint, schedule_type
-        FROM tracks
+**Replication Setup:**
+```typescript
+replicateSupabase({
+  collection: db.user_study_log,
+  pull: {
+    queryBuilder: ({ query }) => {
+      const window = getDateWindow(); // ±14 days
+      return query
+        .eq('user_id', userId)
+        .gte('study_date', window.start)
+        .lte('study_date', window.end);
+    },
+  },
+});
 ```
 
-## SQLite Schema (Client-Side)
+### Android (Custom Sync) Configuration
 
-### user_study_log
+**Files:**
+- `android/app/src/main/java/com/halomeid/data/sync/SyncEngine.kt` - Main sync orchestration
+- `android/app/src/main/java/com/halomeid/data/local/RoomDatabase.kt` - Room database
+- `android/app/src/main/java/com/halomeid/data/local/dao/` - DAOs
 
-```sql
-CREATE TABLE user_study_log (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  track_id TEXT NOT NULL,
-  study_date TEXT NOT NULL,
-  content_group_ref TEXT,
-  is_completed INTEGER DEFAULT 0,
-  completed_at TEXT,
-  UNIQUE(user_id, study_date, track_id)
-);
+**Sync Flow:**
+1. Generate schedule (ensure content exists)
+2. Sync user_study_log within 14-day window
+3. Sync referenced content_cache
+4. Sync tracks (all)
+5. Generate quizzes for content in window
+6. Clean up old data outside window
 
-CREATE INDEX idx_study_log_user_date ON user_study_log(user_id, study_date);
-CREATE INDEX idx_study_log_track ON user_study_log(track_id);
-```
+### iOS (Custom Sync) Configuration
 
-### content_cache
+**Files:**
+- `ios/HaLomeid/Data/Sync/SyncEngine.swift` - Main sync orchestration
+- `ios/HaLomeid/Data/Local/Database.swift` - SQLite database
+- `ios/HaLomeid/Data/Local/Models/` - Swift models
 
-```sql
-CREATE TABLE content_cache (
-  id TEXT PRIMARY KEY,
-  ref_id TEXT UNIQUE,
-  source_text_he TEXT NOT NULL,
-  ai_explanation_he TEXT NOT NULL,
-  ai_deep_dive_json TEXT,
-  created_at TEXT
-);
-```
+**Sync Flow:**
+Same as Android - platform-specific implementation
 
-### tracks
+## Local Database Schemas
 
-```sql
-CREATE TABLE tracks (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  source_endpoint TEXT,
-  schedule_type TEXT NOT NULL
-);
-```
+### Web (RxDB Collections)
+
+**user_study_log:**
+- id, user_id, track_id, study_date, content_id, is_completed, completed_at, _modified, _deleted
+
+**content_cache:**
+- id, ref_id, source_text_he, ai_explanation_json, created_at, _modified, _deleted
+
+**tracks:**
+- id, title, source_endpoint, schedule_type, _modified, _deleted
+
+### Android (Room Entities)
+
+**UserStudyLog:**
+- @Entity with Room annotations
+- Fields: id, userId, trackId, studyDate, contentId, isCompleted, completedAt, updatedAt, deleted
+
+**ContentCache:**
+- @Entity with Room annotations
+- Fields: id, refId, sourceTextHe, aiExplanationJson, createdAt, updatedAt, deleted
+
+**Track:**
+- @Entity with Room annotations
+- Fields: id, title, sourceEndpoint, scheduleType, updatedAt, deleted
+
+### iOS (SQLite Tables)
+
+**user_study_log:**
+- id, user_id, track_id, study_date, content_id, is_completed, completed_at, updated_at, deleted
+
+**content_cache:**
+- id, ref_id, source_text_he, ai_explanation_json, created_at, updated_at, deleted
+
+**tracks:**
+- id, title, source_endpoint, schedule_type, updated_at, deleted
 
 ## Conflict Resolution
 
@@ -181,10 +207,19 @@ const windowEnd = addDays(new Date(), 14);
 
 ### Write Flow
 
+**Web (RxDB):**
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Client    │────▶│   SQLite    │────▶│  PowerSync  │
-│   Write     │     │   (Local)   │     │   Queue     │
+│   Client    │────▶│    RxDB     │────▶│  Supabase   │
+│   Write     │     │  (IndexedDB)│     │  Realtime    │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+**Android/iOS (Custom Sync):**
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Client    │────▶│  SQLite     │────▶│  Sync Queue │
+│   Write     │     │  (Local)    │     │  (Custom)   │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                                                │
                                     (When online)
@@ -192,23 +227,49 @@ const windowEnd = addDays(new Date(), 14);
                                                ▼
                                         ┌─────────────┐
                                         │  Supabase   │
-                                        │   Server    │
+                                        │  Realtime   │
                                         └─────────────┘
 ```
 
 ### Completion Marking (Offline)
 
+**Web (RxDB):**
 ```typescript
 // Mark completion locally (immediate)
-await db.execute(
-  `UPDATE user_study_log 
-   SET is_completed = 1, completed_at = ? 
-   WHERE id = ?`,
-  [new Date().toISOString(), unitId]
-);
+await db.user_study_log.findOne(id).update({
+  $set: {
+    is_completed: 1,
+    completed_at: new Date().toISOString(),
+    _modified: new Date().toISOString(),
+  },
+});
 
-// PowerSync automatically queues for sync
-// Sync happens when connectivity resumes
+// RxDB automatically syncs when online
+```
+
+**Android (Room):**
+```kotlin
+// Mark completion locally (immediate)
+studyLogDao.update(
+  studyLog.copy(
+    isCompleted = true,
+    completedAt = Instant.now(),
+    updatedAt = Instant.now()
+  )
+)
+
+// Sync happens via WorkManager
+```
+
+**iOS (SQLite):**
+```swift
+// Mark completion locally (immediate)
+try db.execute(
+  "UPDATE user_study_log SET is_completed = 1, completed_at = ?, updated_at = ? WHERE id = ?",
+  [Date(), Date(), unitId]
+)
+
+// Sync happens via BGAppRefreshTask
 ```
 
 ## Streak Calculation
@@ -269,59 +330,99 @@ function wasCompletedOnDay(unit: StudyUnit): boolean {
 
 ## Client Integration
 
-### Client Integration
+### Web (RxDB)
 
-**Android:**
-- Initialize PowerSync with PowerSyncBuilder
-- Configure schema and SupabaseConnector
-- Use powerSync.watch() to observe data changes
+**Initialization:**
+- Create RxDB database instance
+- Setup replication with Supabase plugin
+- Configure date filtering in queryBuilder
+- Monitor replication status
 
-**iOS:**
-- Initialize PowerSync with PowerSyncBuilder
-- Configure schema and SupabaseConnector
-- Use powerSync.watch() with closure for updates
+**Data Access:**
+- Use RxDB collections for queries
+- Reactive queries with `.$` observable
+- Automatic sync on writes
 
-**Web:**
-- Initialize PowerSync with IndexedDB backend
-- Configure schema
-- Use powerSync.watch() with subscribe() for updates
+### Android (Custom Sync)
+
+**Initialization:**
+- Setup Room database
+- Initialize SyncEngine with Supabase client
+- Configure WorkManager for background sync
+- Setup Supabase Realtime subscriptions
+
+**Data Access:**
+- Use Room DAOs for queries
+- Flow/StateFlow for reactive updates
+- Manual sync trigger or WorkManager
+
+### iOS (Custom Sync)
+
+**Initialization:**
+- Setup SQLite database
+- Initialize SyncEngine with Supabase client
+- Configure BGAppRefreshTask for background sync
+- Setup Supabase Realtime subscriptions
+
+**Data Access:**
+- Use SQL queries or ORM
+- Combine publishers for reactive updates
+- Manual sync trigger or BGAppRefreshTask
 
 
 ## Key Files/Components
 
 | Path | Purpose |
 |------|---------|
-| `powersync/powersync.yaml` | Sync rules configuration |
-| `shared/schema.ts` | Shared schema definition |
-| Platform-specific SDK integration | See platform agents |
+| `web/lib/database/` | RxDB database and schemas |
+| `web/lib/sync/` | RxDB replication setup |
+| `android/app/src/main/java/com/halomeid/data/sync/` | Android sync engine |
+| `android/app/src/main/java/com/halomeid/data/local/` | Room database |
+| `ios/HaLomeid/Data/Sync/` | iOS sync engine |
+| `ios/HaLomeid/Data/Local/` | SQLite database |
 
 ## Implementation Guidelines
 
 ### Initial Sync
 
 1. User authenticates
-2. PowerSync connects to backend
+2. Sync engine connects to Supabase
 3. Initial sync downloads 14-day window
-4. App ready for offline use
+4. Generate schedule (ensure all content exists)
+5. Generate quizzes for content in window
+6. App ready for offline use
+
+### Content Generation During Sync
+
+**Requirements:**
+- During initial sync, ensure all content in 14-day window is generated
+- Generate quizzes for all content in window
+- Use existing Edge Functions: `generate-schedule`, `generate-content`, `generate-quiz`
+- Non-blocking: Content generation happens in background
+
+**Implementation:**
+- After initial data sync, check for missing content
+- Call `generate-schedule` to ensure all user_study_log entries exist
+- For each content_ref in window, check if content_cache exists
+- If missing, call `generate-content` Edge Function
+- For each content_ref, check if quiz_questions exist
+- If missing, call `generate-quiz` Edge Function
+- Batch requests to avoid overwhelming server
 
 ### Sync Status Monitoring
 
 **Requirements:**
 - Monitor sync connection status
-- Show online/offline state to user
+- Show non-intrusive sync indicator
 - Handle sync errors gracefully
 - App continues with local data on errors
 
 **Implementation Pattern:**
-- Use powerSync.onStatusChange() callback
-- Use powerSync.onError() for error handling
-- Display sync status in UI if needed
-typescript
-powerSync.onError((error) => {
-  console.error('Sync error:', error);
-  // Handle gracefully - app continues with local data
-});
-```
+- Web: Monitor RxDB replication status
+- Android/iOS: Monitor sync engine state
+- Display small badge/icon in corner (not blocking)
+- Auto-hide after sync completes
+- Show error icon if sync fails
 
 ## Testing
 
@@ -333,5 +434,6 @@ See platform-specific testing agents for:
 ## Reference Documents
 
 - **TDD Section 2.2**: Sync Layer
-- **TDD Section 8**: Sync Strategy (PowerSync)
+- **TDD Section 8**: Sync Strategy
 - **TDD Section 9**: Offline Behavior
+- **Migration Plan**: `/Users/orelzion/.cursor/plans/migrate_from_powersync_to_custom_offline-first_solution_5b02e912.plan.md`
