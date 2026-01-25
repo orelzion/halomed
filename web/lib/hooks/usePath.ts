@@ -56,15 +56,7 @@ export function usePath() {
           })
           .exec();
 
-        let allNodes = allNodesDocs.map((doc) => doc.toJSON());
-        
-        // Deduplicate nodes by node_index (in case of multiple path generations)
-        const seenIndices = new Set<number>();
-        allNodes = allNodes.filter(node => {
-          if (seenIndices.has(node.node_index)) return false;
-          seenIndices.add(node.node_index);
-          return true;
-        });
+        const allNodes = allNodesDocs.map((doc) => doc.toJSON());
         
         // Sort nodes by unlock_date first, then by type (dividers last), then by node_index
         // This ensures reviews appear on the day they're scheduled, before dividers

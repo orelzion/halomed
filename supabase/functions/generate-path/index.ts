@@ -493,7 +493,11 @@ Deno.serve(async (req: Request) => {
     if (reviewIntervals.length > 0) {
       console.log(`[generate-path] Generating review nodes with intensity '${review_intensity}' (intervals: ${reviewIntervals.join(', ')} days)`);
       
+      // Track scheduled reviews to avoid duplicates (same content on same day)
+      const scheduledReviews = new Set<string>();
+      
       let reviewNodesCount = 0;
+      let skippedDuplicates = 0;
       for (const [contentIdx, learningInfo] of learningNodeDates) {
         for (const interval of reviewIntervals) {
           const reviewDate = addDays(learningInfo.date, interval);
@@ -507,6 +511,14 @@ Deno.serve(async (req: Request) => {
             if (daysOffset > 7) break; // Safety limit
           }
           
+          // Check for duplicate: same content on same day
+          const reviewKey = `${learningInfo.contentRef}:${formatDate(reviewScheduledDate)}`;
+          if (scheduledReviews.has(reviewKey)) {
+            skippedDuplicates++;
+            continue; // Skip duplicate review
+          }
+          scheduledReviews.add(reviewKey);
+          
           nodes.push({
             node_index: nodeIndex++,
             node_type: 'review',
@@ -519,7 +531,7 @@ Deno.serve(async (req: Request) => {
           reviewNodesCount++;
         }
       }
-      console.log(`[generate-path] Generated ${reviewNodesCount} review nodes`);
+      console.log(`[generate-path] Generated ${reviewNodesCount} review nodes (skipped ${skippedDuplicates} duplicates)`);
     }
 
     // Insert final divider after last chapter/tractate
