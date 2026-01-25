@@ -66,13 +66,17 @@ export function usePath() {
           return true;
         });
         
-        // Sort nodes by unlock_date first, then by node_index within the same date
-        // This ensures reviews appear on the day they're scheduled, not at the end
+        // Sort nodes by unlock_date first, then by type (dividers last), then by node_index
+        // This ensures reviews appear on the day they're scheduled, before dividers
         allNodes.sort((a, b) => {
           // First compare by unlock_date
           const dateCompare = a.unlock_date.localeCompare(b.unlock_date);
           if (dateCompare !== 0) return dateCompare;
-          // Within same date, sort by node_index
+          // Within same date, put dividers at the end
+          const aIsDivider = a.is_divider === 1;
+          const bIsDivider = b.is_divider === 1;
+          if (aIsDivider !== bIsDivider) return aIsDivider ? 1 : -1;
+          // Within same type, sort by node_index
           return a.node_index - b.node_index;
         });
         
