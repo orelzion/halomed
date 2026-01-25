@@ -3,7 +3,7 @@
 // Reference: Plan Section "Implementation Phases", scheduling.md
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { isScheduledDay, addDays, formatDate, parseDate, isJewishHoliday } from '../_shared/calendar.ts';
 import { 
@@ -25,6 +25,9 @@ interface GeneratePathRequest {
   start_from_content_index?: number; // Content index to resume from (default 0)
   start_node_index?: number; // Node index to continue from (default 0)
   preserve_completed?: boolean; // If true, don't delete completed nodes (default false)
+  // Optional: pass preferences directly (saves roundtrip, enables offline-first flow)
+  pace?: 'one_mishna' | 'two_mishna' | 'one_chapter';
+  review_intensity?: 'none' | 'light' | 'medium' | 'intensive';
 }
 
 interface PathNode {
@@ -110,21 +113,56 @@ Deno.serve(async (req: Request) => {
     // Authentication is handled by the API route which validates the user's JWT
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user preferences
-    const { data: preferences, error: prefError } = await supabase
-      .from('user_preferences')
-      .select('pace, review_intensity')
-      .eq('user_id', body.user_id)
-      .single();
+    // Determine preferences: use provided values or fetch from database
+    let pace: string;
+    let review_intensity: string;
 
-    if (prefError || !preferences) {
-      return new Response(
-        JSON.stringify({ error: 'User preferences not found. User must complete onboarding first.' }),
-        { status: 404, headers: corsHeaders }
-      );
+    if (body.pace && body.review_intensity) {
+      // Preferences provided in request - save them to database first
+      // This enables offline-first flow: client saves to RxDB, calls API with preferences,
+      // API saves to Supabase and generates path in one call
+      console.log(`[generate-path] Preferences provided in request, saving to database...`);
+      
+      const { error: upsertError } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: body.user_id,
+          pace: body.pace,
+          review_intensity: body.review_intensity,
+          streak_count: 0,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (upsertError) {
+        console.error('[generate-path] Error saving preferences:', upsertError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to save preferences', details: upsertError.message }),
+          { status: 500, headers: corsHeaders }
+        );
+      }
+
+      pace = body.pace;
+      review_intensity = body.review_intensity;
+      console.log(`[generate-path] Preferences saved: pace=${pace}, review_intensity=${review_intensity}`);
+    } else {
+      // Fetch preferences from database
+      const { data: preferences, error: prefError } = await supabase
+        .from('user_preferences')
+        .select('pace, review_intensity')
+        .eq('user_id', body.user_id)
+        .single();
+
+      if (prefError || !preferences) {
+        return new Response(
+          JSON.stringify({ error: 'User preferences not found. User must complete onboarding first.' }),
+          { status: 404, headers: corsHeaders }
+        );
+      }
+
+      pace = preferences.pace;
+      review_intensity = preferences.review_intensity;
     }
-
-    const { pace, review_intensity } = preferences;
 
     // Check if path already exists
     const { data: existingPath, error: pathError } = await supabase
@@ -455,7 +493,11 @@ Deno.serve(async (req: Request) => {
     if (reviewIntervals.length > 0) {
       console.log(`[generate-path] Generating review nodes with intensity '${review_intensity}' (intervals: ${reviewIntervals.join(', ')} days)`);
       
+      // Track scheduled reviews to avoid duplicates (same content on same day)
+      const scheduledReviews = new Set<string>();
+      
       let reviewNodesCount = 0;
+      let skippedDuplicates = 0;
       for (const [contentIdx, learningInfo] of learningNodeDates) {
         for (const interval of reviewIntervals) {
           const reviewDate = addDays(learningInfo.date, interval);
@@ -469,6 +511,14 @@ Deno.serve(async (req: Request) => {
             if (daysOffset > 7) break; // Safety limit
           }
           
+          // Check for duplicate: same content on same day
+          const reviewKey = `${learningInfo.contentRef}:${formatDate(reviewScheduledDate)}`;
+          if (scheduledReviews.has(reviewKey)) {
+            skippedDuplicates++;
+            continue; // Skip duplicate review
+          }
+          scheduledReviews.add(reviewKey);
+          
           nodes.push({
             node_index: nodeIndex++,
             node_type: 'review',
@@ -481,7 +531,7 @@ Deno.serve(async (req: Request) => {
           reviewNodesCount++;
         }
       }
-      console.log(`[generate-path] Generated ${reviewNodesCount} review nodes`);
+      console.log(`[generate-path] Generated ${reviewNodesCount} review nodes (skipped ${skippedDuplicates} duplicates)`);
     }
 
     // Insert final divider after last chapter/tractate

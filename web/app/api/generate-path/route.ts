@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
   const force = body.force === true;
+  const { pace, review_intensity } = body;
   
   // In dev mode: offset start date by a few days to simulate progress
   const isDev = process.env.NODE_ENV === 'development';
@@ -41,16 +42,20 @@ export async function POST(request: NextRequest) {
 
   // Security: Service role key is only used server-side
   // User authentication is validated above before calling the Edge Function
+  // Pass pace and review_intensity if provided (for offline-first flow where
+  // client saves to RxDB and API saves to Supabase + generates path in one call)
   const response = await fetch(`${supabaseUrl}/functions/v1/generate-path`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: serviceRoleKey,
+      'apikey': serviceRoleKey,
     },
     body: JSON.stringify({
       user_id: user.id,
       force: force,
       dev_offset_days: devOffsetDays,
+      ...(pace && { pace }),
+      ...(review_intensity && { review_intensity }),
     }),
   });
 
@@ -74,7 +79,10 @@ export async function POST(request: NextRequest) {
     is_forced: force,
     node_count: pathData.nodes?.length || 0,
   });
-  await getPostHogClient().shutdown();
+  const posthogClient = getPostHogClient();
+  if (posthogClient) {
+    await posthogClient.shutdown();
+  }
 
   return NextResponse.json(pathData);
 }

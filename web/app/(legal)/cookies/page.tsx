@@ -90,9 +90,9 @@ export default function CookiePolicyPage() {
                 <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">7 ימים</td>
               </tr>
               <tr>
-                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">powersync_*</td>
-                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">סנכרון לא מקוון</td>
-                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">סשן</td>
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">rxdb_*</td>
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">סנכרון לא מקוון (IndexedDB)</td>
+                <td className="border border-desert-oasis-muted dark:border-gray-700 px-4 py-2 text-[var(--text-secondary)] font-explanation">קבוע</td>
               </tr>
             </tbody>
           </table>

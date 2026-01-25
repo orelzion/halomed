@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
+import { getDatabase } from '@/lib/database/database';
 import { supabase } from '@/lib/supabase/client';
 import { StudyHeader } from '@/components/ui/StudyHeader';
 import { Mascot } from '@/components/ui/Mascot';
@@ -95,21 +95,21 @@ export function QuizScreen() {
   useEffect(() => {
     const loadQuiz = async () => {
       try {
-        const db = getPowerSyncDatabase();
-        if (!db) return;
-
-        // Get path node to find content_ref
-        const nodeResult = await db.getAll<{ content_ref: string | null }>(
-          'SELECT content_ref FROM learning_path WHERE id = ?',
-          [nodeId]
-        );
-        
-        if (!nodeResult || nodeResult.length === 0) {
+        const db = await getDatabase();
+        if (!db) {
           setLoading(false);
           return;
         }
 
-        const node = nodeResult[0];
+        // Get path node to find content_ref
+        const nodeDoc = await db.learning_path.findOne(nodeId).exec();
+        
+        if (!nodeDoc) {
+          setLoading(false);
+          return;
+        }
+
+        const node = nodeDoc.toJSON();
         if (!node.content_ref) {
           setLoading(false);
           return;
@@ -146,21 +146,16 @@ export function QuizScreen() {
       let allLearningNodes: any[] = [];
       for (const { start, end } of weekRanges) {
         console.log(`[QuizScreen] Fetching content from ${start} to ${end}`);
-        const learningNodesResult = await db.getAll(
-          `SELECT DISTINCT content_ref FROM learning_path 
-           WHERE node_type = 'learning' 
-           AND unlock_date >= ? AND unlock_date <= ?
-           ORDER BY unlock_date, node_index`,
-          [start, end]
-        );
+        const learningNodes = await db.learning_path
+          .find({
+            selector: {
+              node_type: 'learning',
+              unlock_date: { $gte: start, $lte: end },
+            },
+          })
+          .exec();
 
-        const weekNodes = Array.isArray(learningNodesResult) 
-          ? learningNodesResult 
-          : learningNodesResult.rows 
-            ? Array.from({ length: learningNodesResult.rows.length }, (_, i) => learningNodesResult.rows.item(i)) 
-            : [];
-        
-        allLearningNodes = [...allLearningNodes, ...weekNodes];
+        allLearningNodes = [...allLearningNodes, ...learningNodes.map((doc: any) => doc.toJSON())];
       }
 
       if (allLearningNodes.length === 0) {
@@ -174,17 +169,16 @@ export function QuizScreen() {
       console.log(`[QuizScreen] Found ${contentRefs.length} content refs for weekly quiz`);
 
       // Get quiz questions for all content_refs
-      const placeholders = contentRefs.map(() => '?').join(',');
-      const quizResult = await db.getAll(
-        `SELECT * FROM quiz_questions WHERE content_ref IN (${placeholders}) ORDER BY content_ref, question_index ASC`,
-        contentRefs
-      );
+      const quizDocs = await db.quiz_questions
+        .find({
+          selector: {
+            content_ref: { $in: contentRefs },
+          },
+        })
+        .sort([{ content_ref: 'asc' }, { question_index: 'asc' }])
+        .exec();
 
-      let quizzes = Array.isArray(quizResult) 
-        ? quizResult 
-        : quizResult.rows 
-          ? Array.from({ length: quizResult.rows.length }, (_, i) => quizResult.rows.item(i)) 
-          : [];
+      let quizzes = quizDocs.map((doc: any) => doc.toJSON());
 
       // If no questions exist, generate them for each content_ref
       if (quizzes.length === 0) {
@@ -213,15 +207,15 @@ export function QuizScreen() {
 
         // Wait for sync and retry
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const newQuizResult = await db.getAll(
-          `SELECT * FROM quiz_questions WHERE content_ref IN (${placeholders}) ORDER BY content_ref, question_index ASC`,
-          contentRefs
-        );
-        quizzes = Array.isArray(newQuizResult) 
-          ? newQuizResult 
-          : newQuizResult.rows 
-            ? Array.from({ length: newQuizResult.rows.length }, (_, i) => newQuizResult.rows.item(i)) 
-            : [];
+        const newQuizDocs = await db.quiz_questions
+          .find({
+            selector: {
+              content_ref: { $in: contentRefs },
+            },
+          })
+          .sort([{ content_ref: 'asc' }, { question_index: 'asc' }])
+          .exec();
+        quizzes = newQuizDocs.map((doc: any) => doc.toJSON());
       }
 
       // Format questions
@@ -240,13 +234,17 @@ export function QuizScreen() {
     };
 
     const loadRegularQuiz = async (db: any, contentRef: string) => {
-      // Get all quiz questions from PowerSync (ordered by question_index)
-      const quizResult = await db.getAll(
-        'SELECT * FROM quiz_questions WHERE content_ref = ? ORDER BY question_index ASC',
-        [contentRef]
-      );
+      // Get all quiz questions from RxDB (ordered by question_index)
+      const quizDocs = await db.quiz_questions
+        .find({
+          selector: {
+            content_ref: contentRef,
+          },
+        })
+        .sort([{ question_index: 'asc' }])
+        .exec();
 
-      const quizzes = Array.isArray(quizResult) ? quizResult : quizResult.rows ? Array.from({ length: quizResult.rows.length }, (_, i) => quizResult.rows.item(i)) : [];
+      const quizzes = quizDocs.map((doc: any) => doc.toJSON());
       
       if (quizzes.length === 0) {
         // Generate quiz questions
@@ -266,19 +264,23 @@ export function QuizScreen() {
           throw new Error('Failed to generate quiz');
         }
 
-        // Wait for PowerSync to sync the new data
+        // Wait for RxDB to sync the new data
         // Poll until data is available (max 10 seconds)
         let newQuizzes: any[] = [];
         const maxAttempts = 20;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          // Small delay to allow PowerSync to sync
+          // Small delay to allow RxDB to sync
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const newQuizResult = await db.getAll(
-            'SELECT * FROM quiz_questions WHERE content_ref = ? ORDER BY question_index ASC',
-            [contentRef]
-          );
-          newQuizzes = Array.isArray(newQuizResult) ? newQuizResult : newQuizResult.rows ? Array.from({ length: newQuizResult.rows.length }, (_, i) => newQuizResult.rows.item(i)) : [];
+          const newQuizDocs = await db.quiz_questions
+            .find({
+              selector: {
+                content_ref: contentRef,
+              },
+            })
+            .sort([{ question_index: 'asc' }])
+            .exec();
+          newQuizzes = newQuizDocs.map((doc: any) => doc.toJSON());
           
           if (newQuizzes.length > 0) {
             console.log(`[QuizScreen] Quiz synced after ${attempt + 1} attempts`);
@@ -292,7 +294,7 @@ export function QuizScreen() {
             content_ref: q.content_ref,
             question_index: q.question_index || 0,
             question_text: q.question_text,
-            options: JSON.parse(q.options),
+            options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
             correct_answer: q.correct_answer,
             explanation: q.explanation || '',
           }));
@@ -302,12 +304,12 @@ export function QuizScreen() {
           throw new Error('Quiz generated but not yet synced. Please reload.');
         }
       } else {
-        const formatted = quizzes.map(q => ({
+        const formatted = quizzes.map((q: any) => ({
           id: q.id,
           content_ref: q.content_ref,
           question_index: q.question_index || 0,
           question_text: q.question_text,
-          options: JSON.parse(q.options),
+          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
           correct_answer: q.correct_answer,
           explanation: q.explanation || '',
         }));

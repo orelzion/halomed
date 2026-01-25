@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
+import { getDatabase } from '@/lib/database/database';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 
 /**
@@ -28,30 +28,32 @@ export function usePathStreak() {
 
     const calculateStreak = async () => {
       try {
-        const db = getPowerSyncDatabase();
+        const db = await getDatabase();
         if (!db) {
+          if (isMounted) {
+            setLoading(false);
+          }
           return;
         }
 
-        interface PathNode {
-          completed_at: string | null;
-          unlock_date: string | null;
-        }
-        
         // Get all learning nodes (not review/quiz) ordered by unlock_date DESC
-        const nodes = await db.getAll<PathNode>(
-          `SELECT * FROM learning_path 
-           WHERE user_id = ? 
-             AND node_type = 'learning'
-             AND is_divider = 0
-           ORDER BY unlock_date DESC`,
-          [user.id]
-        );
+        const nodes = await db.learning_path
+          .find({
+            selector: {
+              user_id: user.id,
+              node_type: 'learning',
+              is_divider: 0,
+            },
+          })
+          .sort({ unlock_date: 'desc' })
+          .exec();
 
         let streakCount = 0;
         const today = new Date().toISOString().split('T')[0];
 
-        for (const node of nodes) {
+        for (const nodeDoc of nodes) {
+          const node = nodeDoc.toJSON();
+
           // Skip if not completed
           if (!node.completed_at) {
             break;
@@ -87,31 +89,31 @@ export function usePathStreak() {
 
     calculateStreak();
 
-    const db = getPowerSyncDatabase();
-    if (!db) {
-      return () => {
-        isMounted = false;
-      };
-    }
+    // Watch for changes
+    const dbPromise = getDatabase();
+    dbPromise.then((db) => {
+      if (!db || !isMounted) return;
 
-    db.watch(
-      `SELECT * FROM learning_path 
-       WHERE user_id = ? AND node_type = 'learning' AND is_divider = 0
-       ORDER BY unlock_date DESC`,
-      [user.id],
-      {
-        onResult: async () => {
-          if (isMounted) {
-            await calculateStreak();
-          }
-        },
-        onError: (error) => {
-          if (isMounted) {
-            console.error('Error watching path:', error);
-          }
-        },
-      }
-    );
+      const pathQuery = db.learning_path
+        .find({
+          selector: {
+            user_id: user.id,
+            node_type: 'learning',
+            is_divider: 0,
+          },
+        })
+        .$;
+
+      const subscription = pathQuery.subscribe(async () => {
+        if (isMounted) {
+          await calculateStreak();
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    });
 
     return () => {
       isMounted = false;

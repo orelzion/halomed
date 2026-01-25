@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { usePreferences } from '@/lib/hooks/usePreferences';
 import { supabase } from '@/lib/supabase/client';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
-import { useSyncStatus } from '@/components/providers/SyncStatusProvider';
+import { useSync } from '@/components/providers/SyncProvider';
 import posthog from 'posthog-js';
+import { getDatabase } from '@/lib/database/database';
 
 type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
@@ -50,7 +50,7 @@ function CheckIcon({ className = '' }: { className?: string }) {
 export function ChangePlanDialog({ isOpen, onClose, onSuccess }: ChangePlanDialogProps) {
   const { t } = useTranslation();
   const { preferences } = usePreferences();
-  const { showSyncIndicator } = useSyncStatus();
+  const { triggerSync } = useSync();
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstFocusableRef = useRef<HTMLButtonElement>(null);
 
@@ -104,15 +104,42 @@ export function ChangePlanDialog({ isOpen, onClose, onSuccess }: ChangePlanDialo
   }, [preferences, selectedPace, selectedReview]);
 
   const updateLocalPreferences = async (pace: Pace, reviewIntensity: ReviewIntensity, userId: string) => {
-    const db = getPowerSyncDatabase();
+    const db = await getDatabase();
     if (!db) return;
 
     try {
-      // Optimistically update local PowerSync database
-      await db.execute(
-        `UPDATE user_preferences SET pace = ?, review_intensity = ?, updated_at = ? WHERE user_id = ?`,
-        [pace, reviewIntensity, new Date().toISOString(), userId]
-      );
+      // Find existing preferences
+      const prefsDocs = await db.user_preferences
+        .find({
+          selector: {
+            user_id: userId,
+          },
+        })
+        .limit(1)
+        .exec();
+
+      if (prefsDocs.length > 0) {
+        // Update existing preferences
+        await prefsDocs[0].update({
+          $set: {
+            pace,
+            review_intensity: reviewIntensity,
+            updated_at: new Date().toISOString(),
+          },
+        });
+      } else {
+        // Create new preferences (shouldn't happen, but handle gracefully)
+        await db.user_preferences.insert({
+          id: crypto.randomUUID(),
+          user_id: userId,
+          pace,
+          review_intensity: reviewIntensity,
+          streak_count: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          _deleted: false,
+        });
+      }
       console.log('[ChangePlanDialog] Local preferences updated optimistically');
     } catch (e) {
       console.error('[ChangePlanDialog] Failed to update local preferences:', e);
@@ -160,8 +187,9 @@ export function ChangePlanDialog({ isOpen, onClose, onSuccess }: ChangePlanDialo
       // Optimistically update local database for immediate UI feedback
       await updateLocalPreferences(selectedPace, selectedReview, session.user.id);
 
-      // Show global sync indicator and close dialog immediately
-      showSyncIndicator(t('change_plan_syncing'), 5000);
+      // Trigger sync to push changes to server
+      await triggerSync();
+
       onSuccess?.();
       onClose();
     } catch (err) {

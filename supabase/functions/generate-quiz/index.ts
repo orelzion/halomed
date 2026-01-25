@@ -3,7 +3,7 @@
 // Reference: Plan Section "Phase 5: Quiz System", content-generation.md
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { generateQuizQuestions } from '../_shared/gemini.ts';
 

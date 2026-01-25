@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       const posthog = getPostHogClient();
 
       // Identify user on server side
-      posthog.identify({
+      posthog?.identify({
         distinctId: data.user.id,
         properties: {
           email: data.user.email,
@@ -71,7 +71,9 @@ export async function GET(request: Request) {
         });
       }
 
-      await posthog.shutdown();
+      if (posthog) {
+        await posthog.shutdown();
+      }
     }
 
     if (error) {

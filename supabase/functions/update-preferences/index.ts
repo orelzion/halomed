@@ -4,7 +4,7 @@
 // Reference: Task 13.1 - Study Plan Change feature
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { formatDate } from '../_shared/calendar.ts';
 import { getContentIndexForRef } from '../_shared/content-order.ts';
@@ -185,7 +185,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Fire-and-forget: Call generate-path with partial regeneration parameters
-    // We don't wait for it to complete - the client will see updates via PowerSync
+    // We don't wait for it to complete - the client will see updates via RxDB sync
     console.log(`[update-preferences] Triggering generate-path in background (fire-and-forget)...`);
     
     // Use fetch without await to make it fire-and-forget

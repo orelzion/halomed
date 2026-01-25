@@ -7,13 +7,13 @@ model: fast
 
 ## Purpose
 
-The Web Agent is responsible for implementing the web client using Next.js and React, including PowerSync Web (IndexedDB-backed SQLite), PWA setup, and the "Desert Oasis" design system with Tailwind CSS.
+The Web Agent is responsible for implementing the web client using Next.js and React, including RxDB (IndexedDB) for offline-first sync, PWA setup, and the "Desert Oasis" design system with Tailwind CSS.
 
 ## Responsibilities
 
 - Next.js + React setup
 - Tailwind CSS configuration
-- PowerSync Web (IndexedDB-backed SQLite)
+- RxDB (IndexedDB) for offline-first sync
 - PWA setup with service worker
 - UI implementation (Home, Study screens)
 - Design system implementation with light/dark/system theme
@@ -24,7 +24,7 @@ The Web Agent is responsible for implementing the web client using Next.js and R
 ## Dependencies
 
 - **Receives tasks from**: Architect Agent
-- **Consults**: Design System Agent (UI specs, shared strings), Sync Agent (PowerSync), Backend Agent (API)
+- **Consults**: Design System Agent (UI specs, shared strings), Sync Agent (RxDB), Backend Agent (API)
 - **Coordinates with**: Client Testing Agent (Maestro tests)
 
 ## Technology Stack
@@ -34,7 +34,8 @@ The Web Agent is responsible for implementing the web client using Next.js and R
 | Framework | Next.js 14 (App Router) |
 | UI Library | React 18 |
 | Styling | Tailwind CSS |
-| Local Database | PowerSync Web (IndexedDB SQLite) |
+| Local Database | RxDB (IndexedDB) |
+| Sync | RxDB Supabase Plugin |
 | Authentication | Supabase Auth JS |
 | PWA | next-pwa |
 | i18n | next-i18next |
@@ -92,14 +93,17 @@ web/
 │   │   ├── HomeScreen.tsx
 │   │   └── StudyScreen.tsx
 │   └── providers/
-│       ├── PowerSyncProvider.tsx
+│       ├── SyncProvider.tsx
 │       ├── AuthProvider.tsx
 │       └── ThemeProvider.tsx
 ├── lib/
-│   ├── powersync/
-│   │   ├── schema.ts
+│   ├── database/
 │   │   ├── database.ts
-│   │   └── connector.ts
+│   │   └── schemas.ts
+│   ├── sync/
+│   │   ├── replication.ts
+│   │   ├── date-window.ts
+│   │   └── content-generation.ts
 │   ├── supabase/
 │   │   ├── client.ts
 │   │   └── auth.ts
@@ -297,7 +301,7 @@ See `design-system.md` for the shared string resources system that generates the
 ### Root Layout (app/layout.tsx)
 
 ```tsx
-import { PowerSyncProvider } from '@/components/providers/PowerSyncProvider'
+import { SyncProvider } from '@/components/providers/SyncProvider'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
 import './globals.css'
@@ -318,9 +322,9 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <AuthProvider>
-            <PowerSyncProvider>
+            <SyncProvider>
               {children}
-            </PowerSyncProvider>
+            </SyncProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
@@ -435,38 +439,61 @@ export function ThemeToggle() {
 }
 ```
 
-## PowerSync Integration
+## RxDB Integration
 
-### Schema (lib/powersync/schema.ts)
+### Database Setup (lib/database/database.ts)
 
 ```typescript
-import { Schema, Table, Column, ColumnType } from '@powersync/web'
+import { createRxDatabase, addRxPlugin } from 'rxdb';
+import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
+import { replicateSupabase } from 'rxdb/plugins/replication-supabase';
 
-export const AppSchema = new Schema([
-  new Table('user_study_log', [
-    new Column('id', ColumnType.TEXT),
-    new Column('user_id', ColumnType.TEXT),
-    new Column('track_id', ColumnType.TEXT),
-    new Column('study_date', ColumnType.TEXT),
-    new Column('content_id', ColumnType.TEXT),
-    new Column('is_completed', ColumnType.INTEGER),
-    new Column('completed_at', ColumnType.TEXT),
-  ]),
-  new Table('content_cache', [
-    new Column('id', ColumnType.TEXT),
-    new Column('ref_id', ColumnType.TEXT),
-    new Column('source_text_he', ColumnType.TEXT),
-    new Column('ai_explanation_he', ColumnType.TEXT),
-    new Column('ai_deep_dive_json', ColumnType.TEXT),
-    new Column('created_at', ColumnType.TEXT),
-  ]),
-  new Table('tracks', [
-    new Column('id', ColumnType.TEXT),
-    new Column('title', ColumnType.TEXT),
-    new Column('source_endpoint', ColumnType.TEXT),
-    new Column('schedule_type', ColumnType.TEXT),
-  ]),
-])
+export async function createDatabase() {
+  const db = await createRxDatabase({
+    name: 'halomeid',
+    storage: getRxStorageDexie(),
+  });
+  
+  // Add collections
+  await db.addCollections({
+    user_study_log: { schema: userStudyLogSchema },
+    content_cache: { schema: contentCacheSchema },
+    tracks: { schema: tracksSchema },
+  });
+  
+  return db;
+}
+```
+
+### Replication Setup (lib/sync/replication.ts)
+
+```typescript
+import { replicateSupabase } from 'rxdb/plugins/replication-supabase';
+import { supabase } from '@/lib/supabase/client';
+
+export async function setupReplication(db: RxDatabase, userId: string) {
+  const window = getDateWindow(); // ±14 days
+  
+  const userStudyLogReplication = replicateSupabase({
+    collection: db.user_study_log,
+    client: supabase,
+    tableName: 'user_study_log',
+    pull: {
+      queryBuilder: ({ query }) => {
+        return query
+          .eq('user_id', userId)
+          .gte('study_date', window.start)
+          .lte('study_date', window.end);
+      },
+    },
+  });
+  
+  // Setup other collections...
+  await userStudyLogReplication.awaitInitialReplication();
+  
+  // Ensure content is generated
+  await ensureContentGenerated(db, userId, window);
+}
 ```
 
 ## PWA Configuration
@@ -507,7 +534,9 @@ export const AppSchema = new Schema([
     "next": "14.x",
     "react": "18.x",
     "react-dom": "18.x",
-    "@powersync/web": "^0.x.x",
+    "rxdb": "^15.x.x",
+    "rxdb/plugins/storage-dexie": "^15.x.x",
+    "rxdb/plugins/replication-supabase": "^15.x.x",
     "@supabase/supabase-js": "^2.x.x",
     "next-pwa": "^5.x.x",
     "next-themes": "^0.x.x",

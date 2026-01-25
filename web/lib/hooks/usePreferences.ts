@@ -1,17 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
-import type { Database } from '@/lib/powersync/schema';
+import { getDatabase } from '@/lib/database/database';
 import { useAuthContext } from '@/components/providers/AuthProvider';
-import { usePowerSync } from '@/components/providers/PowerSyncProvider';
-
-type UserPreferencesRecord = Database['user_preferences'];
 
 export function usePreferences() {
   const { user } = useAuthContext();
-  const { hasSynced } = usePowerSync();
-  const [preferences, setPreferences] = useState<UserPreferencesRecord | null>(null);
+  const [preferences, setPreferences] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,54 +15,31 @@ export function usePreferences() {
       return;
     }
 
-    // Wait for PowerSync to complete first sync before querying
-    if (!hasSynced) {
-      console.log('[usePreferences] Waiting for PowerSync first sync...');
-      return;
-    }
-
     let isMounted = true;
-
-    const normalizeRows = <T,>(result: any): T[] => {
-      if (Array.isArray(result)) {
-        return result as T[];
-      }
-      if (!result) {
-        return [];
-      }
-      if (Array.isArray(result.rows)) {
-        return result.rows as T[];
-      }
-      if (Array.isArray(result.rows?._array)) {
-        return result.rows._array as T[];
-      }
-      if (typeof result.rows?.item === 'function' && typeof result.rows?.length === 'number') {
-        return Array.from({ length: result.rows.length }, (_, i) => result.rows.item(i)) as T[];
-      }
-      return [];
-    };
 
     const loadPreferences = async () => {
       try {
-        const db = getPowerSyncDatabase();
+        const db = await getDatabase();
         if (!db) {
-          console.log('[usePreferences] No PowerSync database');
           if (isMounted) {
             setLoading(false);
           }
           return;
         }
 
-        console.log('[usePreferences] Querying PowerSync for user_id:', user.id);
-        const prefsResult = await db.getAll(
-          'SELECT * FROM user_preferences WHERE user_id = ? LIMIT 1',
-          [user.id]
-        );
-        const prefs = normalizeRows<UserPreferencesRecord>(prefsResult);
-        console.log('[usePreferences] PowerSync result:', prefs);
+        const prefsDocs = await db.user_preferences
+          .find({
+            selector: {
+              user_id: user.id,
+            },
+          })
+          .limit(1)
+          .exec();
+
+        const prefs = prefsDocs.length > 0 ? prefsDocs[0].toJSON() : null;
 
         if (isMounted) {
-          setPreferences(prefs[0] || null);
+          setPreferences(prefs);
           setLoading(false);
         }
       } catch (error) {
@@ -81,37 +53,34 @@ export function usePreferences() {
 
     loadPreferences();
 
-    // Set up watch for reactive updates
-    const db = getPowerSyncDatabase();
-    if (!db) {
-      return () => {
-        isMounted = false;
-      };
-    }
+    // Watch for changes
+    const dbPromise = getDatabase();
+    dbPromise.then((db) => {
+      if (!db || !isMounted) return;
 
-    db.watch(
-      'SELECT * FROM user_preferences WHERE user_id = ?',
-      [user.id],
-      {
-        onResult: (results) => {
-          if (isMounted) {
-            const prefs = normalizeRows<UserPreferencesRecord>(results);
-            console.log('[usePreferences] Watch update:', prefs);
-            setPreferences(prefs[0] || null);
-          }
-        },
-        onError: (error) => {
-          if (isMounted) {
-            console.error('[usePreferences] Watch error:', error);
-          }
-        },
-      }
-    );
+      const prefsQuery = db.user_preferences
+        .find({
+          selector: {
+            user_id: user.id,
+          },
+        })
+        .$;
+
+      const subscription = prefsQuery.subscribe(async () => {
+        if (isMounted) {
+          await loadPreferences();
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    });
 
     return () => {
       isMounted = false;
     };
-  }, [user, hasSynced]);
+  }, [user]);
 
   return { preferences, loading };
 }

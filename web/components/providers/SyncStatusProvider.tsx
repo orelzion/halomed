@@ -40,12 +40,7 @@ export function SyncStatusProvider({ children }: SyncStatusProviderProps) {
   return (
     <SyncStatusContext.Provider value={{ showSyncIndicator, hideSyncIndicator }}>
       {children}
-      <SyncIndicator
-        message={message}
-        isVisible={isVisible}
-        onHide={hideSyncIndicator}
-        autoHideAfterMs={autoHideMs}
-      />
+      <SyncIndicator />
     </SyncStatusContext.Provider>
   );
 }

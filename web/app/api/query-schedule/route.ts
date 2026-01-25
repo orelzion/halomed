@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: serviceRoleKey, // Server-side only, never exposed to client
+      'apikey': serviceRoleKey, // Server-side only, never exposed to client
     },
     body: JSON.stringify({
       user_id: user.id, // Validated via JWT above

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getPowerSyncDatabase } from '@/lib/powersync/database';
+import { getDatabase } from '@/lib/database/database';
 import { supabase } from '@/lib/supabase/client';
 import { useTranslation } from '@/lib/i18n';
 import { usePathStudyUnit } from '@/lib/hooks/usePathStudyUnit';
@@ -34,22 +34,27 @@ export default function PathStudyPage() {
   useEffect(() => {
     const loadNode = async () => {
       try {
-        const db = getPowerSyncDatabase();
-        if (!db) return;
-
-        const nodes = await db.getAll<PathNode>(
-          'SELECT * FROM learning_path WHERE id = ?',
-          [nodeId]
-        );
-
-        if (nodes.length === 0) {
+        const db = await getDatabase();
+        if (!db) {
           setLoading(false);
           return;
         }
 
-        const pathNode = nodes[0];
-        setNode(pathNode);
-        setIsReview(pathNode.node_type === 'review' || pathNode.review_of_node_id !== null);
+        const nodeDoc = await db.learning_path.findOne(nodeId).exec();
+
+        if (!nodeDoc) {
+          setLoading(false);
+          return;
+        }
+
+        const pathNode = nodeDoc.toJSON();
+        setNode({
+          id: pathNode.id,
+          content_ref: pathNode.content_ref ?? null,
+          node_type: pathNode.node_type,
+          review_of_node_id: pathNode.review_of_node_id ?? null,
+        });
+        setIsReview(pathNode.node_type === 'review' || pathNode.review_of_node_id != null);
         setLoading(false);
       } catch (error) {
         console.error('Error loading path node:', error);
@@ -66,16 +71,21 @@ export default function PathStudyPage() {
     if (!node) return;
 
     try {
-      const db = getPowerSyncDatabase();
+      const db = await getDatabase();
       if (!db) return;
+
+      const nodeDoc = await db.learning_path.findOne(nodeId).exec();
+      if (!nodeDoc) return;
 
       const completedAt = isCompleted ? new Date().toISOString() : null;
 
-      // Update in PowerSync (will sync to server)
-      await db.execute(
-        'UPDATE learning_path SET completed_at = ? WHERE id = ?',
-        [completedAt, nodeId]
-      );
+      // Update locally - RxDB will automatically sync via replication
+      await nodeDoc.update({
+        $set: {
+          completed_at: completedAt,
+          updated_at: new Date().toISOString(),
+        },
+      });
 
       // If this is a learning node and was just completed, schedule reviews
       if (isCompleted && node.node_type === 'learning' && !node.review_of_node_id) {
@@ -147,30 +157,63 @@ function PathStudyScreen({
   const { content, node, explanationData, loading } = usePathStudyUnit(contentRef, nodeId);
   const { t } = useTranslation();
   const router = useRouter();
-  const [isCompleted, setIsCompleted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [showCompletionToast, setShowCompletionToast] = useState(false);
+  const hasAttemptedGeneration = useRef<string | null>(null); // Track which contentRef we've tried to generate
+
+  const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
-    setIsCompleted(node?.completed_at !== null);
+    setIsCompleted(node?.completed_at != null); // Use loose equality
   }, [node]);
 
-  // Check if content is placeholder (needs regeneration)
-  const contentIsPlaceholder = content && isPlaceholderContent(content.ai_explanation_json);
+  // Calculate placeholder status - used in both effect and render
+  const contentIsPlaceholder = content ? isPlaceholderContent(content.ai_explanation_json) : false;
+
+  // Reset tracking when contentRef changes
+  useEffect(() => {
+    hasAttemptedGeneration.current = null;
+  }, [contentRef]);
 
   // Trigger content generation if missing OR if content is placeholder
   useEffect(() => {
-    const needsGeneration = !loading && contentRef && !isGenerating && !generationError && 
-      (!content || contentIsPlaceholder);
+    // Skip if we've already attempted generation for this contentRef
+    if (hasAttemptedGeneration.current === contentRef) {
+      return;
+    }
+
+    // Skip if we're still loading or already generating
+    if (loading || isGenerating) {
+      return;
+    }
+
+    // Skip if no contentRef
+    if (!contentRef) {
+      return;
+    }
+
+    // Skip if content exists and is not a placeholder (real content loaded)
+    // The reactive query in usePathStudyUnit will automatically update when content syncs
+    if (content && !contentIsPlaceholder) {
+      return;
+    }
+
+    // Only generate if content is missing or is placeholder
+    const needsGeneration = !content || contentIsPlaceholder;
     
     if (needsGeneration) {
+      // Mark as attempted IMMEDIATELY to prevent any re-triggering
+      hasAttemptedGeneration.current = contentRef;
+      
       const generateContent = async () => {
         setIsGenerating(true);
         setGenerationError(null);
         
         if (contentIsPlaceholder) {
           console.log('[PathStudyScreen] Detected placeholder content, regenerating:', contentRef);
+        } else {
+          console.log('[PathStudyScreen] Content missing, generating:', contentRef);
         }
         
         try {
@@ -178,6 +221,7 @@ function PathStudyScreen({
           if (!session) {
             setGenerationError('לא מאומת');
             setIsGenerating(false);
+            hasAttemptedGeneration.current = null; // Allow retry
             return;
           }
 
@@ -193,15 +237,75 @@ function PathStudyScreen({
           if (!response.ok) {
             const errorText = await response.text();
             setGenerationError(errorText || 'שגיאה ביצירת תוכן');
+            hasAttemptedGeneration.current = null; // Allow retry on error
           } else {
-            // Content generated, wait a moment for PowerSync to sync
-            setTimeout(() => {
-              window.location.reload();
-            }, 2000);
+            // Content generation triggered successfully
+            console.log('[PathStudyScreen] Content generation initiated, polling for content...');
+            
+            // Poll Supabase for the newly generated content (generation is async)
+            // This bypasses replication delay and ensures immediate availability
+            const maxAttempts = 30; // 30 attempts = ~30 seconds max
+            const pollInterval = 1000; // 1 second between attempts
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                const { data: newContent, error: fetchError } = await supabase
+                  .from('content_cache')
+                  .select('*')
+                  .eq('ref_id', contentRef)
+                  .single();
+
+                if (!fetchError && newContent) {
+                  // Check if it's still a placeholder (generation might be in progress)
+                  const isPlaceholder = isPlaceholderContent(newContent.ai_explanation_json);
+                  
+                  if (!isPlaceholder) {
+                    // Real content is ready!
+                    // Manually insert into RxDB without triggering push replication
+                    // We use insertLocal or directly manipulate the collection
+                    const db = await getDatabase();
+                    if (db) {
+                      // Convert Supabase row to RxDB format (same as replication does)
+                      const doc = { ...newContent };
+                      // Remove any null values that shouldn't exist (except nullable fields)
+                      const nullableFields = ['tractate', 'chapter', 'explanation'];
+                      Object.keys(doc).forEach((key) => {
+                        if (doc[key] === null && !nullableFields.includes(key)) {
+                          delete doc[key];
+                        }
+                      });
+
+                      // Insert directly - the push handler now returns empty, so no 403 error
+                      await db.content_cache.upsert(doc);
+                      console.log('[PathStudyScreen] Content synced to RxDB, UI will update automatically');
+                      return; // Success - exit polling loop
+                    }
+                  } else if (attempt < maxAttempts - 1) {
+                    // Still placeholder, wait and retry
+                    await new Promise(resolve => setTimeout(resolve, pollInterval));
+                    continue;
+                  }
+                } else if (attempt < maxAttempts - 1) {
+                  // Content not found yet, wait and retry
+                  await new Promise(resolve => setTimeout(resolve, pollInterval));
+                  continue;
+                }
+              } catch (syncError) {
+                console.error(`[PathStudyScreen] Error polling for content (attempt ${attempt + 1}):`, syncError);
+                if (attempt < maxAttempts - 1) {
+                  await new Promise(resolve => setTimeout(resolve, pollInterval));
+                  continue;
+                }
+              }
+            }
+            
+            // If we get here, polling timed out
+            console.warn('[PathStudyScreen] Content generation taking longer than expected, will sync via replication');
           }
         } catch (error) {
           console.error('Error generating content:', error);
           setGenerationError(error instanceof Error ? error.message : 'שגיאה ביצירת תוכן');
+          hasAttemptedGeneration.current = null; // Allow retry on error
         } finally {
           setIsGenerating(false);
         }
@@ -209,7 +313,9 @@ function PathStudyScreen({
 
       generateContent();
     }
-  }, [loading, content, contentRef, isGenerating, generationError, contentIsPlaceholder]);
+    // Depend on contentIsPlaceholder to detect when content changes from placeholder to real
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, contentIsPlaceholder, contentRef, isGenerating]);
 
   const handleDone = async () => {
     const newState = !isCompleted;

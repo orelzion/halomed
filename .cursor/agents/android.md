@@ -7,12 +7,13 @@ model: composer-1
 
 ## Purpose
 
-The Android Agent is responsible for implementing the Android client using Kotlin and Jetpack Compose, including PowerSync integration, WorkManager for background sync, and the "Desert Oasis" design system.
+The Android Agent is responsible for implementing the Android client using Kotlin and Jetpack Compose, including custom offline-first sync with Room and Supabase Realtime, WorkManager for background sync, and the "Desert Oasis" design system.
 
 ## Responsibilities
 
 - Kotlin + Jetpack Compose setup
-- PowerSync SQLite integration (NOT Room)
+- Room database for local SQLite storage
+- Custom sync engine with Supabase Realtime
 - WorkManager for periodic sync
 - UI implementation (Home, Study screens)
 - Design system implementation with light/dark/system theme
@@ -23,7 +24,7 @@ The Android Agent is responsible for implementing the Android client using Kotli
 ## Dependencies
 
 - **Receives tasks from**: Architect Agent
-- **Consults**: Design System Agent (UI specs, shared strings), Sync Agent (PowerSync), Backend Agent (API)
+- **Consults**: Design System Agent (UI specs, shared strings), Sync Agent (Custom Sync), Backend Agent (API)
 - **Coordinates with**: Client Testing Agent (Maestro tests)
 
 ## Technology Stack
@@ -32,7 +33,8 @@ The Android Agent is responsible for implementing the Android client using Kotli
 |-----------|------------|
 | Language | Kotlin |
 | UI Framework | Jetpack Compose |
-| Local Database | SQLite (via PowerSync) - NOT Room |
+| Local Database | Room (SQLite) |
+| Sync | Custom Sync Engine + Supabase Realtime |
 | Background Sync | WorkManager |
 | Authentication | Supabase Auth SDK |
 | Dependency Injection | Hilt (with KSP) |
@@ -57,12 +59,14 @@ Text(text = stringResource(R.string.have_you_studied_today))
 
 String resources are generated from the shared master file. See `design-system.md` for the shared string resources system.
 
-### No Room Database
+### Room Database Required
 
-**Do NOT use Room.** PowerSync handles all local SQLite operations directly. There is no `AppDatabase.kt` or DAOs - PowerSync provides:
-- Schema definition via `AppSchema`
-- Direct SQL queries
-- Automatic sync with Supabase
+**Use Room for local SQLite storage.** Room provides:
+- Type-safe database access
+- DAOs for data operations
+- Flow/StateFlow for reactive queries
+- Migration support
+- Custom sync engine handles synchronization with Supabase
 
 ### Use KSP, Not KAPT
 
@@ -91,7 +95,12 @@ android/
 │   │   │   │   └── AppModule.kt
 │   │   │   ├── data/
 │   │   │   │   ├── local/
-│   │   │   │   │   └── PowerSyncManager.kt
+│   │   │   │   │   ├── RoomDatabase.kt
+│   │   │   │   │   └── dao/
+│   │   │   │   ├── sync/
+│   │   │   │   │   ├── SyncEngine.kt
+│   │   │   │   │   ├── InitialSync.kt
+│   │   │   │   │   └── ContentGenerator.kt
 │   │   │   │   ├── remote/
 │   │   │   │   │   └── SupabaseClient.kt
 │   │   │   │   └── repository/
@@ -594,12 +603,15 @@ dependencies {
     implementation(libs.hilt.work)
     ksp(libs.hilt.work.compiler)
 
-    // PowerSync (NOT Room!)
-    implementation(libs.powersync.android)
+    // Room
+    implementation(libs.room.runtime)
+    ksp(libs.room.compiler)
+    implementation(libs.room.ktx)
 
     // Supabase
     implementation(libs.supabase.postgrest)
     implementation(libs.supabase.gotrue)
+    implementation(libs.supabase.realtime)
 
     // WorkManager
     implementation(libs.workmanager)
@@ -613,50 +625,76 @@ dependencies {
 }
 ```
 
-## PowerSync Integration
+## Room Database Integration
 
-### PowerSync Setup
+### Room Setup
 
 **Requirements:**
-- Initialize PowerSync in Hilt module
-- Provide PowerSyncDatabase as singleton
-- Configure with AppSchema and SupabaseConnector
-- Use PowerSyncBuilder pattern
+- Initialize Room database in Hilt module
+- Provide AppDatabase as singleton
+- Define entities for all tables
+- Create DAOs for data access
 
-**Schema Definition:**
-- Define AppSchema with tables: `user_study_log`, `content_cache`, `tracks`
-- Match backend schema structure (see `backend.md` and `sync.md`)
-- Use TEXT types for IDs and dates
-- Include indexes for performance
-kotlin
+**Database Definition:**
+```kotlin
+@Database(
+    entities = [UserStudyLog::class, ContentCache::class, Track::class],
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun userStudyLogDao(): UserStudyLogDao
+    abstract fun contentCacheDao(): ContentCacheDao
+    abstract fun trackDao(): TrackDao
+}
+
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
-    
     @Provides
     @Singleton
-    fun providePowerSync(
-        @ApplicationContext context: Context,
-        supabaseClient: SupabaseClient
-    ): PowerSyncDatabase {
-        return PowerSyncBuilder(context)
-            .schema(AppSchema)
-            .backend(SupabaseConnector(supabaseClient))
-            .build()
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            "halomeid.db"
+        ).build()
     }
 }
 ```
 
-### PowerSync Schema
+### Room Entities
 
-**Table Structure:**
-- `user_study_log`: id, user_id, track_id, study_date, content_group_ref, is_completed, completed_at
-- `content_cache`: id, ref_id, content_group_ref, item_number, source_text_he, ai_explanation_he, ai_deep_dive_json, created_at
-- `tracks`: id, title, source_endpoint, schedule_type
+**UserStudyLog:**
+- id, userId, trackId, studyDate, contentId, isCompleted, completedAt, updatedAt, deleted
+
+**ContentCache:**
+- id, refId, sourceTextHe, aiExplanationJson, createdAt, updatedAt, deleted
+
+**Track:**
+- id, title, sourceEndpoint, scheduleType, updatedAt, deleted
 
 **Indexes:**
-- Index on `user_study_log(user_id, study_date)`
-- Index on `user_study_log(track_id)`
+- Index on `user_study_log(userId, studyDate)`
+- Index on `user_study_log(trackId)`
+
+## Custom Sync Integration
+
+### Sync Engine Setup
+
+**Files:**
+- `data/sync/SyncEngine.kt` - Main sync orchestration
+- `data/sync/InitialSync.kt` - Initial data download with 14-day window
+- `data/sync/IncrementalSync.kt` - Incremental updates via Realtime
+- `data/sync/ContentGenerator.kt` - Content generation during sync
+
+**Sync Flow:**
+1. Generate schedule (ensure content exists)
+2. Sync user_study_log within 14-day window
+3. Sync referenced content_cache
+4. Sync tracks (all)
+5. Generate quizzes for content in window
+6. Clean up old data outside window
 - Index on `user_study_log(content_group_ref)`
 - Index on `content_cache(content_group_ref)`
 - Unique constraint on `content_cache(content_group_ref, item_number)`

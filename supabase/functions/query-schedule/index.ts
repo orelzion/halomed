@@ -3,7 +3,7 @@
 // Reference: tasks.md Section 9, Task 9.3
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 
 interface QueryScheduleRequest {

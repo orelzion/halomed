@@ -6,7 +6,9 @@ import { useAuthContext } from '@/components/providers/AuthProvider';
 import { useTranslation } from '@/lib/i18n';
 import { usePreferences } from '@/lib/hooks/usePreferences';
 import { usePath } from '@/lib/hooks/usePath';
+import { useSync } from '@/components/providers/SyncProvider';
 import { supabase } from '@/lib/supabase/client';
+import { getDatabase } from '@/lib/database/database';
 import posthog from 'posthog-js';
 import { Mascot } from '@/components/ui/Mascot';
 
@@ -24,20 +26,22 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { preferences: existingPrefs, loading: prefsLoading } = usePreferences();
   const { nodes: existingPath, loading: pathLoading } = usePath();
+  const { triggerSync } = useSync();
 
-  // Check if user already has preferences or path in PowerSync (source of truth)
+  // Check if user already has preferences or path (source of truth is local RxDB synced with Supabase)
+  // Don't redirect if we're in the middle of submitting (handleStart is running)
   useEffect(() => {
-    if (!loading && !prefsLoading && !pathLoading && user) {
+    if (!loading && !prefsLoading && !pathLoading && user && !isSubmitting) {
       // If user has preferences OR a path, they've already completed onboarding
       if (existingPrefs || (existingPath && existingPath.length > 0)) {
-        console.log('[Onboarding] User already has preferences or path in PowerSync, redirecting to home', {
+        console.log('[Onboarding] User already has preferences or path, redirecting to home', {
           hasPrefs: !!existingPrefs,
           hasPath: existingPath && existingPath.length > 0
         });
         router.replace('/');
       }
     }
-  }, [user, loading, prefsLoading, pathLoading, existingPrefs, existingPath, router]);
+  }, [user, loading, prefsLoading, pathLoading, existingPrefs, existingPath, router, isSubmitting]);
 
   if (loading || prefsLoading || pathLoading) {
     return (
@@ -77,35 +81,40 @@ export default function OnboardingPage() {
         throw new Error('No session');
       }
 
-      // Save user preferences (upsert in case they already exist)
-      console.log('[Onboarding] Upserting preferences:', { user_id: user.id, pace, review_intensity: reviewIntensity });
-      const { data: insertedPrefs, error: prefError } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          pace,
-          review_intensity: reviewIntensity,
-          streak_count: 0,
-        }, {
-          onConflict: 'user_id'
-        })
-        .select()
-        .single();
-
-      if (prefError) {
-        console.error('[Onboarding] Error upserting preferences:', prefError);
-        throw prefError;
+      // Save user preferences to local RxDB (client's source of truth)
+      console.log('[Onboarding] Saving preferences to local RxDB:', { user_id: user.id, pace, review_intensity: reviewIntensity });
+      const db = await getDatabase();
+      if (!db) {
+        throw new Error('Database not available');
       }
-      console.log('[Onboarding] Preferences saved successfully:', insertedPrefs);
 
-      // Generate learning path (if it doesn't already exist)
+      const prefsDoc = {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        pace,
+        review_intensity: reviewIntensity,
+        streak_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        _deleted: false,
+      };
+      
+      await db.user_preferences.upsert(prefsDoc);
+      console.log('[Onboarding] Preferences saved to local RxDB');
+
+      // Generate learning path - pass preferences directly so the API
+      // saves them to Supabase and generates path in one call.
+      // This avoids race conditions between RxDB sync and path generation.
       const pathResponse = await fetch('/api/generate-path', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          pace,
+          review_intensity: reviewIntensity,
+        }),
       });
 
       const pathResult = await pathResponse.json();
@@ -123,9 +132,11 @@ export default function OnboardingPage() {
         console.log('[Onboarding] Path generation result:', pathResult);
       }
 
-      // Preferences and path saved successfully to Supabase
-      // PowerSync will sync automatically in the background
-      console.log('[Onboarding] Preferences and path saved, redirecting to home');
+      // Trigger sync to pull the new path data from Supabase to local RxDB
+      // and wait for sync to complete
+      console.log('[Onboarding] Triggering sync to pull path data...');
+      await triggerSync();
+      console.log('[Onboarding] Sync completed, path data should be available');
 
       // Capture onboarding completed event
       posthog.capture('onboarding_completed', {

@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Frank_Ruhl_Libre, Noto_Sans_Hebrew } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
-import { PowerSyncProvider } from "@/components/providers/PowerSyncProvider";
-import { SyncStatusProvider } from "@/components/providers/SyncStatusProvider";
+import { SyncProvider } from "@/components/providers/SyncProvider";
+import { SyncIndicator } from "@/components/ui/SyncIndicator";
 import { getTranslation } from "@/lib/i18n";
 import { SkipLink } from "@/components/ui/SkipLink";
 import { CookieConsentBanner } from "@/components/ui/CookieConsentBanner";
@@ -31,13 +31,6 @@ export const metadata: Metadata = {
   title: `${t('app_name')} - HaLomeid`,
   description: t('daily_mishna'),
   manifest: '/manifest.json',
-  themeColor: '#D4A373',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
   icons: {
     icon: [
       { url: '/favicon-16.png', sizes: '16x16', type: 'image/png' },
@@ -53,6 +46,14 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#D4A373',
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -64,17 +65,16 @@ export default function RootLayout({
         <SkipLink />
         <ThemeProvider>
           <AuthProvider>
-            <PowerSyncProvider>
-              <SyncStatusProvider>
-                <div className="min-h-screen flex flex-col">
-                  <main id="main-content" className="flex-1">
-                    {children}
-                  </main>
-                  <Footer />
-                </div>
-                <CookieConsentBanner />
-              </SyncStatusProvider>
-            </PowerSyncProvider>
+            <SyncProvider>
+              <div className="min-h-screen flex flex-col">
+                <main id="main-content" className="flex-1">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+              <SyncIndicator />
+              <CookieConsentBanner />
+            </SyncProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

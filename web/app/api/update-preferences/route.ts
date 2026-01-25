@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      apikey: serviceRoleKey,
+      'apikey': serviceRoleKey,
     },
     body: JSON.stringify({
       user_id: user.id,
@@ -100,7 +100,10 @@ export async function POST(request: NextRequest) {
     nodes_preserved: updateData.nodes_preserved || 0,
     nodes_created: updateData.nodes_created || 0,
   });
-  await getPostHogClient().shutdown();
+  const posthogClient = getPostHogClient();
+  if (posthogClient) {
+    await posthogClient.shutdown();
+  }
 
   return NextResponse.json(updateData);
 }

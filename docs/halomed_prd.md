@@ -163,12 +163,15 @@ The streak is derived solely from completion of scheduled units, without any spe
 
 ## 9. Offline-First Behavior
 
-- The app syncs a rolling **14-day window** of scheduled units
+- The app syncs a rolling **14-day window** (±14 days from current date) of scheduled units
+- All platforms (Web, Android, iOS) implement consistent sync behavior
+- Content generation ensures all lessons and quizzes in the window are available
 - Offline mode supports:
   - Reading content
   - Marking completion
   - Local streak calculation
 - Sync occurs automatically when connectivity resumes
+- Non-intrusive sync indicator shows sync status without blocking UI
 - Network connectivity is required only for initial authentication and account upgrades
 
 ---
