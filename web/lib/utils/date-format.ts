@@ -2,6 +2,7 @@
 import { HDate, HebrewCalendar } from '@hebcal/core';
 
 // Map common tractate names to Hebrew and chapter count
+// Includes both space and underscore versions for compatibility
 const tractateData: Record<string, { hebrew: string; chapters: number }> = {
   'Berakhot': { hebrew: 'ברכות', chapters: 9 },
   'Peah': { hebrew: 'פאה', chapters: 8 },
@@ -11,6 +12,7 @@ const tractateData: Record<string, { hebrew: string; chapters: number }> = {
   'Terumot': { hebrew: 'תרומות', chapters: 11 },
   'Maasrot': { hebrew: 'מעשרות', chapters: 5 },
   'Maaser Sheni': { hebrew: 'מעשר שני', chapters: 5 },
+  'Maaser_Sheni': { hebrew: 'מעשר שני', chapters: 5 },
   'Challah': { hebrew: 'חלה', chapters: 4 },
   'Orlah': { hebrew: 'ערלה', chapters: 3 },
   'Bikkurim': { hebrew: 'ביכורים', chapters: 4 },
@@ -22,9 +24,11 @@ const tractateData: Record<string, { hebrew: string; chapters: number }> = {
   'Sukkah': { hebrew: 'סוכה', chapters: 5 },
   'Beitzah': { hebrew: 'ביצה', chapters: 5 },
   'Rosh Hashanah': { hebrew: 'ראש השנה', chapters: 4 },
+  'Rosh_Hashanah': { hebrew: 'ראש השנה', chapters: 4 },
   'Taanit': { hebrew: 'תענית', chapters: 4 },
   'Megillah': { hebrew: 'מגילה', chapters: 4 },
   'Moed Katan': { hebrew: 'מועד קטן', chapters: 3 },
+  'Moed_Katan': { hebrew: 'מועד קטן', chapters: 3 },
   'Chagigah': { hebrew: 'חגיגה', chapters: 3 },
   'Yevamot': { hebrew: 'יבמות', chapters: 16 },
   'Ketubot': { hebrew: 'כתובות', chapters: 13 },
@@ -34,13 +38,17 @@ const tractateData: Record<string, { hebrew: string; chapters: number }> = {
   'Gittin': { hebrew: 'גיטין', chapters: 9 },
   'Kiddushin': { hebrew: 'קידושין', chapters: 4 },
   'Bava Kamma': { hebrew: 'בבא קמא', chapters: 10 },
+  'Bava_Kamma': { hebrew: 'בבא קמא', chapters: 10 },
   'Bava Metzia': { hebrew: 'בבא מציעא', chapters: 10 },
+  'Bava_Metzia': { hebrew: 'בבא מציעא', chapters: 10 },
   'Bava Batra': { hebrew: 'בבא בתרא', chapters: 10 },
+  'Bava_Batra': { hebrew: 'בבא בתרא', chapters: 10 },
   'Sanhedrin': { hebrew: 'סנהדרין', chapters: 11 },
   'Makkot': { hebrew: 'מכות', chapters: 3 },
   'Shevuot': { hebrew: 'שבועות', chapters: 8 },
   'Eduyot': { hebrew: 'עדויות', chapters: 8 },
   'Avodah Zarah': { hebrew: 'עבודה זרה', chapters: 5 },
+  'Avodah_Zarah': { hebrew: 'עבודה זרה', chapters: 5 },
   'Avot': { hebrew: 'אבות', chapters: 6 },
   'Horayot': { hebrew: 'הוריות', chapters: 3 },
   'Zevachim': { hebrew: 'זבחים', chapters: 14 },
@@ -64,6 +72,7 @@ const tractateData: Record<string, { hebrew: string; chapters: number }> = {
   'Machshirin': { hebrew: 'מכשירין', chapters: 6 },
   'Zavim': { hebrew: 'זבים', chapters: 5 },
   'Tevul Yom': { hebrew: 'טבול יום', chapters: 4 },
+  'Tevul_Yom': { hebrew: 'טבול יום', chapters: 4 },
   'Yadayim': { hebrew: 'ידים', chapters: 4 },
   'Uktzin': { hebrew: 'עוקצין', chapters: 3 },
 };

@@ -1535,6 +1535,493 @@ const TRACTATE_MAP: Record<string, string> = {
 
 ---
 
+## Feature: Merged Review Sessions - Tinder-Style Cards (Section 15)
+
+**Created**: 2026-01-25  
+**PRD Reference**: Section 8 (Spaced Repetition), Section 7 (Core App Flow)  
+**TDD Reference**: Section 4.3 (learning_path schema), Section 8 (Sync Strategy)  
+**Feature Idea**: `docs/feature-ideas/tinder-style-reviews.md`  
+**Status**: Implementation Complete (pending Maestro tests and E2E test) - 2026-01-25
+
+### Overview
+
+Consolidate multiple review nodes (currently 27+ individual nodes) into a single "Review Session" node in the learning path. When tapped, it opens a dedicated swipeable card interface (Tinder-style) for quick review of previously learned content.
+
+### Problem Statement
+
+- Reviews currently appear as 27+ individual nodes in the learning path
+- This overwhelms the path UI and makes it feel cluttered
+- Full content shown again (same as learning) - too heavy for quick recall
+- Users see review as a chore rather than a quick reinforcement activity
+
+### Solution
+
+A single "Review Session" node in the path that:
+1. Aggregates all review items due for that day/session
+2. Opens a dedicated swipeable card interface
+3. Shows condensed content focused on recall
+4. Provides "Dive Deeper" option for full study if needed
+5. Tracks completion as a batch when session is finished
+
+### Dependencies
+- Learning path generation exists (`generate-path` edge function)
+- PowerSync syncs learning_path nodes
+- Study content exists in `content_cache`
+- Path screen with node display exists
+
+---
+
+### Backend Agent Tasks
+
+- [x] **Task 15.1a**: Write tests for review session node generation ✅ (2026-01-25)
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 15.1)
+  - Test `generate-path` creates single "review_session" node instead of multiple review nodes
+  - Test review_session node contains references to all review items
+  - Test `review_items` JSON array stored in learning_path metadata
+  - Test review_session node respects review_intensity preference
+  - Test review_session node unlock_date calculation
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: None
+  - Files: `supabase/tests/edge-functions/generate-path-review-sessions.test.ts`
+
+- [x] **Task 15.1**: Update `generate-path` to create merged review session nodes ✅ (2026-01-25)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 15.1a tests pass)
+  - Modify `supabase/functions/generate-path/index.ts`:
+  - Change review node generation logic:
+    - Instead of creating individual review nodes for each item
+    - Create a single `review_session` node when reviews are due
+    - Add `node_type: 'review_session'` to distinguish from `learn` nodes
+    - Add `review_items: [{ content_ref, title, ... }]` JSON column
+    - Store count of items: `review_count: number`
+  - Review session scheduled based on spaced repetition algorithm
+  - One review session per day maximum (consolidates all due reviews)
+  - Acceptance: Path generation creates review_session nodes, tests pass
+  - Depends on: Task 15.1a (tests written first)
+  - Files: `supabase/functions/generate-path/index.ts`
+  - Reference: TDD 4.3, PRD 8
+
+- [x] **Task 15.2a**: Write tests for review session completion endpoint ✅ (2026-01-25)
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 15.2)
+  - Test endpoint accepts list of reviewed item IDs
+  - Test endpoint updates individual item review schedules
+  - Test endpoint marks review_session node as completed
+  - Test partial completion (some items reviewed, some skipped)
+  - Test "need more practice" items scheduled sooner
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 15.1
+  - Files: `supabase/tests/edge-functions/complete-review-session.test.ts`
+
+- [x] **Task 15.2**: Create `complete-review-session` Edge Function ✅ (2026-01-25)
+  - **Assigned to**: Backend Agent
+  - **TDD Workflow**: Implementation (after 15.2a tests pass)
+  - Create `supabase/functions/complete-review-session/index.ts`:
+  - Accept parameters:
+    - `session_node_id`: UUID of the review_session learning_path node
+    - `reviewed_items`: Array of `{ content_ref: string, confidence: 'got_it' | 'need_practice' }`
+  - For each reviewed item:
+    - If `got_it`: Update next review date using standard spaced repetition interval
+    - If `need_practice`: Schedule sooner (shorter interval)
+  - Mark review_session node as `completed_at = NOW()`
+  - Return summary: `{ completed: number, needs_practice: number }`
+  - Acceptance: Endpoint works, updates schedules correctly, tests pass
+  - Depends on: Task 15.2a (tests written first), Task 15.1
+  - Files: `supabase/functions/complete-review-session/index.ts`
+
+- [x] **Task 15.3**: Add `node_type` column to learning_path table ✅ (2026-01-25)
+  - **Assigned to**: Backend Agent
+  - Create migration `supabase/migrations/YYYYMMDDHHMMSS_add_learning_path_node_type.sql`:
+    ```sql
+    -- Add node_type column to distinguish learn vs review_session nodes
+    ALTER TABLE learning_path 
+    ADD COLUMN IF NOT EXISTS node_type TEXT DEFAULT 'learn';
+    
+    -- Add review_items JSON column for review_session nodes
+    ALTER TABLE learning_path 
+    ADD COLUMN IF NOT EXISTS review_items JSONB;
+    
+    -- Add review_count for quick access
+    ALTER TABLE learning_path 
+    ADD COLUMN IF NOT EXISTS review_count INTEGER;
+    
+    COMMENT ON COLUMN learning_path.node_type IS 
+      'learn = regular learning node, review_session = consolidated review session';
+    ```
+  - Acceptance: Migration applies cleanly
+  - Depends on: None
+  - Files: `supabase/migrations/`
+
+---
+
+### Sync Agent Tasks
+
+- [x] **Task 15.4a**: Write tests for review session sync rules ✅ (2026-01-25)
+  - **Assigned to**: Server Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 15.4)
+  - Test `node_type` column syncs to client
+  - Test `review_items` JSONB syncs correctly
+  - Test `review_count` syncs
+  - Test sync rules syntax is valid
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 15.3
+  - Files: `supabase/tests/sync/review-session-sync.test.ts`
+
+- [x] **Task 15.4**: Update RxDB schemas for review session columns ✅ (2026-01-25)
+  - **Assigned to**: Sync Agent
+  - **TDD Workflow**: Implementation (after 15.4a tests pass)
+  - Update `powersync/powersync.yaml`:
+    - Add `node_type` to learning_path columns
+    - Add `review_items` to learning_path columns
+    - Add `review_count` to learning_path columns
+  - Update local SQLite schema in `powersync/schemas/`
+  - Verify sync works with new columns
+  - Acceptance: Sync rules updated, tests pass
+  - Depends on: Task 15.4a (tests written first), Task 15.3
+  - Files: `powersync/powersync.yaml`, `powersync/schemas/learning_path.sql`
+
+---
+
+### Design System Agent Tasks
+
+- [x] **Task 15.5**: Define `ReviewSessionCard` swipe card specifications ✅ (2026-01-25)
+  - **Assigned to**: Design System Agent
+  - Design swipeable card component:
+    - Card dimensions (full width, ~70% viewport height)
+    - Card surface background (#FAEDCD / dark variant)
+    - Border radius, shadow, elevation
+    - Swipe animation specifications
+    - Swipe threshold for action trigger
+  - Card content layout:
+    - Title area (content reference, e.g., "ברכות פרק א׳ משנה א׳")
+    - Mishna text area (source text, condensed)
+    - Brief explanation area (not full deep dive)
+    - "Dive Deeper" button placement
+  - Visual feedback:
+    - Swipe right indicator (green checkmark, "הבנתי")
+    - Swipe left indicator (orange refresh, "צריך עוד תרגול")
+  - RTL support (swipe directions may need reversal for RTL)
+  - Acceptance: Design specifications documented and approved
+  - Depends on: None
+  - Files: Design documentation
+  - Reference: PRD 6.1, TDD 3.1
+
+- [x] **Task 15.6**: Define `ReviewSessionScreen` layout specifications ✅ (2026-01-25)
+  - **Assigned to**: Design System Agent
+  - Design full review session screen:
+    - Header with progress bar (e.g., "12/27 reviewed")
+    - Card stack area (centered, with peek of next card)
+    - Navigation: Back button, close session
+    - Completion celebration (when all cards done)
+  - Progress indicator styling:
+    - Filled vs unfilled segments
+    - Current item highlight
+    - Animation on progress
+  - Empty state (no reviews due)
+  - Loading state
+  - Acceptance: Design specifications documented and approved
+  - Depends on: Task 15.5
+  - Files: Design documentation
+
+- [x] **Task 15.7**: Define `ReviewSessionNode` path node specifications ✅ (2026-01-25)
+  - **Assigned to**: Design System Agent
+  - Design how review session appears in learning path:
+    - Distinct visual style from regular learn nodes
+    - Review icon (refresh/repeat symbol)
+    - Badge showing item count (e.g., "27")
+    - Color scheme (different from learn nodes)
+  - States: locked, available, completed
+  - Acceptance: Design specifications documented and approved
+  - Depends on: None
+  - Files: Design documentation
+
+---
+
+### Web Agent Tasks
+
+- [ ] **Task 15.8a**: Write Maestro tests for ReviewSessionNode in path
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 15.8)
+  - Test review_session node displays differently from learn nodes
+  - Test node shows review count badge
+  - Test node shows appropriate icon
+  - Test tapping node navigates to review session screen
+  - Test node states (locked, available, completed)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 15.7
+  - Files: `tests/maestro/flows/web/review_session_node.yaml`
+
+- [x] **Task 15.8**: Create `ReviewSessionNode` component for learning path ✅ (2026-01-25)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 15.8a tests pass)
+  - Create `web/components/ui/ReviewSessionNode.tsx`:
+  - Check `node_type === 'review_session'` to render this component
+  - Display review icon (refresh/repeat symbol)
+  - Show count badge with `review_count`
+  - Different styling from regular PathNode
+  - Handle click → navigate to `/review-session/[nodeId]`
+  - Support locked/available/completed states
+  - Acceptance: Component renders correctly, tests pass
+  - Depends on: Task 15.8a (tests written first), Task 15.7, Task 15.4
+  - Files: `web/components/ui/ReviewSessionNode.tsx`
+
+- [ ] **Task 15.9a**: Write Maestro tests for review session swipe cards
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 15.9)
+  - Test cards display content correctly (title, text, explanation)
+  - Test swipe right marks as "got it"
+  - Test swipe left marks as "need practice"
+  - Test next card appears after swipe
+  - Test progress bar updates
+  - Test "Dive Deeper" button navigates to full study
+  - Test card animations are smooth
+  - Test RTL swipe directions
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 15.5
+  - Files: `tests/maestro/flows/web/review_session_cards.yaml`
+
+- [x] **Task 15.9**: Implement `ReviewSessionCard` swipeable component ✅ (2026-01-25)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 15.9a tests pass)
+  - Install Framer Motion: `npm install framer-motion`
+  - Create `web/components/ui/ReviewSessionCard.tsx`:
+  - Swipeable card using Framer Motion drag
+  - Display:
+    - Title: `heRef` from content
+    - Mishna text: `source_text_he` (condensed if needed)
+    - Brief explanation: First paragraph of `explanation_he`
+    - "צלילה עמוקה" (Dive Deeper) button → `/study/path/[originalNodeId]`
+  - Swipe handlers:
+    - Swipe right (or left in RTL) → "got_it"
+    - Swipe left (or right in RTL) → "need_practice"
+  - Animation: Card flies off screen, next card appears
+  - Visual indicators during drag (green/orange tint)
+  - Acceptance: Component works with smooth animations, tests pass
+  - Depends on: Task 15.9a (tests written first), Task 15.5
+  - Files: `web/components/ui/ReviewSessionCard.tsx`
+
+- [ ] **Task 15.10a**: Write Maestro tests for ReviewSessionScreen
+  - **Assigned to**: Client Testing Agent
+  - **TDD Workflow**: Test writing (MUST be done before 15.10)
+  - Test screen loads review items from node data
+  - Test progress bar shows correct count
+  - Test completing all cards shows celebration
+  - Test back button exits session
+  - Test session completion calls API
+  - Test error handling (API failure)
+  - Acceptance: Tests written and failing (red phase)
+  - Depends on: Task 15.6, Task 15.9
+  - Files: `tests/maestro/flows/web/review_session_screen.yaml`
+
+- [x] **Task 15.10**: Implement `ReviewSessionScreen` component ✅ (2026-01-25)
+  - **Assigned to**: Web Agent
+  - **TDD Workflow**: Implementation (after 15.10a tests pass)
+  - Create route at `web/app/review-session/[nodeId]/page.tsx`
+  - Create screen component `web/components/screens/ReviewSessionScreen.tsx`:
+  - Load review_session node data via PowerSync
+  - Extract review_items from node
+  - Fetch content for each item from content_cache
+  - Render card stack with ReviewSessionCard components
+  - Track reviewed items and confidence levels in local state
+  - Progress bar: `reviewed / total` with visual progress
+  - On completion:
+    - Call `complete-review-session` API
+    - Show celebration animation
+    - Navigate back to path or show summary
+  - Back button: Confirm if partially complete, save progress
+  - Acceptance: Screen works end-to-end, tests pass
+  - Depends on: Task 15.10a (tests written first), Task 15.6, Task 15.9, Task 15.2
+  - Files: `web/app/review-session/[nodeId]/page.tsx`, `web/components/screens/ReviewSessionScreen.tsx`
+
+- [x] **Task 15.11**: Integrate ReviewSessionNode into PathScreen ✅ (2026-01-25)
+  - **Assigned to**: Web Agent
+  - Update `web/components/screens/PathScreen.tsx`:
+  - Check `node_type` for each learning_path node
+  - If `node_type === 'review_session'`: Render `ReviewSessionNode`
+  - If `node_type === 'learn'`: Render existing `PathNode`
+  - Handle mixed paths with both types
+  - Acceptance: Path displays both node types correctly
+  - Depends on: Task 15.8, Task 15.4
+  - Files: `web/components/screens/PathScreen.tsx`
+
+- [x] **Task 15.12**: Create API route for review session completion ✅ (2026-01-25)
+  - **Assigned to**: Web Agent
+  - Create `web/app/api/complete-review-session/route.ts`:
+  - Proxy to Supabase Edge Function `complete-review-session`
+  - Pass JWT for authentication
+  - Handle errors gracefully
+  - Return completion summary
+  - Acceptance: API route works correctly
+  - Depends on: Task 15.2
+  - Files: `web/app/api/complete-review-session/route.ts`
+
+- [x] **Task 15.13**: Add i18n strings for Review Session feature ✅ (2026-01-25)
+  - **Assigned to**: Web Agent (or Content Generation Agent)
+  - Add Hebrew strings to `shared/strings/strings.json`:
+    - `review_session_title`: "מפגש חזרה"
+    - `review_session_progress`: "נבדקו {completed} מתוך {total}"
+    - `review_session_got_it`: "הבנתי"
+    - `review_session_need_practice`: "צריך עוד תרגול"
+    - `review_session_dive_deeper`: "צלילה עמוקה"
+    - `review_session_complete`: "כל הכבוד! סיימת את החזרות"
+    - `review_session_empty`: "אין חזרות להיום"
+    - `review_session_exit_confirm`: "האם לצאת? ההתקדמות תישמר"
+    - `review_session_node_label`: "חזרה ({count})"
+  - Run string generation script
+  - Acceptance: All strings added and accessible via `useTranslation`
+  - Depends on: None
+  - Files: `shared/strings/strings.json`, `web/lib/i18n/`
+
+---
+
+### Client Testing Agent Tasks
+
+- [ ] **Task 15.14**: Write E2E test for complete review session flow
+  - **Assigned to**: Client Testing Agent
+  - Create comprehensive E2E test covering:
+    1. User sees review_session node in learning path
+    2. Node shows count badge (e.g., "12 items")
+    3. User taps review_session node
+    4. Review session screen opens with cards
+    5. Progress bar shows "0/12"
+    6. User swipes right on first card → "got it"
+    7. Progress updates to "1/12"
+    8. User swipes left on second card → "need practice"
+    9. Progress updates to "2/12"
+    10. User taps "Dive Deeper" on a card
+    11. Navigates to full study, then back
+    12. User completes remaining cards
+    13. Celebration animation shown
+    14. API called with correct data
+    15. Node marked as completed in path
+    16. Items marked "need practice" scheduled sooner
+  - Acceptance: E2E test passes
+  - Depends on: All Task 15.x implementation tasks
+  - Files: `tests/maestro/flows/web/e2e_review_session.yaml`
+
+---
+
+### Task Dependencies Graph
+
+```
+Backend: 15.3 (Schema) ──────────────────────────────────────┐
+    │                                                        │
+    ▼                                                        ▼
+Server Testing: 15.1a ──► Backend: 15.1 (generate-path)  Server Testing: 15.4a
+    │                          │                             │
+    │                          ▼                             ▼
+    │                    Server Testing: 15.2a           Sync: 15.4 (sync rules)
+    │                          │                             │
+    │                          ▼                             │
+    │                    Backend: 15.2 (complete API)        │
+    │                          │                             │
+    └──────────────────────────┼─────────────────────────────┘
+                               │
+                               ▼
+                    Design System: 15.5, 15.6, 15.7 (specs)
+                               │
+       ┌───────────────────────┼───────────────────────────┐
+       │                       │                           │
+       ▼                       ▼                           ▼
+Client Testing: 15.8a   Client Testing: 15.9a    Client Testing: 15.10a
+       │                       │                           │
+       ▼                       ▼                           ▼
+Web: 15.8 (Node)        Web: 15.9 (Card)         Web: 15.10 (Screen)
+       │                       │                           │
+       └───────────────────────┼───────────────────────────┘
+                               │
+                               ▼
+                         Web: 15.11 (Path integration)
+                               │
+                               ▼
+                         Web: 15.12 (API route)
+                               │
+                               ▼
+                         Web: 15.13 (i18n)
+                               │
+                               ▼
+                    Client Testing: 15.14 (E2E test)
+```
+
+### Implementation Order (Recommended)
+
+**Phase 1: Database & Backend Foundation**
+1. Task 15.3 - Schema migration (node_type, review_items columns)
+2. Task 15.1a + 15.1 - Update generate-path for review sessions
+3. Task 15.2a + 15.2 - Complete review session endpoint
+
+**Phase 2: Sync Layer**
+4. Task 15.4a + 15.4 - PowerSync sync rules update
+
+**Phase 3: Design Specifications**
+5. Task 15.5 - ReviewSessionCard design
+6. Task 15.6 - ReviewSessionScreen design
+7. Task 15.7 - ReviewSessionNode design
+
+**Phase 4: Frontend Implementation**
+8. Task 15.8a + 15.8 - ReviewSessionNode component
+9. Task 15.9a + 15.9 - ReviewSessionCard swipeable component
+10. Task 15.10a + 15.10 - ReviewSessionScreen component
+11. Task 15.11 - PathScreen integration
+12. Task 15.12 - API route
+13. Task 15.13 - i18n strings
+
+**Phase 5: End-to-End Testing**
+14. Task 15.14 - Comprehensive E2E test
+
+### Agent Assignments Summary (Section 15)
+
+| Agent | Tasks |
+|-------|-------|
+| Server Testing Agent | 15.1a, 15.2a, 15.4a |
+| Backend Agent | 15.1, 15.2, 15.3 |
+| Sync Agent | 15.4 |
+| Design System Agent | 15.5, 15.6, 15.7 |
+| Client Testing Agent | 15.8a, 15.9a, 15.10a, 15.14 |
+| Web Agent | 15.8, 15.9, 15.10, 15.11, 15.12, 15.13 |
+
+### Data Flow for Review Session
+
+```
+1. generate-path creates learning_path nodes:
+   - Regular learn nodes: node_type='learn', content_ref set
+   - Review session nodes: node_type='review_session', review_items JSON array
+
+2. PowerSync syncs nodes to client with all columns
+
+3. PathScreen renders:
+   - node_type='learn' → PathNode component
+   - node_type='review_session' → ReviewSessionNode component
+
+4. User taps ReviewSessionNode → navigates to /review-session/[nodeId]
+
+5. ReviewSessionScreen:
+   - Loads node data from PowerSync
+   - Extracts review_items array
+   - Fetches content_cache for each item
+   - Displays card stack
+
+6. User swipes through cards:
+   - Swipe right → add to "got_it" list
+   - Swipe left → add to "need_practice" list
+   - Track in local state
+
+7. On completion → call complete-review-session API:
+   - session_node_id
+   - reviewed_items with confidence levels
+
+8. Backend updates:
+   - Mark review_session node completed
+   - Update spaced repetition intervals for each item
+   - need_practice items: shorter interval
+   - got_it items: normal interval
+
+9. Sync changes back to client
+```
+
+---
+
 ## Notes
 
 - **Regulations Compliance**: These tasks address findings from the Regulations Agent compliance audit

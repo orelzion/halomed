@@ -101,29 +101,20 @@ export function QuizScreen() {
           return;
         }
 
-        // Get path node to find content_ref
-        const nodeDoc = await db.learning_path.findOne(nodeId).exec();
-        
-        if (!nodeDoc) {
-          setLoading(false);
+        // Weekly quiz format: weekly-quiz-YYYY-MM-DD
+        const weeklyQuizMatch = nodeId.match(/^weekly-quiz-(\d{4}-\d{2}-\d{2})$/);
+        if (weeklyQuizMatch) {
+          const [, dateStr] = weeklyQuizMatch;
+          const contentRef = `weekly_quiz_${dateStr}`;
+          console.log(`[QuizScreen] Loading weekly quiz for ${dateStr}`);
+          setQuizContentRef(contentRef);
+          await loadWeeklyQuiz(db, contentRef);
           return;
         }
 
-        const node = nodeDoc.toJSON();
-        if (!node.content_ref) {
-          setLoading(false);
-          return;
-        }
-
-        // Store content ref for tracking
-        setQuizContentRef(node.content_ref);
-
-        // Check if this is a weekly quiz
-        if (isWeeklyQuiz(node.content_ref)) {
-          await loadWeeklyQuiz(db, node.content_ref);
-        } else {
-          await loadRegularQuiz(db, node.content_ref);
-        }
+        // Unknown quiz format
+        console.error(`[QuizScreen] Unknown quiz ID format: ${nodeId}`);
+        setLoading(false);
       } catch (error) {
         console.error('Error loading quiz:', error);
         posthog.captureException(error);
@@ -142,31 +133,61 @@ export function QuizScreen() {
 
       console.log(`[QuizScreen] Loading weekly quiz for ${contentRef}, covering ${weekRanges.length} week(s)`);
 
-      // Get all learning nodes from all covered weeks
-      let allLearningNodes: any[] = [];
-      for (const { start, end } of weekRanges) {
-        console.log(`[QuizScreen] Fetching content from ${start} to ${end}`);
-        const learningNodes = await db.learning_path
-          .find({
-            selector: {
-              node_type: 'learning',
-              unlock_date: { $gte: start, $lte: end },
-            },
-          })
-          .exec();
+      // Get user preferences to compute the path
+      const prefDoc = await db.user_preferences.findOne().exec();
+      if (!prefDoc) {
+        console.log('[QuizScreen] No user preferences found');
+        setAllQuestions([]);
+        return;
+      }
+      const pref = prefDoc.toJSON();
 
-        allLearningNodes = [...allLearningNodes, ...learningNodes.map((doc: any) => doc.toJSON())];
+      // Import path generator utilities
+      const { getUnlockDate, getContentRefForIndex } = await import('@shared/lib/path-generator');
+      
+      const pace = (pref.pace || 'two_mishna') as 'one_chapter' | 'seder_per_year' | 'two_mishna';
+      const startDate = new Date(pref.path_start_date || new Date().toISOString().split('T')[0]);
+      const currentIndex = pref.current_content_index || 0;
+      
+      // Build study days config
+      const studyDays = pref.yom_tov_dates ? {
+        skipFriday: pref.skip_friday ?? true,
+        yomTovDates: new Set<string>(pref.yom_tov_dates || []),
+      } : undefined;
+
+      // Find all content_refs that fall within the week ranges
+      const contentRefs: string[] = [];
+      
+      for (const { start, end } of weekRanges) {
+        console.log(`[QuizScreen] Looking for content from ${start} to ${end}`);
+        
+        // Check indices around current position (look back far enough to cover past weeks)
+        for (let i = 0; i <= currentIndex + 100; i++) {
+          try {
+            const unlockDate = getUnlockDate(i, pace, startDate, studyDays);
+            if (unlockDate >= start && unlockDate <= end) {
+              const ref = getContentRefForIndex(i);
+              if (ref && !contentRefs.includes(ref)) {
+                contentRefs.push(ref);
+              }
+            } else if (unlockDate > end) {
+              // Past the end date, stop checking
+              break;
+            }
+          } catch {
+            // Index out of bounds
+            break;
+          }
+        }
       }
 
-      if (allLearningNodes.length === 0) {
-        console.log('[QuizScreen] No learning nodes found for this quiz');
+      if (contentRefs.length === 0) {
+        console.log('[QuizScreen] No content refs found for this quiz');
         setAllQuestions([]);
         return;
       }
 
-      // Get unique content_refs from learning nodes
-      const contentRefs = [...new Set(allLearningNodes.map((n: any) => n.content_ref).filter(Boolean))];
-      console.log(`[QuizScreen] Found ${contentRefs.length} content refs for weekly quiz`);
+      console.log(`[QuizScreen] Found ${contentRefs.length} content refs for weekly quiz:`, contentRefs);
 
       // Get quiz questions for all content_refs
       const quizDocs = await db.quiz_questions
@@ -231,90 +252,6 @@ export function QuizScreen() {
 
       console.log(`[QuizScreen] Weekly quiz loaded with ${formatted.length} questions`);
       setAllQuestions(formatted);
-    };
-
-    const loadRegularQuiz = async (db: any, contentRef: string) => {
-      // Get all quiz questions from RxDB (ordered by question_index)
-      const quizDocs = await db.quiz_questions
-        .find({
-          selector: {
-            content_ref: contentRef,
-          },
-        })
-        .sort([{ question_index: 'asc' }])
-        .exec();
-
-      const quizzes = quizDocs.map((doc: any) => doc.toJSON());
-      
-      if (quizzes.length === 0) {
-        // Generate quiz questions
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const response = await fetch('/api/generate-quiz', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ content_ref: contentRef }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to generate quiz');
-        }
-
-        // Wait for RxDB to sync the new data
-        // Poll until data is available (max 10 seconds)
-        let newQuizzes: any[] = [];
-        const maxAttempts = 20;
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          // Small delay to allow RxDB to sync
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          const newQuizDocs = await db.quiz_questions
-            .find({
-              selector: {
-                content_ref: contentRef,
-              },
-            })
-            .sort([{ question_index: 'asc' }])
-            .exec();
-          newQuizzes = newQuizDocs.map((doc: any) => doc.toJSON());
-          
-          if (newQuizzes.length > 0) {
-            console.log(`[QuizScreen] Quiz synced after ${attempt + 1} attempts`);
-            break;
-          }
-        }
-        
-        if (newQuizzes.length > 0) {
-          const formatted = newQuizzes.map(q => ({
-            id: q.id,
-            content_ref: q.content_ref,
-            question_index: q.question_index || 0,
-            question_text: q.question_text,
-            options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
-            correct_answer: q.correct_answer,
-            explanation: q.explanation || '',
-          }));
-          setAllQuestions(formatted);
-        } else {
-          console.error('[QuizScreen] Quiz not synced after max attempts');
-          throw new Error('Quiz generated but not yet synced. Please reload.');
-        }
-      } else {
-        const formatted = quizzes.map((q: any) => ({
-          id: q.id,
-          content_ref: q.content_ref,
-          question_index: q.question_index || 0,
-          question_text: q.question_text,
-          options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
-          correct_answer: q.correct_answer,
-          explanation: q.explanation || '',
-        }));
-        setAllQuestions(formatted);
-      }
     };
 
     if (nodeId) {

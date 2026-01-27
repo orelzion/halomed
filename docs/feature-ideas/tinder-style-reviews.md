@@ -1,6 +1,10 @@
 # Feature: Tinder-Style Review Sessions
 
-## Status: Planned
+## Status: Tasks Created
+
+**Tasks**: See `tasks.md` Section 15 - "Merged Review Sessions - Tinder-Style Cards"  
+**Task Count**: 14 implementation tasks + test tasks  
+**Assigned Agents**: Backend, Sync, Design System, Web, Client Testing, Server Testing
 
 ## Problem
 - Reviews appear as 27+ individual nodes in the learning path

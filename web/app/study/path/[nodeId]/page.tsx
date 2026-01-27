@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getDatabase } from '@/lib/database/database';
 import { supabase } from '@/lib/supabase/client';
@@ -14,12 +14,13 @@ import { StudyHeader } from '@/components/ui/StudyHeader';
 import { Mascot } from '@/components/ui/Mascot';
 import { CompletionToast } from '@/components/ui/CompletionToast';
 import ReactMarkdown from 'react-markdown';
+import { getContentRefForIndex } from '@shared/lib/path-generator';
 
 interface PathNode {
   id: string;
   content_ref: string | null;
   node_type: string;
-  review_of_node_id: string | null;
+  contentIndex: number | null;
 }
 
 export default function PathStudyPage() {
@@ -33,6 +34,24 @@ export default function PathStudyPage() {
 
   useEffect(() => {
     const loadNode = async () => {
+      // Check if this is a computed node ID (from position-based model)
+      if (nodeId.startsWith('computed-')) {
+        const index = parseInt(nodeId.replace('computed-', ''), 10);
+        if (!isNaN(index)) {
+          const contentRef = getContentRefForIndex(index);
+          setNode({
+            id: nodeId,
+            content_ref: contentRef,
+            node_type: 'learning',
+            contentIndex: index,
+          });
+          setIsReview(false);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fall back to old learning_path lookup for backwards compatibility
       try {
         const db = await getDatabase();
         if (!db) {
@@ -52,7 +71,7 @@ export default function PathStudyPage() {
           id: pathNode.id,
           content_ref: pathNode.content_ref ?? null,
           node_type: pathNode.node_type,
-          review_of_node_id: pathNode.review_of_node_id ?? null,
+          contentIndex: null,
         });
         setIsReview(pathNode.node_type === 'review' || pathNode.review_of_node_id != null);
         setLoading(false);
@@ -74,12 +93,41 @@ export default function PathStudyPage() {
       const db = await getDatabase();
       if (!db) return;
 
+      // For position-based model: update current_content_index in user_preferences
+      if (node.contentIndex !== null) {
+        const userPrefs = await db.user_preferences.find().exec();
+        if (userPrefs.length > 0) {
+          const pref = userPrefs[0];
+          const currentIndex = pref.current_content_index ?? 0;
+          
+          // Only increment if completing and this is the current item
+          if (isCompleted && node.contentIndex === currentIndex) {
+            const newIndex = currentIndex + 1;
+            console.log(`[Study] Completing item ${node.contentIndex}, updating current_content_index: ${currentIndex} -> ${newIndex}`);
+            
+            await pref.patch({
+              current_content_index: newIndex,
+              last_study_date: new Date().toISOString().split('T')[0],
+              updated_at: new Date().toISOString(),
+            });
+            
+            // Verify the update
+            const updatedPref = await db.user_preferences.findOne(pref.id).exec();
+            console.log(`[Study] Updated current_content_index: ${updatedPref?.current_content_index}`);
+          } else {
+            console.log(`[Study] Not incrementing: isCompleted=${isCompleted}, nodeIndex=${node.contentIndex}, currentIndex=${currentIndex}`);
+          }
+        }
+        router.push('/');
+        return;
+      }
+
+      // Fall back to old learning_path update for backwards compatibility
       const nodeDoc = await db.learning_path.findOne(nodeId).exec();
       if (!nodeDoc) return;
 
       const completedAt = isCompleted ? new Date().toISOString() : null;
 
-      // Update locally - RxDB will automatically sync via replication
       await nodeDoc.update({
         $set: {
           completed_at: completedAt,
@@ -87,23 +135,6 @@ export default function PathStudyPage() {
         },
       });
 
-      // If this is a learning node and was just completed, schedule reviews
-      if (isCompleted && node.node_type === 'learning' && !node.review_of_node_id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          // Call schedule-review API
-          await fetch('/api/schedule-review', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({ completed_node_id: nodeId }),
-          });
-        }
-      }
-
-      // Navigate back to path
       router.push('/');
     } catch (error) {
       console.error('Error updating completion:', error);
@@ -136,6 +167,7 @@ export default function PathStudyPage() {
     <PathStudyScreen 
       contentRef={node.content_ref!}
       nodeId={nodeId}
+      contentIndex={node.contentIndex}
       isReview={isReview}
       onCompletion={handleCompletion}
     />
@@ -146,15 +178,17 @@ export default function PathStudyPage() {
 function PathStudyScreen({ 
   contentRef, 
   nodeId, 
+  contentIndex,
   isReview, 
   onCompletion 
 }: { 
   contentRef: string; 
   nodeId: string; 
+  contentIndex: number | null;
   isReview: boolean; 
   onCompletion: (isCompleted: boolean) => void;
 }) {
-  const { content, node, explanationData, loading } = usePathStudyUnit(contentRef, nodeId);
+  const { content, explanationData, loading } = usePathStudyUnit(contentRef);
   const { t } = useTranslation();
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -162,11 +196,9 @@ function PathStudyScreen({
   const [showCompletionToast, setShowCompletionToast] = useState(false);
   const hasAttemptedGeneration = useRef<string | null>(null); // Track which contentRef we've tried to generate
 
+  // For position-based model, content is "completed" if we're past it
+  // This is determined by the parent based on current_content_index
   const [isCompleted, setIsCompleted] = useState(false);
-
-  useEffect(() => {
-    setIsCompleted(node?.completed_at != null); // Use loose equality
-  }, [node]);
 
   // Calculate placeholder status - used in both effect and render
   const contentIsPlaceholder = content ? isPlaceholderContent(content.ai_explanation_json) : false;

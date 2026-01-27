@@ -54,12 +54,16 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       const { getRxStorageDexie } = await import('rxdb/plugins/storage-dexie');
       const { RxDBQueryBuilderPlugin } = await import('rxdb/plugins/query-builder');
       const { RxDBUpdatePlugin } = await import('rxdb/plugins/update');
+      const { RxDBMigrationSchemaPlugin } = await import('rxdb/plugins/migration-schema');
 
       // Add query-builder plugin (required for .limit(), .exec(), etc.)
       addRxPlugin(RxDBQueryBuilderPlugin);
       
       // Add update plugin (required for .update() method)
       addRxPlugin(RxDBUpdatePlugin);
+      
+      // Add migration plugin (required for schema version changes)
+      addRxPlugin(RxDBMigrationSchemaPlugin);
 
       // Create database with Dexie storage
       // Note: getRxStorageDexie is a storage adapter, not a plugin, so we don't use addRxPlugin
@@ -82,9 +86,30 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
         },
         user_preferences: {
           schema: userPreferencesSchema as any,
+          // Migration strategy for version 0 -> 1 (position-based storage)
+          migrationStrategies: {
+            1: function(oldDoc: any) {
+              return {
+                ...oldDoc,
+                current_content_index: oldDoc.current_content_index ?? 0,
+                path_start_date: oldDoc.path_start_date ?? null,
+              };
+            },
+          },
         },
         learning_path: {
           schema: learningPathSchema as any,
+          // Migration strategy for version 0 -> 1 (added review_items, review_count)
+          migrationStrategies: {
+            1: function(oldDoc: any) {
+              // Add new fields with default values
+              return {
+                ...oldDoc,
+                review_items: oldDoc.review_items || null,
+                review_count: oldDoc.review_count || null,
+              };
+            },
+          },
         },
         quiz_questions: {
           schema: quizQuestionsSchema as any,

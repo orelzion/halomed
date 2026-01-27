@@ -11,6 +11,7 @@ import type { RxDatabase, RxReplicationWriteToMasterRow } from 'rxdb';
 import type { DatabaseCollections } from '../database/schemas';
 import { supabase } from '../supabase/client';
 import { getDateWindow } from './date-window';
+import { getContentRefsForRange } from '@shared/lib/path-generator';
 
 interface SupabaseCheckpoint {
   id: string;
@@ -33,7 +34,7 @@ export async function setupReplication(
   contentCache: any;
   tracks: any;
   userPreferences: any;
-  learningPath: any;
+  learningPath: any | null; // Deprecated: position-based model doesn't need learning_path sync
   quizQuestions: any;
 }> {
   console.log('[Replication] Setting up RxDB Supabase replications...');
@@ -67,9 +68,30 @@ export async function setupReplication(
     return doc;
   };
 
+  // Fields that exist only in RxDB (not in Supabase schema)
+  // These are computed/cached locally and don't need to sync
+  const LOCAL_ONLY_FIELDS: Record<string, string[]> = {
+    user_preferences: [
+      'yom_tov_dates',        // Computed from API, cached locally
+      'yom_tov_dates_until',  // Tracks when to refresh yom_tov_dates
+      'skip_friday',          // Local preference (future: add to Supabase)
+      'skip_yom_tov',         // Local preference (future: add to Supabase)
+      'israel_mode',          // Local preference (future: add to Supabase)
+      // Temporary: These will sync once migration 20260126114703 is applied
+      // Remove from LOCAL_ONLY_FIELDS after migration is applied to all environments
+      'current_content_index', // Added in migration 20260126114703
+      'path_start_date',        // Added in migration 20260126114703
+    ],
+  };
+
   // Helper to convert RxDB doc to Supabase row
   const docToRow = (doc: any, tableName: string, isUpdate: boolean = false): any => {
     const row = { ...doc };
+    
+    // Remove local-only fields that Supabase doesn't know about
+    const localFields = LOCAL_ONLY_FIELDS[tableName] || [];
+    localFields.forEach(field => delete row[field]);
+    
     // Convert integer back to boolean
     if (tableName === 'user_study_log' && typeof row.is_completed === 'number') {
       row.is_completed = row.is_completed !== 0;
@@ -177,9 +199,9 @@ export async function setupReplication(
     deletedField: '_deleted',
   });
 
-  // Setup content_cache replication with 14-day window filtering
-  // Only sync content referenced by learning_path nodes within the 14-day window
-  // This keeps local storage small while showing the full path
+  // Setup content_cache replication with position-based filtering
+  // Compute which content refs to sync based on user's current position from LOCAL RxDB
+  // This keeps local storage small while showing relevant content
   const contentCacheReplication = replicateRxCollection({
     collection: db.content_cache,
     replicationIdentifier: 'content_cache-supabase',
@@ -187,26 +209,26 @@ export async function setupReplication(
     pull: {
       handler: async (checkpoint, batchSize: number) => {
         const typedCheckpoint = checkpoint as SupabaseCheckpoint | null | undefined;
-        // First, get all learning_path nodes within the 14-day window
-        const { data: pathNodes, error: pathError } = await supabase
-          .from('learning_path')
-          .select('content_ref')
-          .eq('user_id', userId)
-          .gte('unlock_date', window.start)
-          .lte('unlock_date', window.end)
-          .not('content_ref', 'is', null);
-
-        if (pathError) {
-          console.error('[Replication] Failed to get path nodes for content filtering:', pathError);
-          // Fallback: return empty if we can't determine which content to sync
-          return { documents: [], checkpoint: typedCheckpoint ?? null };
+        
+        // Get user preferences from LOCAL RxDB (not Supabase API)
+        let currentIndex = 0;
+        try {
+          const localPrefs = await db.user_preferences.find({ selector: { user_id: userId } }).exec();
+          if (localPrefs.length > 0) {
+            const prefs = localPrefs[0].toJSON();
+            currentIndex = prefs.current_content_index ?? 0;
+          }
+        } catch (e) {
+          // If local prefs not available yet, use default starting position
+          console.log('[Replication] Local prefs not available, using default position');
         }
-
-        // Extract unique content_refs from nodes in the window
-        const contentRefs = [...new Set(pathNodes.map((n: any) => n.content_ref).filter(Boolean))];
+        
+        // Get content refs for 14 items back (reviews) and 30 items ahead (upcoming)
+        const startIndex = Math.max(0, currentIndex - 14);
+        const endIndex = currentIndex + 30;
+        const contentRefs = getContentRefsForRange(startIndex, endIndex);
         
         if (contentRefs.length === 0) {
-          // No content to sync
           return { documents: [], checkpoint: typedCheckpoint ?? null };
         }
 
@@ -378,19 +400,15 @@ export async function setupReplication(
             const { error } = await supabase.from('user_preferences').insert(doc);
             if (error && error.code !== '23505') throw error;
           } else {
-            let updateQuery = supabase
+            // For user_preferences, don't use optimistic concurrency (updated_at filter)
+            // It's a single-user document, and the filter causes silent update failures
+            const { error } = await supabase
               .from('user_preferences')
               .update(doc)
               .eq('id', doc.id);
-            
-            // Only add updated_at filter if it exists (for optimistic concurrency)
-            if (row.assumedMasterState.updated_at) {
-              updateQuery = updateQuery.eq('updated_at', row.assumedMasterState.updated_at);
-            }
-            
-            const { error } = await updateQuery;
 
             if (error) {
+              console.error('[Replication] user_preferences update error:', error);
               const { data } = await supabase
                 .from('user_preferences')
                 .select('*')
@@ -408,101 +426,12 @@ export async function setupReplication(
     deletedField: '_deleted',
   });
 
-  // Setup learning_path replication (sync ALL nodes - no date filtering)
-  // Users should see the whole path, but we only sync content for 14-day window
-  const learningPathReplication = replicateRxCollection({
-    collection: db.learning_path,
-    replicationIdentifier: 'learning_path-supabase',
-    live: true,
-    pull: {
-      handler: async (checkpoint, batchSize: number) => {
-        const typedCheckpoint = checkpoint as LearningPathCheckpoint | null | undefined;
-        // Order by node_index to sync nodes in sequential order
-        // This ensures partial syncs don't leave random gaps in the middle
-        let query = supabase
-          .from('learning_path')
-          .select('*')
-          .eq('user_id', userId)
-          .order('node_index', { ascending: true })
-          .limit(batchSize);
-
-        if (typedCheckpoint && typedCheckpoint.node_index !== undefined) {
-          query = query.gt('node_index', typedCheckpoint.node_index);
-        }
-
-        const { data, error } = await query;
-        if (error) {
-          console.error('[Replication] learning_path pull error:', error);
-          throw error;
-        }
-
-        const documents = (data || []).map((row) => rowToDoc(row, 'learning_path'));
-        const lastDoc = data && data.length > 0 ? data[data.length - 1] : null;
-        const newCheckpoint: LearningPathCheckpoint | null = lastDoc
-          ? { id: lastDoc.id, updated_at: lastDoc.updated_at, node_index: lastDoc.node_index }
-          : typedCheckpoint ?? null;
-
-        // Log progress for large datasets
-        if (documents.length > 0) {
-          const nodeIndex = newCheckpoint?.node_index ?? 'unknown';
-          console.log(`[Replication] learning_path: synced batch of ${documents.length} nodes (up to node_index ${nodeIndex})`);
-        }
-
-        return {
-          documents,
-          checkpoint: newCheckpoint,
-        };
-      },
-      batchSize: 200,
-    },
-    push: {
-      handler: async (rows: RxReplicationWriteToMasterRow<any>[]) => {
-        const conflicts: any[] = [];
-
-        for (const row of rows) {
-          const isUpdate = !!row.assumedMasterState;
-          const doc = docToRow(row.newDocumentState, 'learning_path', isUpdate);
-
-          if (!row.assumedMasterState) {
-            const { error } = await supabase.from('learning_path').insert(doc);
-            if (error && error.code !== '23505') {
-              console.error('[Replication] learning_path insert error:', error, 'doc:', doc);
-              throw error;
-            }
-          } else {
-            // Only use updated_at for optimistic concurrency if it exists
-            let updateQuery = supabase
-              .from('learning_path')
-              .update(doc)
-              .eq('id', doc.id);
-            
-            // Only add updated_at filter if it exists (for optimistic concurrency)
-            if (row.assumedMasterState.updated_at) {
-              updateQuery = updateQuery.eq('updated_at', row.assumedMasterState.updated_at);
-            }
-            
-            const { error } = await updateQuery;
-
-            if (error) {
-              console.error('[Replication] learning_path update error:', error);
-              console.error('[Replication] Update doc:', doc);
-              console.error('[Replication] Assumed master state:', row.assumedMasterState);
-              const { data } = await supabase
-                .from('learning_path')
-                .select('*')
-                .eq('id', doc.id)
-                .single();
-              if (data) conflicts.push(rowToDoc(data, 'learning_path'));
-            }
-          }
-        }
-
-        return conflicts;
-      },
-      batchSize: 50,
-    },
-    deletedField: '_deleted',
-  });
+  // DEPRECATED: learning_path replication disabled
+  // Position-based model computes path from current_content_index in user_preferences
+  // No need to sync thousands of learning_path rows anymore
+  // Keeping the collection for backwards compatibility but not syncing it
+  const learningPathReplication = null;
+  console.log('[Replication] learning_path sync disabled (position-based model)');
 
   // Setup quiz_questions replication
   const quizQuestionsReplication = replicateRxCollection({
@@ -590,47 +519,40 @@ export async function setupReplication(
     contentCacheReplication.awaitInitialReplication(),
     tracksReplication.awaitInitialReplication(),
     userPreferencesReplication.awaitInitialReplication(),
-    learningPathReplication.awaitInitialReplication(),
+    // learningPathReplication disabled - position-based model
     quizQuestionsReplication.awaitInitialReplication(),
   ]);
 
   console.log('[Replication] Initial replication completed');
 
-  // Clean up old content_cache entries outside the 14-day window
-  // This keeps local storage small while preserving the full path view
+  // Clean up old content_cache entries outside the computed window
+  // This keeps local storage small while preserving relevant content
   try {
-    // Get all learning_path nodes within the window from local RxDB
-    const pathNodesInWindow = await db.learning_path
-      .find({
-        selector: {
-          user_id: userId,
-          unlock_date: { $gte: window.start, $lte: window.end },
-          content_ref: { $ne: null },
-        },
-      })
-      .exec();
-
-    const validContentRefs = new Set(
-      pathNodesInWindow
-        .map((doc) => doc.toJSON())
-        .map((node: any) => node.content_ref)
-        .filter(Boolean)
-    );
+    // Get user preferences to determine valid content range
+    const userPrefs = await db.user_preferences.find({ selector: { user_id: userId } }).exec();
+    const prefs = userPrefs.length > 0 ? userPrefs[0].toJSON() : null;
     
-    // Get all local content_cache entries
-    const allContent = await db.content_cache.find().exec();
-    
-    // Find content that's outside the window
-    const contentToRemove = allContent.filter((doc) => {
-      const content = doc.toJSON();
-      return content.ref_id && !validContentRefs.has(content.ref_id);
-    });
+    if (prefs) {
+      const currentIndex = prefs.current_content_index ?? 0;
+      const startIndex = Math.max(0, currentIndex - 14);
+      const endIndex = currentIndex + 30;
+      const validContentRefs = new Set(getContentRefsForRange(startIndex, endIndex));
+      
+      // Get all local content_cache entries
+      const allContent = await db.content_cache.find().exec();
+      
+      // Find content that's outside the window
+      const contentToRemove = allContent.filter((doc) => {
+        const content = doc.toJSON();
+        return content.ref_id && !validContentRefs.has(content.ref_id);
+      });
 
-    // Remove old content
-    if (contentToRemove.length > 0) {
-      console.log(`[Replication] Cleaning up ${contentToRemove.length} old content_cache entries outside 14-day window`);
-      for (const doc of contentToRemove) {
-        await doc.remove();
+      // Remove old content
+      if (contentToRemove.length > 0) {
+        console.log(`[Replication] Cleaning up ${contentToRemove.length} old content_cache entries outside position window`);
+        for (const doc of contentToRemove) {
+          await doc.remove();
+        }
       }
     }
   } catch (cleanupError) {

@@ -133,18 +133,41 @@ Deno.serve(async (req: Request) => {
       explanation: q.explanation,
     }));
 
+    // Use upsert with ignoreDuplicates to handle race conditions
+    // If another request already inserted questions for this content_ref, we skip duplicates
     const { data: newQuizzes, error: insertError } = await supabase
       .from('quiz_questions')
-      .insert(questionsToInsert)
+      .upsert(questionsToInsert, { 
+        onConflict: 'content_ref,question_index',
+        ignoreDuplicates: true 
+      })
       .select('id');
 
-    if (insertError || !newQuizzes || newQuizzes.length === 0) {
+    if (insertError) {
       return new Response(
         JSON.stringify({ 
           error: 'Failed to store quiz questions',
           details: insertError?.message || 'Unknown error'
         }),
         { status: 500, headers: corsHeaders }
+      );
+    }
+
+    // If all were duplicates, fetch existing ones
+    if (!newQuizzes || newQuizzes.length === 0) {
+      const { data: existingQuizzes } = await supabase
+        .from('quiz_questions')
+        .select('id')
+        .eq('content_ref', content_ref);
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          quiz_question_ids: existingQuizzes?.map(q => q.id) || [],
+          questions_generated: existingQuizzes?.length || 0,
+          message: `Quiz questions already exist (race condition handled)`
+        } as GenerateQuizResponse),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
