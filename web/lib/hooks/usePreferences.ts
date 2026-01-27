@@ -20,7 +20,8 @@ export function usePreferences() {
     const loadPreferences = async () => {
       try {
         const db = await getDatabase();
-        if (!db) {
+        if (!db || !db.user_preferences) {
+          console.warn('[usePreferences] Database or user_preferences collection not available');
           if (isMounted) {
             setLoading(false);
           }
@@ -56,7 +57,7 @@ export function usePreferences() {
     // Watch for changes
     const dbPromise = getDatabase();
     dbPromise.then((db) => {
-      if (!db || !isMounted) return;
+      if (!db || !db.user_preferences || !isMounted) return;
 
       const prefsQuery = db.user_preferences
         .find({

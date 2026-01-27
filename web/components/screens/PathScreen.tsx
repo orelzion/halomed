@@ -427,8 +427,9 @@ export function PathScreen() {
     if (node.node_type === 'weekly_quiz') {
       router.push(`/quiz/${node.id}`);
     } else if (node.node_type === 'review_session') {
-      // Pass the unlock_date so ReviewScreen loads reviews for that specific date
-      router.push(`/review?date=${node.unlock_date}`);
+      // Pass the content indexes directly so ReviewScreen doesn't need to re-compute
+      const indexes = node.review_item_indexes?.join(',') || '';
+      router.push(`/review?indexes=${indexes}`);
     } else if (node.content_ref) {
       router.push(`/study/path/${node.id}`);
     }
@@ -512,7 +513,10 @@ export function PathScreen() {
               
               // Check if we need a date separator (use full nodes array for prev check)
               const prevNode = idx > 0 ? nodes[idx - 1] : null;
-              const showDateSeparator = !isDivider && (!prevNode || prevNode.unlock_date !== node.unlock_date || prevNode.is_divider === 1);
+              // Show date separator only when the date actually changes
+              // If previous node is a divider, look at its unlock_date (dividers inherit the date of their chapter's last mishna)
+              const prevNodeDate = prevNode?.unlock_date;
+              const showDateSeparator = !isDivider && (!prevNode || prevNodeDate !== node.unlock_date);
               
               // Format date for separator
               const formatDateSeparator = (dateStr: string) => {

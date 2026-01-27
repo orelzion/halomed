@@ -1,54 +1,209 @@
 /**
  * ReviewScreen - Tinder-style review session
  * Shows swipeable cards for items due for review
+ *
+ * Accepts content indexes directly via URL params (indexes=1,2,3)
+ * instead of re-computing reviews from date.
  */
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ReviewCard } from '../ui/ReviewCard';
-import { useReviews } from '@/lib/hooks/useReviews';
 import { getDatabase } from '@/lib/database/database';
 import { useTranslation } from '@/lib/i18n';
 import type { ContentCacheDoc } from '@/lib/database/schemas';
+import { getInfoForIndex } from '@shared/lib/path-generator';
+import { supabase } from '@/lib/supabase/client';
+import { isPlaceholderContent } from '@/lib/utils/content-validation';
+
+interface ReviewItemFromIndex {
+  contentRef: string;
+  contentIndex: number;
+  tractate: string;
+  tractateHebrew: string;
+  chapter: number;
+  mishna: number;
+}
 
 export function ReviewScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
-  
-  // Get date from URL query param (if provided by PathScreen)
-  const targetDate = searchParams.get('date') || undefined;
-  const { reviews, loading: reviewsLoading, hasReviews } = useReviews(targetDate);
-  
+
+  // Get content indexes from URL query param (passed by PathScreen)
+  const indexesParam = searchParams.get('indexes') || '';
+
+  // Parse indexes and build review items
+  const reviews = useMemo<ReviewItemFromIndex[]>(() => {
+    if (!indexesParam) {
+      console.log('[ReviewScreen] No indexes param provided');
+      return [];
+    }
+
+    const indexes = indexesParam.split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !isNaN(n));
+
+    console.log('[ReviewScreen] Parsed indexes:', indexes);
+
+    const items: ReviewItemFromIndex[] = [];
+    for (const index of indexes) {
+      const info = getInfoForIndex(index);
+      if (info) {
+        items.push({
+          contentRef: info.contentRef,
+          contentIndex: index,
+          tractate: info.tractate.english,
+          tractateHebrew: info.tractate.hebrew,
+          chapter: info.chapter,
+          mishna: info.mishna,
+        });
+      } else {
+        console.warn('[ReviewScreen] No info for index:', index);
+      }
+    }
+
+    console.log('[ReviewScreen] Built review items:', items.length);
+    return items;
+  }, [indexesParam]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [contentCache, setContentCache] = useState<Map<string, ContentCacheDoc>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [generatingCount, setGeneratingCount] = useState(0);
 
-  // Load content for review items
+  // Load content for review items (same strategy as study page)
   useEffect(() => {
-    if (reviews.length === 0) return;
+    if (reviews.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     const loadContent = async () => {
       const db = await getDatabase();
-      if (!db) return;
-      
+      if (!db) {
+        setLoading(false);
+        return;
+      }
+
       const contentRefs = reviews.map(r => r.contentRef);
-      
+      console.log('[ReviewScreen] Looking for content refs:', contentRefs);
+
       try {
-        const docs = await db.content_cache
+        // First try local RxDB cache
+        const localDocs = await db.content_cache
           .find({ selector: { ref_id: { $in: contentRefs } } })
           .exec();
-        
+
         const cache = new Map<string, ContentCacheDoc>();
-        docs.forEach(doc => {
-          cache.set(doc.ref_id, doc.toJSON() as ContentCacheDoc);
+        localDocs.forEach(doc => {
+          const json = doc.toJSON() as ContentCacheDoc;
+          // Only add to cache if it's not a placeholder
+          if (!isPlaceholderContent(json.ai_explanation_json)) {
+            cache.set(doc.ref_id, json);
+          }
         });
+        console.log('[ReviewScreen] Found', cache.size, 'valid items in local cache');
+
+        // Check for missing refs (not in cache or placeholder content)
+        const missingRefs = contentRefs.filter(ref => !cache.has(ref));
+
+        if (missingRefs.length > 0) {
+          console.log('[ReviewScreen] Need to generate', missingRefs.length, 'missing items');
+          setGeneratingCount(missingRefs.length);
+
+          // Get auth session for API calls
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.error('[ReviewScreen] No session, cannot generate content');
+            setLoading(false);
+            return;
+          }
+
+          // Generate missing content (same as study page)
+          for (const refId of missingRefs) {
+            try {
+              console.log('[ReviewScreen] Generating content for:', refId);
+
+              const response = await fetch('/api/generate-content', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ ref_id: refId }),
+              });
+
+              if (!response.ok) {
+                console.warn('[ReviewScreen] Failed to generate content for', refId, ':', response.status);
+                continue;
+              }
+
+              // Poll Supabase for the newly generated content
+              const maxAttempts = 20;
+              const pollInterval = 1000;
+
+              for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const { data: newContent, error: fetchError } = await supabase
+                  .from('content_cache')
+                  .select('*')
+                  .eq('ref_id', refId)
+                  .single();
+
+                if (!fetchError && newContent) {
+                  const isPlaceholder = isPlaceholderContent(newContent.ai_explanation_json);
+
+                  if (!isPlaceholder) {
+                    // Real content is ready - add to cache and RxDB
+                    const contentDoc: ContentCacheDoc = {
+                      id: newContent.id,
+                      ref_id: newContent.ref_id,
+                      source_text_he: newContent.source_text_he,
+                      ai_explanation_json: typeof newContent.ai_explanation_json === 'string'
+                        ? newContent.ai_explanation_json
+                        : JSON.stringify(newContent.ai_explanation_json || {}),
+                      he_ref: newContent.he_ref,
+                      created_at: newContent.created_at,
+                      updated_at: newContent.updated_at,
+                      _deleted: false,
+                    };
+
+                    cache.set(refId, contentDoc);
+
+                    // Save to local RxDB
+                    try {
+                      await db.content_cache.upsert(contentDoc);
+                    } catch (upsertError) {
+                      console.warn('[ReviewScreen] Failed to cache locally:', refId, upsertError);
+                    }
+
+                    console.log('[ReviewScreen] Content ready for:', refId);
+                    break;
+                  }
+                }
+
+                if (attempt < maxAttempts - 1) {
+                  await new Promise(resolve => setTimeout(resolve, pollInterval));
+                }
+              }
+            } catch (genError) {
+              console.error('[ReviewScreen] Error generating content for', refId, ':', genError);
+            }
+          }
+
+          setGeneratingCount(0);
+        }
+
         setContentCache(cache);
+        console.log('[ReviewScreen] Total content loaded:', cache.size, 'out of', contentRefs.length, 'requested');
       } catch (error) {
         console.error('[ReviewScreen] Error loading content:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -79,10 +234,16 @@ export function ReviewScreen() {
     router.push('/');
   };
 
-  if (reviewsLoading) {
+  const hasReviews = reviews.length > 0;
+
+  if (loading || generatingCount > 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
-        <p className="text-desert-oasis-accent">{t('review_session_loading')}</p>
+        <div className="text-center">
+          <p className="text-desert-oasis-accent">
+            {generatingCount > 0 ? `יוצר תוכן... (${generatingCount} פריטים)` : t('review_session_loading')}
+          </p>
+        </div>
       </div>
     );
   }
@@ -121,7 +282,7 @@ export function ReviewScreen() {
           <h2 className="text-2xl font-source mb-4 text-[var(--text-primary)]">
             {t('review_session_complete')}
           </h2>
-          
+
           <p className="text-[var(--text-secondary)] mb-6">
             סיימת לחזור על {reviews.length} משניות
           </p>
@@ -141,11 +302,14 @@ export function ReviewScreen() {
   const content = currentReview ? contentCache.get(currentReview.contentRef) : null;
 
   // Parse AI explanation JSON if available
-  let explanation = '';
+  let reviewSummary = '';
+  let reviewHalakha = '';
   if (content?.ai_explanation_json) {
     try {
       const parsed = JSON.parse(content.ai_explanation_json);
-      explanation = parsed.brief_explanation || parsed.explanation || '';
+      // Use summary (like study page) not brief_explanation
+      reviewSummary = parsed.summary || '';
+      reviewHalakha = parsed.halakha || '';
     } catch {
       // Ignore parse errors
     }
@@ -169,7 +333,7 @@ export function ReviewScreen() {
             {currentIndex + 1}/{reviews.length}
           </span>
         </div>
-        
+
         {/* Progress bar */}
         <div className="max-w-lg mx-auto mt-2">
           <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -188,15 +352,15 @@ export function ReviewScreen() {
         <AnimatePresence mode="popLayout">
           {reviews.slice(currentIndex, currentIndex + 2).map((review, idx) => {
             const reviewContent = contentCache.get(review.contentRef);
-            let reviewSummary = '';
-            let reviewHalakha = '';
-            
+            let cardSummary = '';
+            let cardHalakha = '';
+
             if (reviewContent?.ai_explanation_json) {
               try {
                 const parsed = JSON.parse(reviewContent.ai_explanation_json);
                 // Use summary (like study page) not brief_explanation
-                reviewSummary = parsed.summary || '';
-                reviewHalakha = parsed.halakha || '';
+                cardSummary = parsed.summary || '';
+                cardHalakha = parsed.halakha || '';
               } catch {
                 // Ignore
               }
@@ -211,8 +375,8 @@ export function ReviewScreen() {
                 chapter={review.chapter}
                 mishna={review.mishna}
                 sourceText={reviewContent?.source_text_he}
-                explanation={reviewSummary}
-                halakha={reviewHalakha}
+                explanation={cardSummary}
+                halakha={cardHalakha}
                 heRef={reviewContent?.he_ref}
                 onNext={handleNext}
                 onDeeper={() => handleDeeper(review.contentIndex)}
