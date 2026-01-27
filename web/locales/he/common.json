@@ -55,6 +55,7 @@
   "path_node_learning": "לימוד",
   "path_node_review": "חזרה",
   "path_node_quiz": "חידון",
+  "weekly_quiz_subtitle": "סקירה על כל מה שלמדת השבוע",
   "path_node_locked": "נעול",
   "path_node_completed": "הושלם",
   "path_node_current": "נוכחי",
@@ -102,5 +103,19 @@
   "change_plan_success": "התכנית עודכנה בהצלחה",
   "change_plan_error": "שגיאה בעדכון התכנית",
   "change_plan_loading": "מעדכן...",
-  "change_plan_syncing": "מסנכרן..."
+  "change_plan_syncing": "מסנכרן...",
+  "review_session_title": "מפגש חזרה",
+  "review_session_progress": "נבדקו {completed} מתוך {total}",
+  "review_session_got_it": "הבנתי",
+  "review_session_need_practice": "צריך עוד תרגול",
+  "review_session_dive_deeper": "צלילה עמוקה",
+  "review_session_complete": "כל הכבוד! סיימת את החזרות",
+  "review_session_empty": "אין חזרות להיום",
+  "review_session_exit_confirm": "האם לצאת? ההתקדמות לא תישמר",
+  "review_session_node_label": "חזרה ({count})",
+  "review_session_loading": "טוען מפגש חזרה...",
+  "review_session_error": "שגיאה בטעינת מפגש החזרה",
+  "review_session_swipe_hint": "החלק ימינה להמשך, שמאלה לתרגול נוסף",
+  "review_session_fresh_content": "כל החומר שלמדת עדיין טרי!",
+  "review_session_back_to_path": "חזרה לנתיב"
 }

@@ -8,6 +8,7 @@ import type { RxDatabase } from 'rxdb';
 import { getDatabase } from '@/lib/database/database';
 import { setupReplication } from '@/lib/sync/replication';
 import { ensureContentGenerated } from '@/lib/sync/content-generation';
+import { syncYomTovDates } from '@/lib/sync/yom-tov-sync';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
 import type { DatabaseCollections } from '@/lib/database/schemas';
@@ -334,8 +335,11 @@ export function SyncProvider({ children }: SyncProviderProps) {
         // Ensure content is generated
         await ensureContentGenerated(database, session.user.id);
 
+        // Sync Yom Tov dates from backend (for accurate holiday skipping)
+        await syncYomTovDates(database, session.user.id);
+
         setHasSynced(true);
-        console.log('[RxDB] Initial sync and content generation completed');
+        console.log('[RxDB] Initial sync, content generation, and Yom Tov sync completed');
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to connect to RxDB');
         setError(error);

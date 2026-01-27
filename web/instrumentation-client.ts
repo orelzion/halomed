@@ -48,11 +48,18 @@ function hasAnalyticsConsent(): boolean {
 function initializePostHog() {
   if (posthogInitialized) return;
   
+  // Defensive check for env vars (may not be available in some edge cases)
+  const posthogKey = process?.env?.NEXT_PUBLIC_POSTHOG_KEY;
+  if (!posthogKey) {
+    console.warn('[PostHog] NEXT_PUBLIC_POSTHOG_KEY not available, skipping initialization');
+    return;
+  }
+  
   const hasConsent = hasAnalyticsConsent();
   
-  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
+  posthog.init(posthogKey, {
     api_host: '/ingest',
-    ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    ui_host: process?.env?.NEXT_PUBLIC_POSTHOG_HOST,
     
     // GDPR Compliance Settings (per PostHog docs)
     opt_out_capturing_by_default: true,  // Don't capture anything until explicit opt-in
@@ -71,7 +78,7 @@ function initializePostHog() {
     capture_exceptions: hasConsent,
     
     // Debug mode for development
-    debug: process.env.NODE_ENV === 'development',
+    debug: process?.env?.NODE_ENV === 'development',
     
     // Mask all inputs by default for privacy
     mask_all_text: false,
@@ -83,8 +90,8 @@ function initializePostHog() {
       
       // Register non-PII super properties
       ph.register({
-        environment: process.env.NODE_ENV === 'production' ? 'production' : 'development',
-        app_version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
+        environment: process?.env?.NODE_ENV === 'production' ? 'production' : 'development',
+        app_version: process?.env?.NEXT_PUBLIC_APP_VERSION || '1.0.0',
       });
       
       // If user already consented, opt them in

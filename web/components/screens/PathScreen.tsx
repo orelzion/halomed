@@ -97,17 +97,6 @@ function BrainIcon({ className = '' }: { className?: string }) {
   );
 }
 
-// Clipboard checklist icon for quiz
-function ClipboardCheckIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-      <path d="m9 14 2 2 4-4" />
-    </svg>
-  );
-}
-
 function CheckIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -182,11 +171,8 @@ function SparklesIcon({ className = '' }: { className?: string }) {
   );
 }
 
-const INITIAL_VISIBLE_COUNT = 20;
-const LOAD_MORE_COUNT = 15;
-
 export function PathScreen() {
-  const { nodes, loading, currentNodeIndex } = usePath();
+  const { nodes, loading, currentNodeIndex, loadMore, hasMore } = usePath();
   const { streak } = usePathStreak();
   const { t } = useTranslation();
   const router = useRouter();
@@ -203,30 +189,18 @@ export function PathScreen() {
     }
   }, []);
   
-  // Pagination state
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_COUNT);
-  
   // Path generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
-  
-  // Reset visible count when nodes change significantly
-  useEffect(() => {
-    if (nodes.length > 0 && currentNodeIndex !== null) {
-      // Show at least up to current node + some buffer
-      const minVisible = Math.min(currentNodeIndex + 10, nodes.length);
-      setVisibleCount(Math.max(INITIAL_VISIBLE_COUNT, minVisible));
-    }
-  }, [nodes.length, currentNodeIndex]);
 
-  // Infinite scroll with Intersection Observer
+  // Infinite scroll with Intersection Observer - loads next page when scrolled to bottom
   useEffect(() => {
-    if (!loadMoreRef.current) return;
+    if (!loadMoreRef.current || !hasMore) return;
     
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && visibleCount < nodes.length) {
-          setVisibleCount(prev => Math.min(prev + LOAD_MORE_COUNT, nodes.length));
+        if (entries[0].isIntersecting && hasMore) {
+          loadMore();
         }
       },
       { threshold: 0.1, rootMargin: '100px' }
@@ -235,7 +209,7 @@ export function PathScreen() {
     observer.observe(loadMoreRef.current);
     
     return () => observer.disconnect();
-  }, [visibleCount, nodes.length]);
+  }, [hasMore, loadMore]);
 
   // Ensure content for next 14 days when path loads
   useEffect(() => {
@@ -296,11 +270,7 @@ export function PathScreen() {
     const node = nodes[currentNodeIndex];
     if (!node || !node.isCurrent || node.isLocked) return;
     
-    // Ensure the node is visible in the rendered list
-    if (currentNodeIndex >= visibleCount) {
-      setVisibleCount(Math.min(currentNodeIndex + 10, nodes.length));
-      return;
-    }
+    // All loaded nodes are visible, no need to check visibleCount
     
     // Wait for ref to be attached to the DOM element
     requestAnimationFrame(() => {
@@ -314,7 +284,7 @@ export function PathScreen() {
         }
       });
     });
-  }, [currentNodeIndex, visibleCount, nodes.length, loading, pathname, nodes]);
+  }, [currentNodeIndex, nodes.length, loading, pathname, nodes]);
 
   // Wait for sync when nodes is empty (path might be generating/syncing)
   const [waitingForSync, setWaitingForSync] = useState(true);
@@ -454,8 +424,11 @@ export function PathScreen() {
       is_completed: node.completed_at != null, // Use loose equality to handle both null and undefined
     });
 
-    if (node.node_type === 'quiz' || node.node_type === 'weekly_quiz') {
+    if (node.node_type === 'weekly_quiz') {
       router.push(`/quiz/${node.id}`);
+    } else if (node.node_type === 'review_session') {
+      // Pass the unlock_date so ReviewScreen loads reviews for that specific date
+      router.push(`/review?date=${node.unlock_date}`);
     } else if (node.content_ref) {
       router.push(`/study/path/${node.id}`);
     }
@@ -531,7 +504,7 @@ export function PathScreen() {
           <div className="absolute right-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-desert-oasis-accent/50 via-desert-oasis-muted/30 to-transparent dark:from-desert-oasis-accent/30 dark:via-gray-600/30" />
           
           <div className="space-y-4" role="list" aria-label="דרך הלימוד">
-            {nodes.slice(0, visibleCount).map((node, idx) => {
+            {nodes.map((node, idx) => {
               const isDivider = node.is_divider === 1;
               const isCompleted = node.completed_at != null; // Use loose equality to handle both null and undefined
               const isCurrent = node.isCurrent;
@@ -654,36 +627,32 @@ export function PathScreen() {
                 }
                 if (isLocked) {
                   // Show regular icon but greyed out (card already has opacity-60)
-                  const lockedIcon = node.node_type === 'quiz' 
-                    ? <ClipboardCheckIcon className="text-gray-400 dark:text-gray-500" />
-                    : node.node_type === 'weekly_quiz'
+                  const lockedIcon = node.node_type === 'weekly_quiz'
                       ? <TrophyIcon className="text-gray-400 dark:text-gray-500 w-7 h-7" />
-                      : node.node_type === 'review'
-                        ? <BrainIcon className="text-gray-400 dark:text-gray-500" />
+                      : (node.node_type === 'review' || node.node_type === 'review_session')
+                        ? (
+                          <svg className="text-gray-400 dark:text-gray-500 w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        )
                         : <BookOpenIcon className="text-gray-400 dark:text-gray-500" />;
+                  
+                  // For review_session, show badge even when locked (with disabled colors)
+                  const lockedBadge = node.node_type === 'review_session' ? (
+                    <span className="inline-flex items-center gap-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full font-semibold">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      יום {node.review_interval || '?'}
+                    </span>
+                  ) : null;
                   
                   return {
                     icon: lockedIcon,
-                    iconBg: 'bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary',
+                    iconBg: 'bg-gray-200 dark:bg-gray-700',
                     cardBg: 'bg-gray-100/80 dark:bg-gray-800/50',
                     ring: '',
-                    badge: null,
-                  };
-                }
-                if (node.node_type === 'quiz') {
-                  return {
-                    icon: <ClipboardCheckIcon className={isCurrent ? 'text-white' : 'text-purple-600 dark:text-purple-400'} />,
-                    iconBg: isCurrent 
-                      ? 'bg-gradient-to-br from-purple-500 to-purple-700 shadow-lg shadow-purple-500/30' 
-                      : 'bg-purple-100 dark:bg-purple-900/30',
-                    cardBg: isCurrent 
-                      ? 'bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-800/20' 
-                      : 'bg-white/80 dark:bg-gray-800/50',
-                    ring: isCurrent ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-desert-oasis-primary dark:ring-offset-desert-oasis-dark-primary' : '',
-                    badge: <span className="inline-flex items-center gap-1 text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full font-semibold">
-                      <ClipboardCheckIcon className="w-3 h-3" />
-                      {t('path_node_quiz')}
-                    </span>,
+                    badge: lockedBadge,
                   };
                 }
                 if (node.node_type === 'weekly_quiz') {
@@ -700,6 +669,31 @@ export function PathScreen() {
                       <TrophyIcon className="w-3 h-3" />
                       מבחן שבועי
                     </span>,
+                  };
+                }
+                // Review Session (tinder-style reviews)
+                if (node.node_type === 'review_session') {
+                  return {
+                    icon: (
+                      <svg className={isCurrent ? 'text-white w-7 h-7' : 'text-[#4A5D3A] dark:text-[#CCD5AE] w-7 h-7'} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    ),
+                    iconBg: isCurrent 
+                      ? 'bg-gradient-to-br from-[#A3B18A] to-[#6B8E59] shadow-lg shadow-[#A3B18A]/30' 
+                      : 'bg-[#CCD5AE] dark:bg-[#4A5D3A]',
+                    cardBg: isCurrent 
+                      ? 'bg-gradient-to-br from-[#E9EDC9] to-[#CCD5AE] dark:from-[#4A5D3A]/50 dark:to-[#3D4A32]/50' 
+                      : 'bg-white/80 dark:bg-gray-800/50',
+                    ring: isCurrent ? 'ring-2 ring-[#A3B18A] ring-offset-2 ring-offset-desert-oasis-primary dark:ring-offset-desert-oasis-dark-primary' : '',
+                    badge: (
+                      <span className="inline-flex items-center gap-1 text-xs bg-[#CCD5AE] dark:bg-[#4A5D3A]/50 text-[#4A5D3A] dark:text-[#CCD5AE] px-2 py-0.5 rounded-full font-semibold">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        יום {node.review_interval || '?'}
+                      </span>
+                    ),
                   };
                 }
                 if (node.node_type === 'review') {
@@ -763,10 +757,10 @@ export function PathScreen() {
                     ref={isCurrent ? currentRef : null}
                     onClick={() => handleNodeClick(node)}
                     disabled={isLocked}
-                    aria-label={`${node.content_ref ? formatContentRef(node.content_ref) : ''}, ${
+                    aria-label={`${node.node_type === 'review_session' ? `${node.review_range_start}${node.review_range_end ? ` עד ${node.review_range_end}` : ''} - יום ${node.review_interval || '?'}` : node.content_ref ? formatContentRef(node.content_ref) : ''}, ${
                       node.node_type === 'learning' ? t('path_node_learning') : 
-                      node.node_type === 'quiz' ? t('path_node_quiz') : 
                       node.node_type === 'weekly_quiz' ? 'מבחן שבועי' :
+                      node.node_type === 'review_session' ? 'מפגש חזרה' :
                       node.node_type === 'review' ? t('path_node_review') : ''
                     }${isCompleted ? ', הושלם' : ''}${isCurrent ? ', נוכחי' : ''}${isLocked ? ', נעול' : ''}`}
                     className={`
@@ -809,15 +803,21 @@ export function PathScreen() {
                       )}
                     </div>
                     
-                    {node.node_type === 'weekly_quiz' && node.content_ref ? (
+                    {node.node_type === 'weekly_quiz' ? (
                       <div>
                         <p className={`font-source text-lg mb-1 ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-primary)]'}`}>
-                          {getWeeklyQuizMishnayot(node.content_ref, nodes)}
+                          {node.review_range_start}
+                          {node.review_range_end && node.review_range_end !== node.review_range_start && ` עד ${node.review_range_end}`}
                         </p>
                         <p className={`font-explanation text-sm ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-secondary)]'}`}>
-                          סקירה על כל מה שלמדת השבוע
+                          {t('weekly_quiz_subtitle')}
                         </p>
                       </div>
+                    ) : node.node_type === 'review_session' ? (
+                      <p className={`font-source text-lg ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-primary)]'}`}>
+                        {node.review_range_start}
+                        {node.review_range_end && ` עד ${node.review_range_end}`}
+                      </p>
                     ) : node.content_ref && (
                       <p className={`font-source text-xl mb-1 ${isLocked ? 'text-gray-400 dark:text-gray-500' : 'text-[var(--text-primary)]'}`}>
                         {formatContentRef(node.content_ref)}
@@ -850,20 +850,20 @@ export function PathScreen() {
             })}
             
             {/* Load more indicator */}
-            {visibleCount < nodes.length && (
+            {hasMore && (
               <div 
                 ref={loadMoreRef}
                 className="flex flex-col items-center justify-center py-8 mr-8"
               >
                 <div className="w-8 h-8 rounded-full border-3 border-desert-oasis-accent/30 border-t-desert-oasis-accent animate-spin mb-3" />
                 <p className="text-sm font-explanation text-[var(--text-secondary)]">
-                  טוען עוד... ({nodes.length - visibleCount} נותרו)
+                  טוען עוד...
                 </p>
               </div>
             )}
             
             {/* End of path indicator */}
-            {visibleCount >= nodes.length && nodes.length > 0 && (
+            {!hasMore && nodes.length > 0 && (
               <div className="flex flex-col items-center justify-center py-8 mr-8 text-center">
                 <div className="w-12 h-12 rounded-full bg-desert-oasis-muted/20 dark:bg-gray-700/30 flex items-center justify-center mb-3">
                   <CheckIcon className="w-6 h-6 text-desert-oasis-accent" />

@@ -5,19 +5,22 @@ import { getDatabase } from '@/lib/database/database';
 
 interface StudyUnit {
   content: any | null;
-  node: any | null;
   explanationData: any;
   loading: boolean;
 }
 
-export function usePathStudyUnit(contentRef: string | null, nodeId: string | null): StudyUnit {
+/**
+ * Hook to load study content for a given content_ref
+ * In the position-based model, we only need the content from content_cache
+ * The path node data is computed from position, not stored
+ */
+export function usePathStudyUnit(contentRef: string | null): StudyUnit {
   const [content, setContent] = useState<any | null>(null);
-  const [node, setNode] = useState<any | null>(null);
   const [explanationData, setExplanationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!contentRef || !nodeId) {
+    if (!contentRef) {
       setLoading(false);
       return;
     }
@@ -34,20 +37,16 @@ export function usePathStudyUnit(contentRef: string | null, nodeId: string | nul
           return;
         }
 
-        // Get path node
-        const nodeDoc = await db.learning_path.findOne(nodeId).exec();
-        const pathNode = nodeDoc ? nodeDoc.toJSON() : null;
-
         // Get content by ref_id
-        const contentDocs = await db.content_cache
-          .find({
+        const contentDoc = await db.content_cache
+          .findOne({
             selector: {
               ref_id: contentRef,
             },
           })
           .exec();
 
-        const studyContent = contentDocs.length > 0 ? contentDocs[0].toJSON() : null;
+        const studyContent = contentDoc ? contentDoc.toJSON() : null;
 
         // Parse explanation JSON
         let explanation = null;
@@ -64,7 +63,6 @@ export function usePathStudyUnit(contentRef: string | null, nodeId: string | nul
 
         if (isMounted) {
           setContent(studyContent);
-          setNode(pathNode);
           setExplanationData(explanation);
           setLoading(false);
         }
@@ -78,45 +76,36 @@ export function usePathStudyUnit(contentRef: string | null, nodeId: string | nul
 
     loadStudyUnit();
 
-    // Watch for changes
-    const dbPromise = getDatabase();
-    dbPromise.then((db) => {
+    // Watch for content changes
+    const setupSubscription = async () => {
+      const db = await getDatabase();
       if (!db || !isMounted) return;
 
-      // Watch learning_path
-      if (nodeId) {
-        const nodeQuery = db.learning_path.findOne(nodeId).$;
-        const nodeSubscription = nodeQuery.subscribe(async () => {
-          if (isMounted) {
-            await loadStudyUnit();
-          }
-        });
+      const contentQuery = db.content_cache
+        .findOne({
+          selector: {
+            ref_id: contentRef,
+          },
+        })
+        .$;
+      
+      const subscription = contentQuery.subscribe(async () => {
+        if (isMounted) {
+          await loadStudyUnit();
+        }
+      });
 
-        // Watch content_cache
-        const contentQuery = db.content_cache
-          .find({
-            selector: {
-              ref_id: contentRef,
-            },
-          })
-          .$;
-        const contentSubscription = contentQuery.subscribe(async () => {
-          if (isMounted) {
-            await loadStudyUnit();
-          }
-        });
+      return () => {
+        subscription.unsubscribe();
+      };
+    };
 
-        return () => {
-          nodeSubscription.unsubscribe();
-          contentSubscription.unsubscribe();
-        };
-      }
-    });
+    setupSubscription();
 
     return () => {
       isMounted = false;
     };
-  }, [contentRef, nodeId]);
+  }, [contentRef]);
 
-  return { content, node, explanationData, loading };
+  return { content, explanationData, loading };
 }

@@ -135,6 +135,7 @@ export function ChangePlanDialog({ isOpen, onClose, onSuccess }: ChangePlanDialo
           pace,
           review_intensity: reviewIntensity,
           streak_count: 0,
+          current_content_index: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           _deleted: false,
