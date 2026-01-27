@@ -77,6 +77,10 @@ export async function setupReplication(
       'skip_friday',          // Local preference (future: add to Supabase)
       'skip_yom_tov',         // Local preference (future: add to Supabase)
       'israel_mode',          // Local preference (future: add to Supabase)
+      // Temporary: These will sync once migration 20260126114703 is applied
+      // Remove from LOCAL_ONLY_FIELDS after migration is applied to all environments
+      'current_content_index', // Added in migration 20260126114703
+      'path_start_date',        // Added in migration 20260126114703
     ],
   };
 
