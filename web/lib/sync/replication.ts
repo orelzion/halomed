@@ -58,7 +58,10 @@ export async function setupReplication(
     // Preserve null values for nullable fields (don't delete them)
     // Nullable fields that should be preserved: completed_at, content_ref, review_of_node_id, etc.
     // Only delete null for fields that shouldn't exist at all
-    const nullableFields = ['completed_at', 'content_ref', 'review_of_node_id', 'tractate', 'chapter', 'explanation'];
+    const nullableFields = [
+      'completed_at', 'content_ref', 'review_of_node_id', 'tractate', 'chapter', 'explanation',
+      'last_study_date', 'path_start_date', 'yom_tov_dates_until', // user_preferences nullable fields
+    ];
     Object.keys(doc).forEach((key) => {
       // Keep null values for nullable fields, convert others to undefined (which RxDB will ignore)
       if (doc[key] === null && !nullableFields.includes(key)) {
@@ -71,15 +74,9 @@ export async function setupReplication(
   // Fields that exist only in RxDB (not in Supabase schema)
   // These are computed/cached locally and don't need to sync
   const LOCAL_ONLY_FIELDS: Record<string, string[]> = {
-    user_preferences: [
-      'yom_tov_dates',        // Computed from API, cached locally
-      'yom_tov_dates_until',  // Tracks when to refresh yom_tov_dates
-      'skip_friday',          // Local preference (future: add to Supabase)
-      'skip_yom_tov',         // Local preference (future: add to Supabase)
-      'israel_mode',          // Local preference (future: add to Supabase)
-      // Note: current_content_index and path_start_date now sync to Supabase
-      // (migration 20260126114703 applied)
-    ],
+    // All user_preferences fields now sync to Supabase
+    // (migration 20260127110000 added skip_friday, skip_yom_tov, israel_mode, yom_tov_dates, yom_tov_dates_until)
+    user_preferences: [],
   };
 
   // Helper to convert RxDB doc to Supabase row

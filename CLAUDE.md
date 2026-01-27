@@ -109,6 +109,28 @@ supabase functions deploy [function_name] --use-api
 - User data accessed only via `auth.uid() = user_id`
 - Use environment variables for all secrets
 
+## Git Branching Strategy
+
+| Branch | Purpose | Vercel Deployment |
+|--------|---------|-------------------|
+| `main` | Production (protected) | Production build |
+| `develop` | Preview/staging | Preview build |
+| `feature/*` | Feature development | — |
+
+### Workflow
+
+1. **Create feature branch** from `develop`
+2. **Develop and test locally** — run tests before pushing
+3. **Merge to `develop`** after local tests pass and your confirmation
+4. **Open PR against `main`** after your confirmation on the preview
+5. **Wait for Vercel validation** on the PR
+6. **Merge to `main`** to deploy to production
+
+**Important:**
+- Never push directly to `main` — it's protected
+- Always get confirmation before merging to `develop` or opening a PR to `main`
+- PRs to `main` require Vercel build validation before merge
+
 ## Agent Guides
 
 When working on specific areas, reference the appropriate guide in `.claude/agents/`:

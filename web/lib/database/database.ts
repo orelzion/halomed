@@ -74,47 +74,70 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       });
 
       // Add collections
-      await rxdbDatabase.addCollections({
-        user_study_log: {
-          schema: userStudyLogSchema as any,
-        },
-        content_cache: {
-          schema: contentCacheSchema as any,
-        },
-        tracks: {
-          schema: tracksSchema as any,
-        },
-        user_preferences: {
-          schema: userPreferencesSchema as any,
-          // Migration strategy for version 0 -> 1 (position-based storage)
-          migrationStrategies: {
-            1: function(oldDoc: any) {
-              return {
-                ...oldDoc,
-                current_content_index: oldDoc.current_content_index ?? 0,
-                path_start_date: oldDoc.path_start_date ?? null,
-              };
+      console.log('[RxDB] Adding collections...');
+      try {
+        await rxdbDatabase.addCollections({
+          user_study_log: {
+            schema: userStudyLogSchema as any,
+          },
+          content_cache: {
+            schema: contentCacheSchema as any,
+          },
+          tracks: {
+            schema: tracksSchema as any,
+          },
+          user_preferences: {
+            schema: userPreferencesSchema as any,
+            // Migration strategy for version 0 -> 1 (position-based storage)
+            migrationStrategies: {
+              1: function(oldDoc: any) {
+                console.log('[RxDB] Migrating user_preferences doc from v0 to v1:', oldDoc?.id);
+                return {
+                  ...oldDoc,
+                  current_content_index: oldDoc.current_content_index ?? 0,
+                  path_start_date: oldDoc.path_start_date ?? null,
+                  // Ensure all required fields exist
+                  skip_friday: oldDoc.skip_friday ?? true,
+                  skip_yom_tov: oldDoc.skip_yom_tov ?? true,
+                  israel_mode: oldDoc.israel_mode ?? false,
+                  yom_tov_dates: oldDoc.yom_tov_dates ?? [],
+                  yom_tov_dates_until: oldDoc.yom_tov_dates_until ?? null,
+                };
+              },
+            },
+            autoMigrate: true, // Ensure migration runs automatically
+          },
+          learning_path: {
+            schema: learningPathSchema as any,
+            // Migration strategy for version 0 -> 1 (added review_items, review_count)
+            migrationStrategies: {
+              1: function(oldDoc: any) {
+                // Add new fields with default values
+                return {
+                  ...oldDoc,
+                  review_items: oldDoc.review_items || null,
+                  review_count: oldDoc.review_count || null,
+                };
+              },
             },
           },
-        },
-        learning_path: {
-          schema: learningPathSchema as any,
-          // Migration strategy for version 0 -> 1 (added review_items, review_count)
-          migrationStrategies: {
-            1: function(oldDoc: any) {
-              // Add new fields with default values
-              return {
-                ...oldDoc,
-                review_items: oldDoc.review_items || null,
-                review_count: oldDoc.review_count || null,
-              };
-            },
+          quiz_questions: {
+            schema: quizQuestionsSchema as any,
           },
-        },
-        quiz_questions: {
-          schema: quizQuestionsSchema as any,
-        },
-      });
+        });
+        console.log('[RxDB] Collections added successfully');
+      } catch (collectionError) {
+        console.error('[RxDB] Error adding collections:', collectionError);
+        // Try to continue - some collections may have been added
+      }
+
+      // Validate that all required collections were created
+      const requiredCollections = ['user_study_log', 'content_cache', 'tracks', 'user_preferences', 'learning_path', 'quiz_questions'];
+      const missingCollections = requiredCollections.filter(name => !rxdbDatabase?.[name as keyof DatabaseCollections]);
+      if (missingCollections.length > 0) {
+        console.error('[RxDB] Missing collections after initialization:', missingCollections);
+        // Don't throw - continue with available collections, but log for debugging
+      }
 
       // Check if migration is needed
       const migrationComplete = localStorage.getItem(MIGRATION_FLAG_KEY) === 'true';
@@ -136,6 +159,8 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       return rxdbDatabase;
     } catch (error) {
       console.error('[RxDB] Failed to initialize database:', error);
+      // Reset the database reference so next call will retry
+      rxdbDatabase = null;
       return null;
     } finally {
       // Clear the promise so we can retry if needed
