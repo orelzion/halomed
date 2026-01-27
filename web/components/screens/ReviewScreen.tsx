@@ -17,6 +17,7 @@ import { useTranslation } from '@/lib/i18n';
 import type { ContentCacheDoc } from '@/lib/database/schemas';
 import { getInfoForIndex } from '@shared/lib/path-generator';
 import { supabase } from '@/lib/supabase/client';
+import { isPlaceholderContent } from '@/lib/utils/content-validation';
 
 interface ReviewItemFromIndex {
   contentRef: string;
@@ -73,8 +74,9 @@ export function ReviewScreen() {
   const [contentCache, setContentCache] = useState<Map<string, ContentCacheDoc>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [generatingCount, setGeneratingCount] = useState(0);
 
-  // Load content for review items
+  // Load content for review items (same strategy as study page)
   useEffect(() => {
     if (reviews.length === 0) {
       setLoading(false);
@@ -99,63 +101,101 @@ export function ReviewScreen() {
 
         const cache = new Map<string, ContentCacheDoc>();
         localDocs.forEach(doc => {
-          cache.set(doc.ref_id, doc.toJSON() as ContentCacheDoc);
+          const json = doc.toJSON() as ContentCacheDoc;
+          // Only add to cache if it's not a placeholder
+          if (!isPlaceholderContent(json.ai_explanation_json)) {
+            cache.set(doc.ref_id, json);
+          }
         });
-        console.log('[ReviewScreen] Found', cache.size, 'items in local cache');
+        console.log('[ReviewScreen] Found', cache.size, 'valid items in local cache');
 
-        // Check for missing refs that aren't in local cache
+        // Check for missing refs (not in cache or placeholder content)
         const missingRefs = contentRefs.filter(ref => !cache.has(ref));
 
         if (missingRefs.length > 0) {
-          console.log('[ReviewScreen] Fetching', missingRefs.length, 'missing items from Supabase');
+          console.log('[ReviewScreen] Need to generate', missingRefs.length, 'missing items');
+          setGeneratingCount(missingRefs.length);
 
-          // Fetch from Supabase directly
-          const { data: supabaseData, error } = await supabase
-            .from('content_cache')
-            .select('*')
-            .in('ref_id', missingRefs);
+          // Get auth session for API calls
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.error('[ReviewScreen] No session, cannot generate content');
+            setLoading(false);
+            return;
+          }
 
-          if (error) {
-            console.error('[ReviewScreen] Supabase fetch error:', error);
-          } else if (supabaseData && supabaseData.length > 0) {
-            console.log('[ReviewScreen] Fetched', supabaseData.length, 'items from Supabase');
+          // Generate missing content (same as study page)
+          for (const refId of missingRefs) {
+            try {
+              console.log('[ReviewScreen] Generating content for:', refId);
 
-            // Add to cache map
-            supabaseData.forEach((row: any) => {
-              cache.set(row.ref_id, {
-                id: row.id,
-                ref_id: row.ref_id,
-                source_text_he: row.source_text_he,
-                ai_explanation_json: typeof row.ai_explanation_json === 'string'
-                  ? row.ai_explanation_json
-                  : JSON.stringify(row.ai_explanation_json || {}),
-                he_ref: row.he_ref,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
-                _deleted: false,
+              const response = await fetch('/api/generate-content', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ ref_id: refId }),
               });
-            });
 
-            // Also save to local RxDB for offline access
-            for (const row of supabaseData) {
-              try {
-                await db.content_cache.upsert({
-                  id: row.id,
-                  ref_id: row.ref_id,
-                  source_text_he: row.source_text_he,
-                  ai_explanation_json: typeof row.ai_explanation_json === 'string'
-                    ? row.ai_explanation_json
-                    : JSON.stringify(row.ai_explanation_json || {}),
-                  he_ref: row.he_ref,
-                  created_at: row.created_at,
-                  updated_at: row.updated_at || row.created_at,
-                  _deleted: false,
-                });
-              } catch (upsertError) {
-                console.warn('[ReviewScreen] Failed to cache locally:', row.ref_id, upsertError);
+              if (!response.ok) {
+                console.warn('[ReviewScreen] Failed to generate content for', refId, ':', response.status);
+                continue;
               }
+
+              // Poll Supabase for the newly generated content
+              const maxAttempts = 20;
+              const pollInterval = 1000;
+
+              for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                const { data: newContent, error: fetchError } = await supabase
+                  .from('content_cache')
+                  .select('*')
+                  .eq('ref_id', refId)
+                  .single();
+
+                if (!fetchError && newContent) {
+                  const isPlaceholder = isPlaceholderContent(newContent.ai_explanation_json);
+
+                  if (!isPlaceholder) {
+                    // Real content is ready - add to cache and RxDB
+                    const contentDoc: ContentCacheDoc = {
+                      id: newContent.id,
+                      ref_id: newContent.ref_id,
+                      source_text_he: newContent.source_text_he,
+                      ai_explanation_json: typeof newContent.ai_explanation_json === 'string'
+                        ? newContent.ai_explanation_json
+                        : JSON.stringify(newContent.ai_explanation_json || {}),
+                      he_ref: newContent.he_ref,
+                      created_at: newContent.created_at,
+                      updated_at: newContent.updated_at,
+                      _deleted: false,
+                    };
+
+                    cache.set(refId, contentDoc);
+
+                    // Save to local RxDB
+                    try {
+                      await db.content_cache.upsert(contentDoc);
+                    } catch (upsertError) {
+                      console.warn('[ReviewScreen] Failed to cache locally:', refId, upsertError);
+                    }
+
+                    console.log('[ReviewScreen] Content ready for:', refId);
+                    break;
+                  }
+                }
+
+                if (attempt < maxAttempts - 1) {
+                  await new Promise(resolve => setTimeout(resolve, pollInterval));
+                }
+              }
+            } catch (genError) {
+              console.error('[ReviewScreen] Error generating content for', refId, ':', genError);
             }
           }
+
+          setGeneratingCount(0);
         }
 
         setContentCache(cache);
@@ -196,10 +236,14 @@ export function ReviewScreen() {
 
   const hasReviews = reviews.length > 0;
 
-  if (loading) {
+  if (loading || generatingCount > 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
-        <p className="text-desert-oasis-accent">{t('review_session_loading')}</p>
+        <div className="text-center">
+          <p className="text-desert-oasis-accent">
+            {generatingCount > 0 ? `יוצר תוכן... (${generatingCount} פריטים)` : t('review_session_loading')}
+          </p>
+        </div>
       </div>
     );
   }
