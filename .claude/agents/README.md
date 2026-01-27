@@ -1,40 +1,64 @@
----
-name: agents
-model: fast
----
+# HaLomeid Agent Guides for Claude Code
 
-# HaLomeid Agent Orchestration
+This directory contains role-specific development guides for the HaLomeid project. These guides help Claude Code (and developers) understand the responsibilities, patterns, and best practices for each area of the codebase.
 
-This document serves as the master orchestration guide for all agents in the HaLomeid project.
+## How to Use These Guides
 
-> **Claude Code Users**: See `.claude/agents/README.md` and `CLAUDE.md` for Claude Code-specific guides.
-> The agents in this directory work with both Cursor and Claude Code.
+When working on a specific area of the project, reference the appropriate guide to understand:
+- Responsibilities and scope
+- Key files and components
+- Implementation patterns
+- Dependencies on other areas
+- Reference documents (PRD/TDD sections)
 
-## Overview
+### Example Prompts
 
-HaLomeid uses a multi-agent architecture to develop an offline-first, multi-platform Torah learning application. Each agent has specific responsibilities and boundaries, working together to deliver a cohesive product.
+```
+Read .claude/agents/web.md and help me implement the study screen
+```
 
-## Available Agents
+```
+Following the patterns in .claude/agents/backend.md, create a new Edge Function
+```
 
-| Agent | File | Primary Responsibility |
-|-------|------|----------------------|
-| Architect | `architect.md` | Breaks down PRD/TDD into implementor tasks |
-| Backend | `backend.md` | Supabase, database, Edge Functions |
-| Content Generation | `content-generation.md` | Sefaria API, AI explanations |
-| Scheduling | `scheduling.md` | Track scheduling logic |
-| Sync | `sync.md` | PowerSync configuration |
-| Android | `android.md` | Android/Kotlin/Compose client |
-| iOS | `ios.md` | iOS/Swift/SwiftUI client |
-| Web | `web.md` | Next.js/React web client |
-| Design System | `design-system.md` | Design tokens, fonts, components |
-| Client Testing | `client-testing.md` | Maestro E2E tests |
-| Server Testing | `server-testing.md` | Supabase/Deno tests |
-| Security | `security.md` | Pre-commit security checks |
+```
+Check .claude/agents/sync.md for the correct offline-first pattern
+```
 
-| Regulations | `regulations.md` | GDPR, CCPA, accessibility, cookies compliance |
+## Available Guides
 
+### Architecture & Planning
 
-| PR | `pr.md` | Pull Request workflow, merging to main |
+| Guide | File | Purpose |
+|-------|------|---------|
+| **Architect** | `architect.md` | Breaking down PRD/TDD into tasks, planning features |
+
+### Infrastructure
+
+| Guide | File | Purpose |
+|-------|------|---------|
+| **Backend** | `backend.md` | Supabase, PostgreSQL, RLS, Edge Functions |
+| **Sync** | `sync.md` | RxDB, offline-first patterns, 14-day window |
+| **Scheduling** | `scheduling.md` | Track scheduling, DAILY_WEEKDAYS_ONLY |
+| **Content Generation** | `content-generation.md` | Sefaria API, AI explanations |
+
+### Client Platforms
+
+| Guide | File | Purpose |
+|-------|------|---------|
+| **Web** | `web.md` | Next.js, React, Tailwind, PWA |
+| **Android** | `android.md` | Kotlin, Compose, Room (future) |
+| **iOS** | `ios.md` | Swift, SwiftUI, SQLite (future) |
+
+### Design & Quality
+
+| Guide | File | Purpose |
+|-------|------|---------|
+| **Design System** | `design-system.md` | Colors, typography, themes |
+| **Client Testing** | `client-testing.md` | Maestro E2E tests |
+| **Server Testing** | `server-testing.md` | Supabase/Deno tests |
+| **Security** | `security.md` | Pre-commit hooks, secret scanning |
+| **Regulations** | `regulations.md` | GDPR, CCPA, accessibility, cookies |
 
 ## Agent Hierarchy
 
@@ -82,28 +106,9 @@ HaLomeid uses a multi-agent architecture to develop an offline-first, multi-plat
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Orchestration Patterns
+## Cross-Guide Dependencies
 
-### Starting a New Feature
-
-1. **Consult Architect Agent** first
-   - Provide the feature requirement from PRD
-   - Architect breaks it down into implementor-specific tasks
-   - Architect identifies dependencies and sequencing
-
-2. **Execute in Order**
-   - Backend/Sync agents first (data layer)
-   - Design System agent (UI specifications)
-   - Platform agents (Android, iOS, Web) in parallel
-   - Testing agents (validation)
-
-3. **Security Check**
-   - Security agent runs before any commit
-   - Validates no secrets or PII are exposed
-
-### Cross-Agent Dependencies
-
-| When working on... | Consult first... |
+| When working on... | Also consult... |
 |-------------------|------------------|
 | Any new feature | Architect |
 | Any UI work | Design System |
@@ -113,28 +118,17 @@ HaLomeid uses a multi-agent architecture to develop an offline-first, multi-plat
 | Any commit | Security |
 | Privacy, cookies, accessibility | Regulations |
 
+## Difference from Cursor Agents
+
+These guides are adapted from the Cursor agent files in `.cursor/agents/`. The key differences:
+
+1. **No Model Specification** - Claude Code automatically uses Claude, no need to specify `model: claude-4.5-opus`
+2. **No Frontmatter** - Guides are pure markdown documentation
+3. **Reference Style** - Instead of `@agent.md` invocation, you reference guides in prompts
+4. **Context Integration** - Claude Code reads CLAUDE.md automatically and can be pointed to specific guides
+
 ## Reference Documents
 
-- **PRD**: `docs/halomed_prd.md` - Product requirements
-- **TDD**: `docs/halomed_tdd.md` - Technical design
-
-## Agent Invocation
-
-To invoke a specific agent, reference its file:
-- `@architect.md` - For task breakdowns
-- `@backend.md` - For Supabase/database work
-- `@android.md` - For Android-specific implementation
-- etc.
-
-## MVP Scope
-
-For MVP, focus on:
-1. Backend setup (Supabase, schema, auth)
-2. Scheduling logic (DAILY_WEEKDAYS_ONLY)
-3. Content generation (Sefaria + AI)
-4. Sync layer (PowerSync)
-5. All three clients (Android, iOS, Web)
-6. Testing coverage
-7. Security validation
-
-Non-MVP features are explicitly documented in the PRD Section 12.
+- **PRD**: `docs/halomed_prd.md` - Product requirements (Sections 1-13)
+- **TDD**: `docs/halomed_tdd.md` - Technical design (Sections 1-13)
+- **Main Guide**: `CLAUDE.md` - Project overview and quick reference

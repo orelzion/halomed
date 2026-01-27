@@ -20,5 +20,6 @@ credentials.json
 .DS_Store
 Thumbs.db
 
-# AI assistants
-.claude/
+# AI assistants (allow agent guides, ignore settings)
+.claude/settings.json
+.claude/settings.local.json
