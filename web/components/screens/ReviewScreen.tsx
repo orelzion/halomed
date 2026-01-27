@@ -88,8 +88,16 @@ export function ReviewScreen() {
       }
 
       const contentRefs = reviews.map(r => r.contentRef);
+      console.log('[ReviewScreen] Looking for content refs:', contentRefs);
 
       try {
+        // First check what's in the cache
+        const allCached = await db.content_cache.find().exec();
+        console.log('[ReviewScreen] Total items in content_cache:', allCached.length);
+        if (allCached.length > 0) {
+          console.log('[ReviewScreen] Sample cached ref_ids:', allCached.slice(0, 5).map(d => d.ref_id));
+        }
+
         const docs = await db.content_cache
           .find({ selector: { ref_id: { $in: contentRefs } } })
           .exec();
@@ -99,7 +107,7 @@ export function ReviewScreen() {
           cache.set(doc.ref_id, doc.toJSON() as ContentCacheDoc);
         });
         setContentCache(cache);
-        console.log('[ReviewScreen] Loaded content for', cache.size, 'items');
+        console.log('[ReviewScreen] Loaded content for', cache.size, 'items out of', contentRefs.length, 'requested');
       } catch (error) {
         console.error('[ReviewScreen] Error loading content:', error);
       } finally {
