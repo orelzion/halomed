@@ -489,6 +489,86 @@ export function getSederForIndex(index: number): SederInfo | null {
 }
 
 /**
+ * Get the global chapter number for an index (0-based)
+ * Used for one_chapter pace where each chapter = one study day
+ */
+export function getGlobalChapterForIndex(index: number): number {
+  if (index < 0) return 0;
+  if (index >= TOTAL_MISHNAYOT) return TOTAL_CHAPTERS - 1;
+
+  let globalChapter = 0;
+  let cumulativeIndex = 0;
+
+  for (const tractate of ALL_TRACTATES) {
+    // Check if index is within this tractate
+    if (index < cumulativeIndex + tractate.totalMishnayot) {
+      const localIndex = index - cumulativeIndex;
+
+      // Find which chapter within this tractate
+      if (tractate.mishnayotPerChapter && tractate.mishnayotPerChapter.length === tractate.chapters) {
+        let cumulative = 0;
+        for (let c = 0; c < tractate.mishnayotPerChapter.length; c++) {
+          if (localIndex < cumulative + tractate.mishnayotPerChapter[c]) {
+            return globalChapter + c;
+          }
+          cumulative += tractate.mishnayotPerChapter[c];
+        }
+      } else {
+        // Fallback: use average distribution
+        const avgPerChapter = tractate.totalMishnayot / tractate.chapters;
+        const localChapter = Math.min(Math.floor(localIndex / avgPerChapter), tractate.chapters - 1);
+        return globalChapter + localChapter;
+      }
+    }
+
+    globalChapter += tractate.chapters;
+    cumulativeIndex += tractate.totalMishnayot;
+  }
+
+  return globalChapter;
+}
+
+/**
+ * Get the first mishna index of a global chapter (0-based)
+ */
+export function getFirstIndexOfChapter(globalChapter: number): number {
+  if (globalChapter < 0) return 0;
+  if (globalChapter >= TOTAL_CHAPTERS) return TOTAL_MISHNAYOT - 1;
+
+  let currentGlobalChapter = 0;
+  let cumulativeIndex = 0;
+
+  for (const tractate of ALL_TRACTATES) {
+    for (let c = 0; c < tractate.chapters; c++) {
+      if (currentGlobalChapter === globalChapter) {
+        return cumulativeIndex;
+      }
+
+      // Move to next chapter
+      const chapterSize = tractate.mishnayotPerChapter && tractate.mishnayotPerChapter.length === tractate.chapters
+        ? tractate.mishnayotPerChapter[c]
+        : Math.ceil(tractate.totalMishnayot / tractate.chapters);
+      cumulativeIndex += chapterSize;
+      currentGlobalChapter++;
+    }
+  }
+
+  return Math.min(cumulativeIndex, TOTAL_MISHNAYOT - 1);
+}
+
+/**
+ * Get the last mishna index of a global chapter (0-based)
+ */
+export function getLastIndexOfChapter(globalChapter: number): number {
+  if (globalChapter < 0) return 0;
+  if (globalChapter >= TOTAL_CHAPTERS - 1) return TOTAL_MISHNAYOT - 1;
+
+  // Last index of chapter N = first index of chapter N+1 - 1
+  const nextChapterStart = getFirstIndexOfChapter(globalChapter + 1);
+  return Math.max(0, nextChapterStart - 1);
+}
+
+/**
  * Get items per day for a pace
  * For seder_per_year, this varies by seder
  */
@@ -552,17 +632,26 @@ export function getUnlockDate(
   startDate: Date,
   studyDaysConfig?: StudyDaysConfig
 ): string {
-  const itemsPerDay = getItemsPerDay(pace, index);
-  const studyDaysFromStart = Math.floor(index / itemsPerDay);
-  
+  // For one_chapter pace, each chapter = one study day
+  // For other paces, use items-per-day calculation
+  let studyDaysFromStart: number;
+
+  if (pace === 'one_chapter') {
+    // Use global chapter number as the study day
+    studyDaysFromStart = getGlobalChapterForIndex(index);
+  } else {
+    const itemsPerDay = getItemsPerDay(pace, index);
+    studyDaysFromStart = Math.floor(index / itemsPerDay);
+  }
+
   // Start from the first valid study day
   const validStartDate = getNextStudyDay(startDate, studyDaysConfig);
-  
+
   // Add study days (skipping Shabbat, Friday, Yom Tov as configured)
-  const unlockDate = studyDaysFromStart === 0 
-    ? validStartDate 
+  const unlockDate = studyDaysFromStart === 0
+    ? validStartDate
     : addStudyDays(validStartDate, studyDaysFromStart, studyDaysConfig);
-  
+
   return formatLocalDate(unlockDate);
 }
 
@@ -576,32 +665,61 @@ export function computePath(
   pageSize: number = 14 // Days per page
 ): PathNode[] {
   const { currentContentIndex, pace, startDate, reviewIntensity, studyDays } = progress;
-  const itemsPerDay = getItemsPerDay(pace, currentContentIndex);
-  
+
+  // For one_chapter pace, we use chapters as the unit, not items
+  // For other paces, use itemsPerDay
+  const itemsPerDay = pace === 'one_chapter' ? 8 : getItemsPerDay(pace, currentContentIndex); // Average for estimation
+  const daysPerPage = pageSize;
+
   // Page 0: show some completed items + first 14 days ahead
   // Page 1+: show next 14 days
   let startIndex: number;
   let endIndex: number;
-  
-  if (page === 0) {
-    // First page: 30 completed items back + 14 days ahead
-    const lookbackItems = Math.min(currentContentIndex, 30 * itemsPerDay);
-    startIndex = currentContentIndex - lookbackItems;
-    endIndex = Math.min(
-      currentContentIndex + pageSize * itemsPerDay,
-      TOTAL_MISHNAYOT - 1
-    );
+
+  if (pace === 'one_chapter') {
+    // For one_chapter pace, use chapter-based calculations
+    const currentChapter = getGlobalChapterForIndex(currentContentIndex);
+
+    if (page === 0) {
+      // First page: 30 chapters back + pageSize chapters ahead
+      const lookbackChapters = Math.min(currentChapter, 30);
+      const targetStartChapter = currentChapter - lookbackChapters;
+      const targetEndChapter = Math.min(currentChapter + daysPerPage, TOTAL_CHAPTERS - 1);
+
+      // Find the first index of the start chapter
+      startIndex = getFirstIndexOfChapter(targetStartChapter);
+      // Find the last index of the end chapter
+      endIndex = getLastIndexOfChapter(targetEndChapter);
+    } else {
+      // Subsequent pages: next pageSize chapters
+      const pageStartChapter = currentChapter + page * daysPerPage;
+      const pageEndChapter = Math.min(pageStartChapter + daysPerPage - 1, TOTAL_CHAPTERS - 1);
+
+      startIndex = getFirstIndexOfChapter(pageStartChapter);
+      endIndex = getLastIndexOfChapter(pageEndChapter);
+    }
   } else {
-    // Subsequent pages: next 14 days
-    const pageStartDays = page * pageSize;
-    startIndex = Math.min(
-      currentContentIndex + pageStartDays * itemsPerDay,
-      TOTAL_MISHNAYOT - 1
-    );
-    endIndex = Math.min(
-      currentContentIndex + (pageStartDays + pageSize) * itemsPerDay,
-      TOTAL_MISHNAYOT - 1
-    );
+    // For other paces, use items-per-day calculation
+    if (page === 0) {
+      // First page: 30 days back + 14 days ahead
+      const lookbackItems = Math.min(currentContentIndex, 30 * itemsPerDay);
+      startIndex = currentContentIndex - lookbackItems;
+      endIndex = Math.min(
+        currentContentIndex + daysPerPage * itemsPerDay,
+        TOTAL_MISHNAYOT - 1
+      );
+    } else {
+      // Subsequent pages: next 14 days
+      const pageStartDays = page * daysPerPage;
+      startIndex = Math.min(
+        currentContentIndex + pageStartDays * itemsPerDay,
+        TOTAL_MISHNAYOT - 1
+      );
+      endIndex = Math.min(
+        currentContentIndex + (pageStartDays + daysPerPage) * itemsPerDay,
+        TOTAL_MISHNAYOT - 1
+      );
+    }
   }
   
   const path: PathNode[] = [];
