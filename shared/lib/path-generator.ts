@@ -57,6 +57,7 @@ export interface PathNode {
   reviewInterval?: number; // Days since learned (e.g., 3 for "day 3 review")
   reviewRangeStart?: string; // First item in review range (Hebrew, e.g., "ברכות א:ג")
   reviewRangeEnd?: string; // Last item in review range (Hebrew, e.g., "ברכות ב:ד")
+  reviewItemIndexes?: number[]; // Content indexes of items to review (passed directly to review page)
 }
 
 export interface ReviewItem {
@@ -788,6 +789,7 @@ export function computePath(
         reviewInterval: reviewInterval,
         reviewRangeStart: reviewRangeStart,
         reviewRangeEnd: reviewRangeEnd,
+        reviewItemIndexes: sortedReviews.map(r => r.contentIndex), // Pass content indexes directly
       });
     }
     

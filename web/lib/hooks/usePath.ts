@@ -29,6 +29,7 @@ export interface PathNode {
   review_interval?: number; // Days since learned (e.g., 3 for "day 3 review")
   review_range_start?: string; // First item in review (Hebrew, e.g., "ברכות א:ג")
   review_range_end?: string; // Last item in review (Hebrew, e.g., "ברכות ב:ד")
+  review_item_indexes?: number[]; // Content indexes of items to review (passed directly to review page)
 }
 
 const PAGE_SIZE = 14; // Days per page
@@ -115,6 +116,7 @@ export function usePath() {
         review_interval: node.reviewInterval,
         review_range_start: node.reviewRangeStart,
         review_range_end: node.reviewRangeEnd,
+        review_item_indexes: node.reviewItemIndexes,
       };
     });
   }, []);

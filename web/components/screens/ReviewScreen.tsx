@@ -1,54 +1,109 @@
 /**
  * ReviewScreen - Tinder-style review session
  * Shows swipeable cards for items due for review
+ *
+ * Accepts content indexes directly via URL params (indexes=1,2,3)
+ * instead of re-computing reviews from date.
  */
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ReviewCard } from '../ui/ReviewCard';
-import { useReviews } from '@/lib/hooks/useReviews';
 import { getDatabase } from '@/lib/database/database';
 import { useTranslation } from '@/lib/i18n';
 import type { ContentCacheDoc } from '@/lib/database/schemas';
+import { getInfoForIndex } from '@shared/lib/path-generator';
+
+interface ReviewItemFromIndex {
+  contentRef: string;
+  contentIndex: number;
+  tractate: string;
+  tractateHebrew: string;
+  chapter: number;
+  mishna: number;
+}
 
 export function ReviewScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
-  
-  // Get date from URL query param (if provided by PathScreen)
-  const targetDate = searchParams.get('date') || undefined;
-  const { reviews, loading: reviewsLoading, hasReviews } = useReviews(targetDate);
-  
+
+  // Get content indexes from URL query param (passed by PathScreen)
+  const indexesParam = searchParams.get('indexes') || '';
+
+  // Parse indexes and build review items
+  const reviews = useMemo<ReviewItemFromIndex[]>(() => {
+    if (!indexesParam) {
+      console.log('[ReviewScreen] No indexes param provided');
+      return [];
+    }
+
+    const indexes = indexesParam.split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !isNaN(n));
+
+    console.log('[ReviewScreen] Parsed indexes:', indexes);
+
+    const items: ReviewItemFromIndex[] = [];
+    for (const index of indexes) {
+      const info = getInfoForIndex(index);
+      if (info) {
+        items.push({
+          contentRef: info.contentRef,
+          contentIndex: index,
+          tractate: info.tractate.english,
+          tractateHebrew: info.tractate.hebrew,
+          chapter: info.chapter,
+          mishna: info.mishna,
+        });
+      } else {
+        console.warn('[ReviewScreen] No info for index:', index);
+      }
+    }
+
+    console.log('[ReviewScreen] Built review items:', items.length);
+    return items;
+  }, [indexesParam]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [contentCache, setContentCache] = useState<Map<string, ContentCacheDoc>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Load content for review items
   useEffect(() => {
-    if (reviews.length === 0) return;
+    if (reviews.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     const loadContent = async () => {
       const db = await getDatabase();
-      if (!db) return;
-      
+      if (!db) {
+        setLoading(false);
+        return;
+      }
+
       const contentRefs = reviews.map(r => r.contentRef);
-      
+
       try {
         const docs = await db.content_cache
           .find({ selector: { ref_id: { $in: contentRefs } } })
           .exec();
-        
+
         const cache = new Map<string, ContentCacheDoc>();
         docs.forEach(doc => {
           cache.set(doc.ref_id, doc.toJSON() as ContentCacheDoc);
         });
         setContentCache(cache);
+        console.log('[ReviewScreen] Loaded content for', cache.size, 'items');
       } catch (error) {
         console.error('[ReviewScreen] Error loading content:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -79,7 +134,9 @@ export function ReviewScreen() {
     router.push('/');
   };
 
-  if (reviewsLoading) {
+  const hasReviews = reviews.length > 0;
+
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
         <p className="text-desert-oasis-accent">{t('review_session_loading')}</p>
@@ -121,7 +178,7 @@ export function ReviewScreen() {
           <h2 className="text-2xl font-source mb-4 text-[var(--text-primary)]">
             {t('review_session_complete')}
           </h2>
-          
+
           <p className="text-[var(--text-secondary)] mb-6">
             סיימת לחזור על {reviews.length} משניות
           </p>
@@ -141,11 +198,14 @@ export function ReviewScreen() {
   const content = currentReview ? contentCache.get(currentReview.contentRef) : null;
 
   // Parse AI explanation JSON if available
-  let explanation = '';
+  let reviewSummary = '';
+  let reviewHalakha = '';
   if (content?.ai_explanation_json) {
     try {
       const parsed = JSON.parse(content.ai_explanation_json);
-      explanation = parsed.brief_explanation || parsed.explanation || '';
+      // Use summary (like study page) not brief_explanation
+      reviewSummary = parsed.summary || '';
+      reviewHalakha = parsed.halakha || '';
     } catch {
       // Ignore parse errors
     }
@@ -169,7 +229,7 @@ export function ReviewScreen() {
             {currentIndex + 1}/{reviews.length}
           </span>
         </div>
-        
+
         {/* Progress bar */}
         <div className="max-w-lg mx-auto mt-2">
           <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -188,15 +248,15 @@ export function ReviewScreen() {
         <AnimatePresence mode="popLayout">
           {reviews.slice(currentIndex, currentIndex + 2).map((review, idx) => {
             const reviewContent = contentCache.get(review.contentRef);
-            let reviewSummary = '';
-            let reviewHalakha = '';
-            
+            let cardSummary = '';
+            let cardHalakha = '';
+
             if (reviewContent?.ai_explanation_json) {
               try {
                 const parsed = JSON.parse(reviewContent.ai_explanation_json);
                 // Use summary (like study page) not brief_explanation
-                reviewSummary = parsed.summary || '';
-                reviewHalakha = parsed.halakha || '';
+                cardSummary = parsed.summary || '';
+                cardHalakha = parsed.halakha || '';
               } catch {
                 // Ignore
               }
@@ -211,8 +271,8 @@ export function ReviewScreen() {
                 chapter={review.chapter}
                 mishna={review.mishna}
                 sourceText={reviewContent?.source_text_he}
-                explanation={reviewSummary}
-                halakha={reviewHalakha}
+                explanation={cardSummary}
+                halakha={cardHalakha}
                 heRef={reviewContent?.he_ref}
                 onNext={handleNext}
                 onDeeper={() => handleDeeper(review.contentIndex)}
