@@ -16,6 +16,7 @@ import { getDatabase } from '@/lib/database/database';
 import { useTranslation } from '@/lib/i18n';
 import type { ContentCacheDoc } from '@/lib/database/schemas';
 import { getInfoForIndex } from '@shared/lib/path-generator';
+import { supabase } from '@/lib/supabase/client';
 
 interface ReviewItemFromIndex {
   contentRef: string;
@@ -91,23 +92,74 @@ export function ReviewScreen() {
       console.log('[ReviewScreen] Looking for content refs:', contentRefs);
 
       try {
-        // First check what's in the cache
-        const allCached = await db.content_cache.find().exec();
-        console.log('[ReviewScreen] Total items in content_cache:', allCached.length);
-        if (allCached.length > 0) {
-          console.log('[ReviewScreen] Sample cached ref_ids:', allCached.slice(0, 5).map(d => d.ref_id));
-        }
-
-        const docs = await db.content_cache
+        // First try local RxDB cache
+        const localDocs = await db.content_cache
           .find({ selector: { ref_id: { $in: contentRefs } } })
           .exec();
 
         const cache = new Map<string, ContentCacheDoc>();
-        docs.forEach(doc => {
+        localDocs.forEach(doc => {
           cache.set(doc.ref_id, doc.toJSON() as ContentCacheDoc);
         });
+        console.log('[ReviewScreen] Found', cache.size, 'items in local cache');
+
+        // Check for missing refs that aren't in local cache
+        const missingRefs = contentRefs.filter(ref => !cache.has(ref));
+
+        if (missingRefs.length > 0) {
+          console.log('[ReviewScreen] Fetching', missingRefs.length, 'missing items from Supabase');
+
+          // Fetch from Supabase directly
+          const { data: supabaseData, error } = await supabase
+            .from('content_cache')
+            .select('*')
+            .in('ref_id', missingRefs);
+
+          if (error) {
+            console.error('[ReviewScreen] Supabase fetch error:', error);
+          } else if (supabaseData && supabaseData.length > 0) {
+            console.log('[ReviewScreen] Fetched', supabaseData.length, 'items from Supabase');
+
+            // Add to cache map
+            supabaseData.forEach((row: any) => {
+              cache.set(row.ref_id, {
+                id: row.id,
+                ref_id: row.ref_id,
+                source_text_he: row.source_text_he,
+                ai_explanation_json: typeof row.ai_explanation_json === 'string'
+                  ? row.ai_explanation_json
+                  : JSON.stringify(row.ai_explanation_json || {}),
+                he_ref: row.he_ref,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                _deleted: false,
+              });
+            });
+
+            // Also save to local RxDB for offline access
+            for (const row of supabaseData) {
+              try {
+                await db.content_cache.upsert({
+                  id: row.id,
+                  ref_id: row.ref_id,
+                  source_text_he: row.source_text_he,
+                  ai_explanation_json: typeof row.ai_explanation_json === 'string'
+                    ? row.ai_explanation_json
+                    : JSON.stringify(row.ai_explanation_json || {}),
+                  he_ref: row.he_ref,
+                  created_at: row.created_at,
+                  updated_at: row.updated_at || row.created_at,
+                  _deleted: false,
+                });
+              } catch (upsertError) {
+                console.warn('[ReviewScreen] Failed to cache locally:', row.ref_id, upsertError);
+              }
+            }
+          }
+        }
+
         setContentCache(cache);
-        console.log('[ReviewScreen] Loaded content for', cache.size, 'items out of', contentRefs.length, 'requested');
+        console.log('[ReviewScreen] Total content loaded:', cache.size, 'out of', contentRefs.length, 'requested');
       } catch (error) {
         console.error('[ReviewScreen] Error loading content:', error);
       } finally {
