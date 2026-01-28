@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   // Redirect to login if not authenticated
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!session) {
-      return NextResponse.redirect(new URL('/auth/login', request.url))
+      return NextResponse.redirect(new URL('/login', request.url))
     }
   }
 
