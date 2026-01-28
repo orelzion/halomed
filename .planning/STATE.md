@@ -10,27 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 2 of 4 (Admin Dashboard)
-Plan: 0 of TBD in current phase
-Status: Phase 1 verified and complete, ready to plan Phase 2
-Last activity: 2026-01-28 — Verified Phase 1 complete (7/7 must-haves verified)
+Plan: 1 of TBD in current phase
+Status: In progress - Plan 02-01 complete
+Last activity: 2026-01-28 — Completed 02-01-PLAN.md (Admin Route Protection Infrastructure)
 
-Progress: [████░░░░░░] 25%
+Progress: [████░░░░░░] 28%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 3 min
-- Total execution time: 0.18 hours
+- Total plans completed: 5
+- Average duration: 2.6 min
+- Total execution time: 0.22 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-analytics-foundation | 4 | 11min | 2.75min |
+| 02-admin-dashboard | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3min), 01-03 (2min), 01-02 (4min), 01-04 (2min)
+- Last 5 plans: 01-03 (2min), 01-02 (4min), 01-04 (2min), 02-01 (2min)
 - Trend: Consistently fast execution (2-4min per plan)
 
 *Updated after each plan completion*
@@ -56,6 +57,9 @@ Recent decisions affecting current work:
 | 01-04 | 30-minute refresh interval | Balances freshness with database load; admin can trigger manual refresh | Implemented |
 | 01-04 | CONCURRENT refresh strategy | Prevents blocking reads during refresh (requires unique indexes) | Implemented |
 | 01-04 | Health monitoring functions | health_check() and get_cron_job_status() provide visibility | Implemented |
+| 02-01 | Two-layer security model | Middleware checks authentication, database enforces admin role via is_admin() | Implemented |
+| 02-01 | LTR layout for admin dashboard | Admin dashboard English (LTR) vs main app Hebrew (RTL) | Implemented |
+| 02-01 | Enabled experimental.authInterrupts | Required for Next.js forbidden() function in Server Components | Implemented |
 | - | In-house analytics vs fix PostHog | PostHog not tailored to learning metrics; want control | Pending |
 | - | Admin-only analytics | Simplifies scope; user-facing stats deferred to future | Pending |
 | - | Quiz format (1 scenario + optional sevara) | Maintains coverage while preventing overwhelm | Pending |
@@ -73,7 +77,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-28 10:45:34 UTC
-Stopped at: Completed 01-04-PLAN.md (Analytics Cron Jobs) - Phase 1 complete
+Last session: 2026-01-28 20:52:27 UTC
+Stopped at: Completed 02-01-PLAN.md (Admin Route Protection Infrastructure)
 Resume file: None
-Next: Phase 1 complete. Ready for Phase 2 or admin dashboard development
+Next: Ready for Plan 02-02 (Analytics Dashboard UI)
