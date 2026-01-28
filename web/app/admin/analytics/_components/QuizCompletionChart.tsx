@@ -59,7 +59,8 @@ export function QuizCompletionChart({ data }: Props) {
               border: '1px solid hsl(var(--muted))',
               borderRadius: '8px',
             }}
-            formatter={(value: number, name: string) => {
+            formatter={(value, name) => {
+              if (typeof value !== 'number') return ['', '']
               if (name === 'completionRate') {
                 return [`${value.toFixed(1)}%`, 'Completion Rate']
               }

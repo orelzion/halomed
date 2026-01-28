@@ -55,10 +55,13 @@ export function PopularTracksChart({ data }: Props) {
               border: '1px solid hsl(var(--muted))',
               borderRadius: '8px',
             }}
-            formatter={(value: number, name: string) => [
-              name === 'users' ? value.toLocaleString() : `${value.toFixed(1)}%`,
-              name === 'users' ? 'Total Users' : 'Completion Rate',
-            ]}
+            formatter={(value, name) => {
+              if (typeof value !== 'number') return ['', '']
+              return [
+                name === 'users' ? value.toLocaleString() : `${value.toFixed(1)}%`,
+                name === 'users' ? 'Total Users' : 'Completion Rate',
+              ]
+            }}
           />
           <Bar dataKey="users" fill="#D4A373" name="users" />
         </BarChart>

@@ -60,12 +60,15 @@ export function StreakDropoffsChart({ data }: Props) {
               border: '1px solid hsl(var(--muted))',
               borderRadius: '8px',
             }}
-            formatter={(value: number, name: string) => [
-              name === 'streaksEnded'
-                ? value.toLocaleString()
-                : `${value.toFixed(1)}%`,
-              name === 'streaksEnded' ? 'Streaks Ended' : 'Percentage',
-            ]}
+            formatter={(value, name) => {
+              if (typeof value !== 'number') return ['', '']
+              return [
+                name === 'streaksEnded'
+                  ? value.toLocaleString()
+                  : `${value.toFixed(1)}%`,
+                name === 'streaksEnded' ? 'Streaks Ended' : 'Percentage',
+              ]
+            }}
           />
           <Area
             type="monotone"
