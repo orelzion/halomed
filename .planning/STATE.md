@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 1 of 4 (Analytics Foundation)
-Plan: 3 of TBD in current phase
-Status: In progress
-Last activity: 2026-01-28 — Completed 01-03-PLAN.md (Engagement Analytics Views)
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-28 — Completed 01-04-PLAN.md (Analytics Cron Jobs)
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 3 min
-- Total execution time: 0.15 hours
+- Total execution time: 0.18 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-analytics-foundation | 3 | 9min | 3min |
+| 01-analytics-foundation | 4 | 11min | 2.75min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3min), 01-03 (2min), 01-02 (4min)
-- Trend: Consistent velocity (2-4min per plan)
+- Last 5 plans: 01-01 (3min), 01-03 (2min), 01-02 (4min), 01-04 (2min)
+- Trend: Consistently fast execution (2-4min per plan)
 
 *Updated after each plan completion*
 
@@ -53,6 +53,9 @@ Recent decisions affecting current work:
 | 01-03 | Explanation engagement proxy metric | Use learning completion as proxy until explicit explanation click tracking added | Implemented |
 | 01-03 | Summary stats singleton pattern | Single-row materialized view for fast dashboard queries without WHERE clauses | Implemented |
 | 01-03 | 90-day rolling window for engagement | Limit engagement views to 90 days to keep aggregations fast | Implemented |
+| 01-04 | 30-minute refresh interval | Balances freshness with database load; admin can trigger manual refresh | Implemented |
+| 01-04 | CONCURRENT refresh strategy | Prevents blocking reads during refresh (requires unique indexes) | Implemented |
+| 01-04 | Health monitoring functions | health_check() and get_cron_job_status() provide visibility | Implemented |
 | - | In-house analytics vs fix PostHog | PostHog not tailored to learning metrics; want control | Pending |
 | - | Admin-only analytics | Simplifies scope; user-facing stats deferred to future | Pending |
 | - | Quiz format (1 scenario + optional sevara) | Maintains coverage while preventing overwhelm | Pending |
@@ -60,8 +63,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-1. **Set up pg_cron refresh jobs** - Materialized views need periodic refresh (next plan or separate task)
+1. **Register Auth Hook in Supabase Dashboard** - Required for is_admin() to work (manual step in Dashboard)
 2. **Add explicit explanation tracking** - Enhance learning_path table with explanation_opened_at timestamp for real engagement metrics
+3. **Build admin dashboard UI** - Create interface to visualize analytics data
 
 ### Blockers/Concerns
 
@@ -69,7 +73,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-28 12:39:54 UTC
-Stopped at: Completed 01-02-PLAN.md (Core Analytics Materialized Views)
+Last session: 2026-01-28 10:45:34 UTC
+Stopped at: Completed 01-04-PLAN.md (Analytics Cron Jobs) - Phase 1 complete
 Resume file: None
-Next: Continue Phase 1 with remaining analytics plans (refresh jobs, admin dashboard)
+Next: Phase 1 complete. Ready for Phase 2 or admin dashboard development
