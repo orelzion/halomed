@@ -47,10 +47,11 @@ Plans:
   3. Admin can filter metrics by date range (last day, week, month)
   4. Dashboard refreshes manually (no real-time updates required)
   5. Only users with admin role can view analytics page
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 02-01: TBD during planning
+- [ ] 02-01-PLAN.md — Infrastructure + route protection (middleware, server client, types, layout)
+- [ ] 02-02-PLAN.md — Dashboard UI (page, charts, date filter, refresh button)
 
 ### Phase 3: Quiz Generation
 **Goal**: System generates pedagogically-structured quiz questions in Hebrew with scenario and sevara types
@@ -90,6 +91,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Analytics Foundation | 4/4 | ✓ Complete | 2026-01-28 |
-| 2. Admin Dashboard | 0/TBD | Ready to plan | - |
+| 2. Admin Dashboard | 0/2 | Ready to execute | - |
 | 3. Quiz Generation | 0/TBD | Not started | - |
 | 4. Quiz Selection | 0/TBD | Not started | - |
