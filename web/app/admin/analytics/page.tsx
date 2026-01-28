@@ -23,6 +23,10 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
   const range = (params.range || '7d') as DateRange
   const supabase = await createClient()
 
+  // DEBUG: Check session and user
+  const { data: { session } } = await supabase.auth.getSession()
+  console.log('DEBUG - Session:', session?.user?.id, session?.user?.email)
+
   // ADMIN VALIDATION via RPC layer:
   // The RPC function get_summary_stats() enforces is_admin() at database level.
   // If user is not admin, function raises EXCEPTION with "Access denied" message.
@@ -31,9 +35,13 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
     'get_summary_stats'
   )
 
+  console.log('DEBUG - RPC result:', { data: summaryData, error: summaryError })
+
   if (summaryError) {
     // RPC returns "Access denied" for non-admin users
+    console.log('DEBUG - Error message:', summaryError.message)
     if (summaryError.message.includes('Access denied')) {
+      console.log('DEBUG - Calling forbidden()')
       forbidden()
     }
     console.error('Error fetching summary stats:', summaryError)
