@@ -81,36 +81,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANLYT-01 | TBD | Pending |
-| ANLYT-02 | TBD | Pending |
-| ANLYT-03 | TBD | Pending |
-| ANLYT-04 | TBD | Pending |
-| ANLYT-05 | TBD | Pending |
-| ANLYT-06 | TBD | Pending |
-| ANLYT-07 | TBD | Pending |
-| ANLYT-08 | TBD | Pending |
-| ANLYT-09 | TBD | Pending |
-| ANLYT-10 | TBD | Pending |
-| ANLYT-11 | TBD | Pending |
-| ANLYT-12 | TBD | Pending |
-| ANLYT-13 | TBD | Pending |
-| ANLYT-14 | TBD | Pending |
-| QUIZ-01 | TBD | Pending |
-| QUIZ-02 | TBD | Pending |
-| QUIZ-03 | TBD | Pending |
-| QUIZ-04 | TBD | Pending |
-| QUIZ-05 | TBD | Pending |
-| QUIZ-06 | TBD | Pending |
-| QUIZ-07 | TBD | Pending |
-| QUIZ-08 | TBD | Pending |
-| QUIZ-09 | TBD | Pending |
-| QUIZ-10 | TBD | Pending |
+| ANLYT-01 | Phase 1 | Pending |
+| ANLYT-02 | Phase 1 | Pending |
+| ANLYT-03 | Phase 1 | Pending |
+| ANLYT-04 | Phase 1 | Pending |
+| ANLYT-05 | Phase 1 | Pending |
+| ANLYT-06 | Phase 1 | Pending |
+| ANLYT-07 | Phase 2 | Pending |
+| ANLYT-08 | Phase 2 | Pending |
+| ANLYT-09 | Phase 2 | Pending |
+| ANLYT-10 | Phase 2 | Pending |
+| ANLYT-11 | Phase 2 | Pending |
+| ANLYT-12 | Phase 1 | Pending |
+| ANLYT-13 | Phase 1 | Pending |
+| ANLYT-14 | Phase 1 | Pending |
+| QUIZ-01 | Phase 3 | Pending |
+| QUIZ-02 | Phase 3 | Pending |
+| QUIZ-03 | Phase 3 | Pending |
+| QUIZ-04 | Phase 3 | Pending |
+| QUIZ-05 | Phase 4 | Pending |
+| QUIZ-06 | Phase 4 | Pending |
+| QUIZ-07 | Phase 4 | Pending |
+| QUIZ-08 | Phase 3 | Pending |
+| QUIZ-09 | Phase 3 | Pending |
+| QUIZ-10 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- Mapped to phases: 24
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-01-28*
-*Last updated: 2026-01-28 after initial definition*
+*Last updated: 2026-01-28 after roadmap creation*
