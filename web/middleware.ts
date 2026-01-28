@@ -25,11 +25,20 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
+  console.log('MIDDLEWARE DEBUG:', {
+    path: request.nextUrl.pathname,
+    hasSession: !!session,
+    userId: session?.user?.id,
+    email: session?.user?.email,
+  })
+
   // Redirect to login if not authenticated
   if (request.nextUrl.pathname.startsWith('/admin')) {
     if (!session) {
+      console.log('MIDDLEWARE: No session, redirecting to /login')
       return NextResponse.redirect(new URL('/login', request.url))
     }
+    console.log('MIDDLEWARE: Session exists, allowing access to admin')
   }
 
   return response
