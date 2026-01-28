@@ -20,18 +20,18 @@ Progress: [███░░░░░░░] 30%
 
 **Velocity:**
 - Total plans completed: 3
-- Average duration: 2.7 min
-- Total execution time: 0.13 hours
+- Average duration: 3 min
+- Total execution time: 0.15 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-analytics-foundation | 3 | 8min | 2.7min |
+| 01-analytics-foundation | 3 | 9min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3min), 01-02 (3min), 01-03 (2min)
-- Trend: Consistent velocity, slight improvement
+- Last 5 plans: 01-01 (3min), 01-03 (2min), 01-02 (4min)
+- Trend: Consistent velocity (2-4min per plan)
 
 *Updated after each plan completion*
 
@@ -47,6 +47,9 @@ Recent decisions affecting current work:
 | 01-01 | Analytics schema separation | Created separate 'analytics' schema (not 'public') to keep admin data out of realtime publication | Implemented |
 | 01-01 | Auth Hook over direct RLS queries | Use Auth Hook to inject user_role into JWT for efficient RLS without per-row subqueries | Implemented |
 | 01-01 | is_admin() wrapper function | Dedicated helper with STABLE + wrapped SELECT for query plan caching | Implemented |
+| 01-02 | Materialized views with unique indexes | Enables CONCURRENT refresh without blocking reads | Implemented |
+| 01-02 | Wrapper functions for analytics access | PostgreSQL RLS doesn't work on materialized views, use SECURITY DEFINER functions | Implemented |
+| 01-02 | Active Learning Days auto-excludes non-scheduled days | user_study_log only has rows for scheduled days, so counting respects Jewish calendar | Implemented |
 | 01-03 | Explanation engagement proxy metric | Use learning completion as proxy until explicit explanation click tracking added | Implemented |
 | 01-03 | Summary stats singleton pattern | Single-row materialized view for fast dashboard queries without WHERE clauses | Implemented |
 | 01-03 | 90-day rolling window for engagement | Limit engagement views to 90 days to keep aggregations fast | Implemented |
@@ -66,7 +69,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-28 10:38:00 UTC
-Stopped at: Completed 01-03-PLAN.md (Engagement Analytics Views)
+Last session: 2026-01-28 12:39:54 UTC
+Stopped at: Completed 01-02-PLAN.md (Core Analytics Materialized Views)
 Resume file: None
 Next: Continue Phase 1 with remaining analytics plans (refresh jobs, admin dashboard)
