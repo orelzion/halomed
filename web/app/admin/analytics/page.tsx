@@ -1,5 +1,9 @@
-import { forbidden } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuthContext } from '@/components/providers/AuthProvider'
+import { supabase } from '@/lib/supabase/client'
 import type {
   SummaryStats,
   PopularTrack,
@@ -14,47 +18,107 @@ import { QuizCompletionChart } from './_components/QuizCompletionChart'
 import { DateRangeFilter } from './_components/DateRangeFilter'
 import { RefreshButton } from './_components/RefreshButton'
 
-interface PageProps {
-  searchParams: Promise<{ range?: string }>
-}
+export default function AnalyticsPage() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuthContext()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState<SummaryStats | null>(null)
+  const [tracks, setTracks] = useState<PopularTrack[]>([])
+  const [streaks, setStreaks] = useState<StreakDropoff[]>([])
+  const [quizRates, setQuizRates] = useState<QuizCompletionRate[]>([])
+  const [range, setRange] = useState<DateRange>('7d')
 
-export default async function AnalyticsPage({ searchParams }: PageProps) {
-  const params = await searchParams
-  const range = (params.range || '7d') as DateRange
-  const supabase = await createClient()
+  // Check if user is admin
+  useEffect(() => {
+    async function checkAdminStatus() {
+      if (authLoading) return
 
-  // ADMIN VALIDATION via RPC layer:
-  // The RPC function get_summary_stats() enforces is_admin() at database level.
-  // If user is not admin, function raises EXCEPTION with "Access denied" message.
-  // This is the intentional security pattern - database is source of truth.
-  const { data: summaryData, error: summaryError } = await supabase.rpc(
-    'get_summary_stats'
-  )
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
-  if (summaryError) {
-    // RPC returns "Access denied" for non-admin users
-    if (summaryError.message.includes('Access denied')) {
-      forbidden()
+      // Check user_roles table
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+
+      if (error || data?.role !== 'admin') {
+        router.push('/') // Redirect non-admin users to home
+        return
+      }
+
+      setIsAdmin(true)
     }
-    console.error('Error fetching summary stats:', summaryError)
-    throw new Error('Failed to load analytics')
+
+    checkAdminStatus()
+  }, [user, authLoading, router])
+
+  // Fetch analytics data
+  useEffect(() => {
+    async function fetchAnalytics() {
+      if (!isAdmin) return
+
+      try {
+        const [summaryResult, tracksResult, streaksResult, quizResult] = await Promise.all([
+          supabase.rpc('get_summary_stats'),
+          supabase.rpc('get_popular_tracks'),
+          supabase.rpc('get_streak_dropoffs'),
+          supabase.rpc('get_quiz_completion_rates'),
+        ])
+
+        if (summaryResult.data) {
+          setSummary((summaryResult.data as SummaryStats[])[0] || null)
+        }
+        if (tracksResult.data) {
+          setTracks(tracksResult.data as PopularTrack[])
+        }
+        if (streaksResult.data) {
+          setStreaks(streaksResult.data as StreakDropoff[])
+        }
+        if (quizResult.data) {
+          setQuizRates(quizResult.data as QuizCompletionRate[])
+        }
+      } catch (error) {
+        console.error('Error fetching analytics:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+  }, [isAdmin])
+
+  // Filter quiz data by date range
+  const filteredQuizRates = quizRates.filter((d) => {
+    const now = new Date()
+    let cutoff: Date
+
+    switch (range) {
+      case '1d':
+        cutoff = new Date(now.setDate(now.getDate() - 1))
+        break
+      case '7d':
+        cutoff = new Date(now.setDate(now.getDate() - 7))
+        break
+      case '30d':
+        cutoff = new Date(now.setDate(now.getDate() - 30))
+        break
+    }
+
+    return new Date(d.week_start) >= cutoff
+  })
+
+  if (authLoading || loading || !isAdmin) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
   }
-
-  // Fetch all other analytics data in parallel
-  const [tracksResult, streaksResult, quizResult] = await Promise.all([
-    supabase.rpc('get_popular_tracks'),
-    supabase.rpc('get_streak_dropoffs'),
-    supabase.rpc('get_quiz_completion_rates'),
-  ])
-
-  // Type assertion - RPC returns array
-  const summary = (summaryData as SummaryStats[])?.[0] || null
-  const tracks = (tracksResult.data as PopularTrack[]) || []
-  const streaks = (streaksResult.data as StreakDropoff[]) || []
-  const quizRates = (quizResult.data as QuizCompletionRate[]) || []
-
-  // Filter quiz data by date range (client-side filter on pre-aggregated weekly data)
-  const filteredQuizRates = filterByDateRange(quizRates, range)
 
   return (
     <div className="space-y-8">
@@ -70,7 +134,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
           )}
         </div>
         <div className="flex items-center gap-4">
-          <DateRangeFilter />
+          <DateRangeFilter value={range} onChange={setRange} />
           <RefreshButton />
         </div>
       </div>
@@ -97,27 +161,4 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
       </div>
     </div>
   )
-}
-
-// Filter weekly data based on date range
-function filterByDateRange(
-  data: QuizCompletionRate[],
-  range: DateRange
-): QuizCompletionRate[] {
-  const now = new Date()
-  let cutoff: Date
-
-  switch (range) {
-    case '1d':
-      cutoff = new Date(now.setDate(now.getDate() - 1))
-      break
-    case '7d':
-      cutoff = new Date(now.setDate(now.getDate() - 7))
-      break
-    case '30d':
-      cutoff = new Date(now.setDate(now.getDate() - 30))
-      break
-  }
-
-  return data.filter((d) => new Date(d.week_start) >= cutoff)
 }
