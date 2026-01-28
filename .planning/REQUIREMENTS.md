@@ -7,12 +7,12 @@
 
 ### Analytics - Metrics Collection
 
-- [ ] **ANLYT-01**: System tracks Active Learning Days (only when content available, excludes Shabbat/holidays)
-- [ ] **ANLYT-02**: System tracks popular tracks (engagement by track)
-- [ ] **ANLYT-03**: System tracks streak drop-off points (where users lose momentum)
-- [ ] **ANLYT-04**: System tracks quiz completion rates (by week, by track)
-- [ ] **ANLYT-05**: System tracks review session usage frequency
-- [ ] **ANLYT-06**: System tracks explanation engagement (open rates)
+- [x] **ANLYT-01**: System tracks Active Learning Days (only when content available, excludes Shabbat/holidays)
+- [x] **ANLYT-02**: System tracks popular tracks (engagement by track)
+- [x] **ANLYT-03**: System tracks streak drop-off points (where users lose momentum)
+- [x] **ANLYT-04**: System tracks quiz completion rates (by week, by track)
+- [x] **ANLYT-05**: System tracks review session usage frequency
+- [x] **ANLYT-06**: System tracks explanation engagement (open rates)
 
 ### Analytics - Admin Dashboard
 
@@ -24,9 +24,9 @@
 
 ### Analytics - Technical Implementation
 
-- [ ] **ANLYT-12**: Analytics uses PostgreSQL materialized views for aggregation
-- [ ] **ANLYT-13**: Analytics is server-side only (no RxDB sync)
-- [ ] **ANLYT-14**: Admin access protected via Supabase RLS policies
+- [x] **ANLYT-12**: Analytics uses PostgreSQL materialized views for aggregation
+- [x] **ANLYT-13**: Analytics is server-side only (no RxDB sync)
+- [x] **ANLYT-14**: Admin access protected via Supabase RLS policies
 
 ### Quiz - Generation Format
 
@@ -81,20 +81,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANLYT-01 | Phase 1 | Pending |
-| ANLYT-02 | Phase 1 | Pending |
-| ANLYT-03 | Phase 1 | Pending |
-| ANLYT-04 | Phase 1 | Pending |
-| ANLYT-05 | Phase 1 | Pending |
-| ANLYT-06 | Phase 1 | Pending |
+| ANLYT-01 | Phase 1 | Complete |
+| ANLYT-02 | Phase 1 | Complete |
+| ANLYT-03 | Phase 1 | Complete |
+| ANLYT-04 | Phase 1 | Complete |
+| ANLYT-05 | Phase 1 | Complete |
+| ANLYT-06 | Phase 1 | Complete |
 | ANLYT-07 | Phase 2 | Pending |
 | ANLYT-08 | Phase 2 | Pending |
 | ANLYT-09 | Phase 2 | Pending |
 | ANLYT-10 | Phase 2 | Pending |
 | ANLYT-11 | Phase 2 | Pending |
-| ANLYT-12 | Phase 1 | Pending |
-| ANLYT-13 | Phase 1 | Pending |
-| ANLYT-14 | Phase 1 | Pending |
+| ANLYT-12 | Phase 1 | Complete |
+| ANLYT-13 | Phase 1 | Complete |
+| ANLYT-14 | Phase 1 | Complete |
 | QUIZ-01 | Phase 3 | Pending |
 | QUIZ-02 | Phase 3 | Pending |
 | QUIZ-03 | Phase 3 | Pending |

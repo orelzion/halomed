@@ -12,7 +12,7 @@ This milestone enhances HaLomeid with in-house analytics to understand user enga
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Analytics Foundation** - Database layer + metrics collection infrastructure
+- [x] **Phase 1: Analytics Foundation** - Database layer + metrics collection infrastructure
 - [ ] **Phase 2: Admin Dashboard** - Visualization + access control for engagement insights
 - [ ] **Phase 3: Quiz Generation** - Enhanced prompts with scenario/sevara questions
 - [ ] **Phase 4: Quiz Selection** - Pedagogical filtering + 20-question cap
@@ -32,10 +32,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Admin role infrastructure (schema, user_roles, auth hook)
-- [ ] 01-02-PLAN.md — Core analytics views (active days, popular tracks, streaks, quiz rates)
-- [ ] 01-03-PLAN.md — Engagement analytics views (review sessions, explanation engagement)
-- [ ] 01-04-PLAN.md — Scheduled refresh via pg_cron + health monitoring
+- [x] 01-01-PLAN.md — Admin role infrastructure (schema, user_roles, auth hook)
+- [x] 01-02-PLAN.md — Core analytics views (active days, popular tracks, streaks, quiz rates)
+- [x] 01-03-PLAN.md — Engagement analytics views (review sessions, explanation engagement)
+- [x] 01-04-PLAN.md — Scheduled refresh via pg_cron + health monitoring
 
 ### Phase 2: Admin Dashboard
 **Goal**: Admin can view engagement analytics through web-based dashboard on production deployment
@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Analytics Foundation | 0/4 | Ready to execute | - |
-| 2. Admin Dashboard | 0/TBD | Not started | - |
+| 1. Analytics Foundation | 4/4 | ✓ Complete | 2026-01-28 |
+| 2. Admin Dashboard | 0/TBD | Ready to plan | - |
 | 3. Quiz Generation | 0/TBD | Not started | - |
 | 4. Quiz Selection | 0/TBD | Not started | - |
