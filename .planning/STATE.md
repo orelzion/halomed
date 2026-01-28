@@ -10,28 +10,28 @@ See: .planning/PROJECT.md (updated 2026-01-28)
 ## Current Position
 
 Phase: 1 of 4 (Analytics Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-01-28 — Roadmap created with 4 phases covering 24 requirements
+Plan: 1 of TBD in current phase
+Status: In progress
+Last activity: 2026-01-28 — Completed 01-01-PLAN.md (Admin Role Infrastructure)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 10%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: N/A
-- Total execution time: 0 hours
+- Total plans completed: 1
+- Average duration: 3 min
+- Total execution time: 0.05 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-analytics-foundation | 1 | 3min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: None yet
-- Trend: N/A
+- Last 5 plans: 01-01 (3min)
+- Trend: Starting strong
 
 *Updated after each plan completion*
 
@@ -42,10 +42,15 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- In-house analytics vs fix PostHog: PostHog not tailored to learning metrics; want control (Pending)
-- Admin-only analytics: Simplifies scope; user-facing stats deferred to future (Pending)
-- Quiz format (1 scenario + optional sevara): Maintains coverage while preventing overwhelm (Pending)
-- Quiz generation uses Mishnah + Halakha: More context than source text alone (Pending)
+| Phase | Decision | Rationale | Status |
+|-------|----------|-----------|--------|
+| 01-01 | Analytics schema separation | Created separate 'analytics' schema (not 'public') to keep admin data out of realtime publication | Implemented |
+| 01-01 | Auth Hook over direct RLS queries | Use Auth Hook to inject user_role into JWT for efficient RLS without per-row subqueries | Implemented |
+| 01-01 | is_admin() wrapper function | Dedicated helper with STABLE + wrapped SELECT for query plan caching | Implemented |
+| - | In-house analytics vs fix PostHog | PostHog not tailored to learning metrics; want control | Pending |
+| - | Admin-only analytics | Simplifies scope; user-facing stats deferred to future | Pending |
+| - | Quiz format (1 scenario + optional sevara) | Maintains coverage while preventing overwhelm | Pending |
+| - | Quiz generation uses Mishnah + Halakha | More context than source text alone | Pending |
 
 ### Pending Todos
 
@@ -57,6 +62,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-28 (roadmap creation)
-Stopped at: Roadmap and STATE.md created, ready for Phase 1 planning
+Last session: 2026-01-28 11:51:48 UTC
+Stopped at: Completed 01-01-PLAN.md (Admin Role Infrastructure)
 Resume file: None
+Next: Continue Phase 1 with remaining analytics plans
