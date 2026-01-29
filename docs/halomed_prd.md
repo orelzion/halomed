@@ -1,9 +1,9 @@
 # Product Requirements Document (PRD)
 ## HaLomeid (הלומד)
 
-**Version:** 1.2  
-**Status:** Ready for Implementation  
-**Product Pillar:** Daily Learning  
+**Version:** 2.0
+**Status:** Current Implementation
+**Product Pillar:** Daily Learning
 **Theme:** Desert Oasis  
 
 ---
@@ -12,8 +12,15 @@
 
 **HaLomeid** is an offline-first daily learning application designed for religious and traditional users who seek a consistent, calm, and meaningful Torah study habit.
 
-The app delivers a single, clearly defined daily learning unit per track, enhanced by AI-generated explanations grounded in classical Jewish commentaries.  
-Learning availability is determined by **track-specific scheduling rules**, rather than user enforcement, ensuring a respectful and low-friction experience.
+The app guides users through the complete Mishnah (Shas) at their own pace, with AI-generated explanations grounded in classical Jewish commentaries.
+Learning availability is determined by **user preferences and scheduling rules**, rather than user enforcement, ensuring a respectful and low-friction experience.
+
+Users set their own:
+- **Pace**: How many mishnayot to learn per day
+- **Review intensity**: Spaced repetition frequency for retention
+- **Start date**: When they began their journey
+
+The app generates a personalized learning path with unlock dates for each unit, review sessions, and weekly quizzes.
 
 ---
 
@@ -35,29 +42,56 @@ Learning availability is determined by **track-specific scheduling rules**, rath
 
 ## 4. Learning Model
 
-### 4.1 Tracks
-- Each **Track** represents an independent learning path with its own scheduling rules.
-- MVP includes a single track: **Mishnah – Daily Chapter (Weekdays Only)**.
-- Users may join a track **at any point**, without a fixed global start date.
+### 4.1 Learning Path
+
+HaLomeid guides users through the complete Mishnah (Shas) - all 6 orders, 63 tractates, and 4,506 mishnayot.
+
+**Key Features:**
+- **Single sequence**: All users follow the same canonical order of Mishnah
+- **Personal pace**: Each user sets their own learning speed
+- **Unlock dates**: Content becomes available based on user's start date and pace
+- **No fixed schedule**: Users can start at any time and progress at their own rate
+
+### 4.2 User Preferences
+
+During onboarding, users configure their learning experience:
+
+**Pace Options:**
+- **Two Mishnayot** (default): ~10 years to complete
+- **One Chapter**: ~2 years to complete
+- **Seder per Year**: Complete one order (seder) every year
+
+**Review Intensity:**
+- **None**: No reviews (just forward progress)
+- **Light**: Review at 7 and 30 days after learning
+- **Medium**: Review at 3, 7, and 30 days
+- **Intensive**: Review at 1, 3, 7, 14, and 30 days
+
+**Study Days:**
+- Weekdays (Sunday-Thursday) by default
+- Friday: Optional
+- Saturday (Shabbat): Always skipped
+- Jewish holidays: Automatically skipped
 
 ---
 
-### 4.2 Track Scheduling
+### 4.3 Path Generation
 
-- Learning units are generated **server-side** based on the track’s scheduling definition.
-- For the MVP Mishnah track:
-  - Units are generated **only on weekdays**
-  - **Shabbat and Jewish holidays are excluded**
-- If a track has no unit scheduled for a given day:
-  - No learning unit is shown
-  - No completion is expected
-  - No streak impact occurs
+The learning path is generated server-side when a user:
+1. Completes onboarding (sets preferences)
+2. Changes their pace or review intensity
 
-Clients (mobile and web) are **fully passive** and render only the scheduled units provided by the backend.
+The path includes:
+- **Learning nodes**: Sequential Mishnah content
+- **Review sessions**: Spaced repetition based on intensity setting
+- **Weekly quizzes**: Assessments on Fridays covering the week's content
+- **Completion markers**: Visual celebrations for finishing chapters/tractates
+
+Each node has an **unlock date** calculated from the user's start date and pace. Content becomes available on its unlock date, not dependent on completing previous items.
 
 ---
 
-### 4.3 Daily Learning Unit Structure
+### 4.4 Daily Learning Unit Structure
 
 Each daily unit contains:
 
@@ -142,37 +176,44 @@ A calm, warm design inspired by parchment and quiet study spaces.
 ---
 
 ### 7.3 Completion Logic
-- Completion is **per track and per scheduled unit**
-- “Done” can be toggled on/off
-- Retroactive completion is allowed
+- Completion is **per learning node**
+- "Done" can be toggled on/off
+- Retroactive completion is allowed (can mark past units as completed)
 - Retroactive marking **does not affect the streak**
+- Completing a learning node advances the user's position (unlocks next content)
 
 ---
 
 ## 8. Streak Logic
 
-- Streaks are calculated **per track**
-- A streak represents consecutive **scheduled units** that were completed
-- Days without a scheduled unit:
-  - Do not increment the streak
-  - Do not break the streak
+- Streaks represent consecutive **study days** with completed learning
+- Only **learning nodes** (not reviews or quizzes) count toward the streak
+- Days without study (Shabbat, holidays, Fridays if skipped) do not affect the streak
+- Streak increments only when:
+  - A learning node is completed
+  - Completion occurs on or before the node's unlock date
+- Late completion (retroactive) does not contribute to the streak
 
-The streak is derived solely from completion of scheduled units, without any special calendar enforcement.
+The streak is derived from completion timestamps, encouraging daily consistency without enforcement.
 
 ---
 
 ## 9. Offline-First Behavior
 
-- The app syncs a rolling **14-day window** (±14 days from current date) of scheduled units
+- The app syncs a rolling **14-day window** (±14 days from current date) of learning path nodes
 - All platforms (Web, Android, iOS) implement consistent sync behavior
 - Content generation ensures all lessons and quizzes in the window are available
 - Offline mode supports:
-  - Reading content
+  - Reading content for unlocked nodes
   - Marking completion
   - Local streak calculation
+  - Viewing learning path and upcoming content
 - Sync occurs automatically when connectivity resumes
 - Non-intrusive sync indicator shows sync status without blocking UI
-- Network connectivity is required only for initial authentication and account upgrades
+- Network connectivity is required only for:
+  - Initial authentication
+  - Path generation (onboarding or preference changes)
+  - Account upgrades and linking
 
 ---
 
