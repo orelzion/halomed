@@ -64,10 +64,10 @@ export default function AnalyticsPage() {
 
       try {
         const [summaryResult, tracksResult, streaksResult, quizResult] = await Promise.all([
-          supabase.rpc('get_summary_stats'),
-          supabase.rpc('get_popular_tracks'),
-          supabase.rpc('get_streak_dropoffs'),
-          supabase.rpc('get_quiz_completion_rates'),
+          supabase.schema('analytics').rpc('get_summary_stats'),
+          supabase.schema('analytics').rpc('get_popular_tracks'),
+          supabase.schema('analytics').rpc('get_streak_dropoffs'),
+          supabase.schema('analytics').rpc('get_quiz_completion_rates'),
         ])
 
         if (summaryResult.data) {
