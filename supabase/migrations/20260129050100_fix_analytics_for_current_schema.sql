@@ -229,6 +229,8 @@ GRANT EXECUTE ON FUNCTION analytics.get_weekly_activity TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_weekly_activity TO authenticated;
 GRANT EXECUTE ON FUNCTION analytics.get_review_intensity_distribution TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_review_intensity_distribution TO authenticated;
+GRANT EXECUTE ON FUNCTION analytics.manual_refresh TO authenticated;
+GRANT EXECUTE ON FUNCTION public.manual_refresh TO authenticated;
 
 -- Populate views
 REFRESH MATERIALIZED VIEW analytics.summary_stats;
@@ -242,10 +244,20 @@ DROP FUNCTION IF EXISTS analytics.manual_refresh CASCADE;
 CREATE OR REPLACE FUNCTION analytics.manual_refresh()
 RETURNS void AS $$
 BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Access denied: Admin role required';
+  END IF;
   REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.summary_stats;
   REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.user_pace_distribution;
   REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.streak_distribution;
   REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.weekly_activity;
   REFRESH MATERIALIZED VIEW CONCURRENTLY analytics.review_intensity_distribution;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.manual_refresh()
+RETURNS void AS $$
+BEGIN
+  PERFORM analytics.manual_refresh();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
