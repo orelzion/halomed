@@ -149,15 +149,15 @@ export function usePath() {
     setCurrentPage(nextPage);
   }, [progress, currentPage, hasMore, allNodes, convertNodes]);
 
-  // Find current node index
+  // Find current node index (first uncompleted learning node)
   const currentNodeIndex = useMemo(() => {
     const idx = allNodes.findIndex(n => n.isCurrent);
     return idx >= 0 ? idx : null;
   }, [allNodes]);
 
-  return { 
-    nodes: allNodes, 
-    loading, 
+  return {
+    nodes: allNodes,
+    loading,
     currentNodeIndex,
     loadMore,
     hasMore,

@@ -259,26 +259,29 @@ export function PathScreen() {
   }, [pathname]);
   
   // Scroll to current node once when entering the path screen
+  // Current node is the first unlocked, uncompleted node (learning, review, or quiz)
   useEffect(() => {
     // Skip if we've already scrolled this visit
     if (hasScrolledThisVisitRef.current) return;
-    
+
     const isOnPathScreen = pathname === '/' || pathname === '/path';
     if (!isOnPathScreen || loading || nodes.length === 0 || currentNodeIndex === null) return;
-    
-    // Verify that the node at currentNodeIndex is actually the current (uncompleted) node
+
+    // Verify that the node exists
     const node = nodes[currentNodeIndex];
-    if (!node || !node.isCurrent || node.isLocked) return;
-    
+    if (!node) return;
+
     // All loaded nodes are visible, no need to check visibleCount
-    
+
     // Wait for ref to be attached to the DOM element
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        if (currentRef.current && !hasScrolledThisVisitRef.current) {
-          currentRef.current.scrollIntoView({ 
-            behavior: 'instant', 
-            block: 'center' 
+        // Find the ref for the current node
+        const element = document.querySelector(`[data-node-id="${node.id}"]`);
+        if (element && !hasScrolledThisVisitRef.current) {
+          element.scrollIntoView({
+            behavior: 'instant',
+            block: 'center'
           });
           hasScrolledThisVisitRef.current = true;
         }

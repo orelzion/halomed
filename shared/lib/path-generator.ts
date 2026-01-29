@@ -748,8 +748,9 @@ export function computePath(
   for (let i = startIndex; i <= endIndex; i++) {
     const info = getInfoForIndex(i);
     if (!info) continue;
-    
-    const isCurrent = i === currentContentIndex;
+
+    // Don't set isCurrent yet - we'll do it at the end for the first unlocked node
+    const isCompleted = i < currentContentIndex;
     const unlockDate = getUnlockDate(i, pace, startDate, studyDays);
     
     // Add review session node for this date if not already added
@@ -781,7 +782,7 @@ export function computePath(
         chapter: 0,
         mishna: 0,
         isCompleted: false,
-        isCurrent: false, // Review sessions are not "current" - user chooses when to do them
+        isCurrent: false, // Will be set at the end if this is the first unlocked node
         seder: '',
         unlockDate: unlockDate,
         nodeType: 'review_session',
@@ -801,8 +802,8 @@ export function computePath(
       tractateHebrew: info.tractate.hebrew,
       chapter: info.chapter,
       mishna: info.mishna,
-      isCompleted: i < currentContentIndex,
-      isCurrent: isCurrent, // Learning node is current regardless of reviews
+      isCompleted: isCompleted,
+      isCurrent: false, // Will be set at the end if this is the first unlocked node
       seder: info.tractate.seder,
       unlockDate: unlockDate,
       nodeType: 'learning',
@@ -864,7 +865,7 @@ export function computePath(
         chapter: info.chapter,
         mishna: 0,
         isCompleted: quizIsCompleted,
-        isCurrent: quizIsAvailable && !quizIsCompleted && i >= currentContentIndex,
+        isCurrent: false, // Will be set at the end if this is the first unlocked node
         seder: info.tractate.seder,
         unlockDate: currentWeekFriday,
         nodeType: 'weekly_quiz',
@@ -878,7 +879,22 @@ export function computePath(
       currentWeekFriday = null;
     }
   }
-  
+
+  // Mark the first unlocked, uncompleted node as "current"
+  // This could be a review, quiz, or learning node
+  const today = formatLocalDate(new Date());
+  for (const node of path) {
+    // Skip dividers
+    if (node.nodeType === 'divider') continue;
+
+    // Check if this node is unlocked and not completed
+    const isUnlocked = node.unlockDate <= today;
+    if (isUnlocked && !node.isCompleted) {
+      node.isCurrent = true;
+      break; // Only mark the first one as current
+    }
+  }
+
   return path;
 }
 
