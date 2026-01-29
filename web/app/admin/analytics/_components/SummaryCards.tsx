@@ -23,17 +23,17 @@ export function SummaryCards({ data }: Props) {
     },
     {
       label: 'Completion Rate',
-      value: `${data.completion_rate_30d.toFixed(1)}%`,
+      value: data.completion_rate_30d !== null ? `${data.completion_rate_30d.toFixed(1)}%` : 'N/A',
       subtext: 'Last 30 days',
     },
     {
       label: 'Quiz Completion',
-      value: `${data.quiz_completion_rate_30d.toFixed(1)}%`,
+      value: data.quiz_completion_rate_30d !== null ? `${data.quiz_completion_rate_30d.toFixed(1)}%` : 'N/A',
       subtext: 'Last 30 days',
     },
     {
       label: 'Review Completion',
-      value: `${data.review_completion_rate_30d.toFixed(1)}%`,
+      value: data.review_completion_rate_30d !== null ? `${data.review_completion_rate_30d.toFixed(1)}%` : 'N/A',
       subtext: 'Last 30 days',
     },
   ]
