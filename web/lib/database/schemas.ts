@@ -7,18 +7,6 @@
 import type { RxJsonSchema, RxCollection, RxDocument } from 'rxdb';
 
 // Document types for each collection
-export interface UserStudyLogDoc {
-  id: string;
-  user_id: string;
-  track_id: string;
-  study_date: string;
-  content_id?: string;
-  is_completed: number;
-  completed_at?: string;
-  updated_at: string;
-  _deleted: boolean;
-}
-
 export interface ContentCacheDoc {
   id: string;
   ref_id: string;
@@ -26,16 +14,6 @@ export interface ContentCacheDoc {
   ai_explanation_json: string;
   he_ref?: string;
   created_at: string;
-  updated_at: string;
-  _deleted: boolean;
-}
-
-export interface TracksDoc {
-  id: string;
-  title: string;
-  source_endpoint?: string;
-  schedule_type: string;
-  start_date?: string;
   updated_at: string;
   _deleted: boolean;
 }
@@ -98,26 +76,6 @@ export interface QuizQuestionsDoc {
   _deleted: boolean;
 }
 
-// User Study Log Schema
-export const userStudyLogSchema: RxJsonSchema<UserStudyLogDoc> = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    user_id: { type: 'string' },
-    track_id: { type: 'string' },
-    study_date: { type: 'string' }, // YYYY-MM-DD
-    content_id: { type: 'string' }, // nullable
-    is_completed: { type: 'number' }, // 0 or 1 (boolean as integer)
-    completed_at: { type: 'string' }, // ISO timestamp, nullable
-    updated_at: { type: 'string' }, // ISO timestamp
-    _deleted: { type: 'boolean' }, // Soft delete flag
-  },
-  required: ['id', 'user_id', 'track_id', 'study_date', 'updated_at', '_deleted'],
-  indexes: ['user_id', 'track_id', 'study_date', ['user_id', 'study_date'], ['user_id', 'track_id']],
-};
-
 // Content Cache Schema
 export const contentCacheSchema: RxJsonSchema<ContentCacheDoc> = {
   version: 0,
@@ -135,23 +93,6 @@ export const contentCacheSchema: RxJsonSchema<ContentCacheDoc> = {
   },
   required: ['id', 'ref_id', 'source_text_he', 'ai_explanation_json', 'created_at', 'updated_at', '_deleted'],
   indexes: ['ref_id'],
-};
-
-// Tracks Schema
-export const tracksSchema: RxJsonSchema<TracksDoc> = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    title: { type: 'string' },
-    source_endpoint: { type: 'string' },
-    schedule_type: { type: 'string' },
-    start_date: { type: 'string' }, // YYYY-MM-DD, nullable
-    updated_at: { type: 'string' }, // ISO timestamp
-    _deleted: { type: 'boolean' }, // Soft delete flag
-  },
-  required: ['id', 'title', 'schedule_type', 'updated_at', '_deleted'],
 };
 
 // User Preferences Schema
@@ -231,26 +172,20 @@ export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
 };
 
 // RxDB collection types
-export type UserStudyLogCollection = RxCollection<UserStudyLogDoc>;
 export type ContentCacheCollection = RxCollection<ContentCacheDoc>;
-export type TracksCollection = RxCollection<TracksDoc>;
 export type UserPreferencesCollection = RxCollection<UserPreferencesDoc>;
 export type LearningPathCollection = RxCollection<LearningPathDoc>;
 export type QuizQuestionsCollection = RxCollection<QuizQuestionsDoc>;
 
 // RxDB document types
-export type UserStudyLogDocument = RxDocument<UserStudyLogDoc>;
 export type ContentCacheDocument = RxDocument<ContentCacheDoc>;
-export type TracksDocument = RxDocument<TracksDoc>;
 export type UserPreferencesDocument = RxDocument<UserPreferencesDoc>;
 export type LearningPathDocument = RxDocument<LearningPathDoc>;
 export type QuizQuestionsDocument = RxDocument<QuizQuestionsDoc>;
 
 // Database collections type
 export interface DatabaseCollections {
-  user_study_log: UserStudyLogCollection;
   content_cache: ContentCacheCollection;
-  tracks: TracksCollection;
   user_preferences: UserPreferencesCollection;
   learning_path: LearningPathCollection;
   quiz_questions: QuizQuestionsCollection;
