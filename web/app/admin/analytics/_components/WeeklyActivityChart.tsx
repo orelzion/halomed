@@ -11,17 +11,17 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { format } from 'date-fns'
-import type { QuizCompletionRate } from '@/types/analytics'
+import type { WeeklyActivity } from '@/types/analytics'
 
 interface Props {
-  data: QuizCompletionRate[]
+  data: WeeklyActivity[]
 }
 
-export function QuizCompletionChart({ data }: Props) {
+export function WeeklyActivityChart({ data }: Props) {
   if (data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-muted-foreground">
-        No quiz data available for this period
+        No activity data available for this period
       </div>
     )
   }
@@ -33,9 +33,11 @@ export function QuizCompletionChart({ data }: Props) {
     )
     .map((d) => ({
       week: format(new Date(d.week_start), 'MMM dd'),
-      completionRate: d.completion_rate_pct,
-      totalQuizzes: d.total_quizzes,
+      activeUsers: d.active_users,
+      completionRate: d.overall_completion_rate,
+      completedLearning: d.completed_learning,
       completedQuizzes: d.completed_quizzes,
+      completedReviews: d.completed_reviews,
     }))
 
   return (
@@ -44,15 +46,7 @@ export function QuizCompletionChart({ data }: Props) {
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
           <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
-          <YAxis
-            domain={[0, 100]}
-            stroke="hsl(var(--muted-foreground))"
-            label={{
-              value: 'Completion %',
-              angle: -90,
-              position: 'insideLeft',
-            }}
-          />
+          <YAxis stroke="hsl(var(--muted-foreground))" />
           <Tooltip
             contentStyle={{
               backgroundColor: 'hsl(var(--card))',
@@ -70,10 +64,18 @@ export function QuizCompletionChart({ data }: Props) {
           <Legend />
           <Line
             type="monotone"
-            dataKey="completionRate"
+            dataKey="activeUsers"
             stroke="#D4A373"
             strokeWidth={2}
             dot={{ fill: '#D4A373' }}
+            name="Active Users"
+          />
+          <Line
+            type="monotone"
+            dataKey="completionRate"
+            stroke="#CCD5AE"
+            strokeWidth={2}
+            dot={{ fill: '#CCD5AE' }}
             name="Completion Rate (%)"
           />
         </LineChart>

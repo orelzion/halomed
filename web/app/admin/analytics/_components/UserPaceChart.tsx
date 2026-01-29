@@ -9,46 +9,34 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type { PopularTrack } from '@/types/analytics'
+import type { UserPaceDistribution } from '@/types/analytics'
 
 interface Props {
-  data: PopularTrack[]
+  data: UserPaceDistribution[]
 }
 
-export function PopularTracksChart({ data }: Props) {
+export function UserPaceChart({ data }: Props) {
   if (data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-muted-foreground">
-        No track data available
+        No pace data available
       </div>
     )
   }
 
-  // Sort by total users and take top 10
-  const chartData = [...data]
-    .sort((a, b) => b.total_users - a.total_users)
-    .slice(0, 10)
-    .map((d) => ({
-      name: d.track_title.length > 20
-        ? d.track_title.slice(0, 20) + '...'
-        : d.track_title,
-      users: d.total_users,
-      completionRate: d.completion_rate_pct,
-    }))
+  const chartData = data.map((d) => ({
+    pace: d.pace,
+    users: d.user_count,
+    percentage: d.percentage,
+  }))
 
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} layout="vertical">
+        <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
-          <XAxis type="number" stroke="hsl(var(--muted-foreground))" />
-          <YAxis
-            dataKey="name"
-            type="category"
-            width={150}
-            stroke="hsl(var(--muted-foreground))"
-            tick={{ fontSize: 12 }}
-          />
+          <XAxis dataKey="pace" stroke="hsl(var(--muted-foreground))" />
+          <YAxis stroke="hsl(var(--muted-foreground))" />
           <Tooltip
             contentStyle={{
               backgroundColor: 'hsl(var(--card))',
@@ -59,7 +47,7 @@ export function PopularTracksChart({ data }: Props) {
               if (typeof value !== 'number') return ['', '']
               return [
                 name === 'users' ? value.toLocaleString() : `${value.toFixed(1)}%`,
-                name === 'users' ? 'Total Users' : 'Completion Rate',
+                name === 'users' ? 'Users' : 'Percentage',
               ]
             }}
           />

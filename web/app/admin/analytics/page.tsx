@@ -6,15 +6,16 @@ import { useAuthContext } from '@/components/providers/AuthProvider'
 import { supabase } from '@/lib/supabase/client'
 import type {
   SummaryStats,
-  PopularTrack,
-  StreakDropoff,
-  QuizCompletionRate,
+  UserPaceDistribution,
+  StreakDistribution,
+  WeeklyActivity,
+  ReviewIntensityDistribution,
   DateRange,
 } from '@/types/analytics'
 import { SummaryCards } from './_components/SummaryCards'
-import { PopularTracksChart } from './_components/PopularTracksChart'
-import { StreakDropoffsChart } from './_components/StreakDropoffsChart'
-import { QuizCompletionChart } from './_components/QuizCompletionChart'
+import { UserPaceChart } from './_components/UserPaceChart'
+import { StreakDistributionChart } from './_components/StreakDistributionChart'
+import { WeeklyActivityChart } from './_components/WeeklyActivityChart'
 import { DateRangeFilter } from './_components/DateRangeFilter'
 import { RefreshButton } from './_components/RefreshButton'
 
@@ -24,9 +25,9 @@ export default function AnalyticsPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<SummaryStats | null>(null)
-  const [tracks, setTracks] = useState<PopularTrack[]>([])
-  const [streaks, setStreaks] = useState<StreakDropoff[]>([])
-  const [quizRates, setQuizRates] = useState<QuizCompletionRate[]>([])
+  const [userPace, setUserPace] = useState<UserPaceDistribution[]>([])
+  const [streaks, setStreaks] = useState<StreakDistribution[]>([])
+  const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivity[]>([])
   const [range, setRange] = useState<DateRange>('7d')
 
   // Check if user is admin
@@ -63,24 +64,24 @@ export default function AnalyticsPage() {
       if (!isAdmin) return
 
       try {
-        const [summaryResult, tracksResult, streaksResult, quizResult] = await Promise.all([
+        const [summaryResult, paceResult, streakResult, activityResult] = await Promise.all([
           supabase.rpc('get_summary_stats'),
-          supabase.rpc('get_popular_tracks'),
-          supabase.rpc('get_streak_dropoffs'),
-          supabase.rpc('get_quiz_completion_rates'),
+          supabase.rpc('get_user_pace_distribution'),
+          supabase.rpc('get_streak_distribution'),
+          supabase.rpc('get_weekly_activity'),
         ])
 
         if (summaryResult.data) {
           setSummary((summaryResult.data as SummaryStats[])[0] || null)
         }
-        if (tracksResult.data) {
-          setTracks(tracksResult.data as PopularTrack[])
+        if (paceResult.data) {
+          setUserPace(paceResult.data as UserPaceDistribution[])
         }
-        if (streaksResult.data) {
-          setStreaks(streaksResult.data as StreakDropoff[])
+        if (streakResult.data) {
+          setStreaks(streakResult.data as StreakDistribution[])
         }
-        if (quizResult.data) {
-          setQuizRates(quizResult.data as QuizCompletionRate[])
+        if (activityResult.data) {
+          setWeeklyActivity(activityResult.data as WeeklyActivity[])
         }
       } catch (error) {
         console.error('Error fetching analytics:', error)
@@ -92,8 +93,8 @@ export default function AnalyticsPage() {
     fetchAnalytics()
   }, [isAdmin])
 
-  // Filter quiz data by date range
-  const filteredQuizRates = quizRates.filter((d) => {
+  // Filter weekly activity by date range
+  const filteredActivity = weeklyActivity.filter((d) => {
     const now = new Date()
     let cutoff: Date
 
@@ -143,20 +144,20 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card rounded-lg border border-muted p-6">
-          <h2 className="text-lg font-semibold mb-4">Popular Tracks</h2>
-          <PopularTracksChart data={tracks} />
+          <h2 className="text-lg font-semibold mb-4">User Pace Distribution</h2>
+          <UserPaceChart data={userPace} />
         </div>
 
         <div className="bg-card rounded-lg border border-muted p-6">
-          <h2 className="text-lg font-semibold mb-4">Streak Drop-offs</h2>
-          <StreakDropoffsChart data={streaks} />
+          <h2 className="text-lg font-semibold mb-4">Streak Distribution</h2>
+          <StreakDistributionChart data={streaks} />
         </div>
 
         <div className="bg-card rounded-lg border border-muted p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold mb-4">
-            Quiz Completion Rate ({range === '1d' ? 'Today' : range === '7d' ? 'Last Week' : 'Last Month'})
+            Weekly Activity ({range === '1d' ? 'Today' : range === '7d' ? 'Last Week' : 'Last Month'})
           </h2>
-          <QuizCompletionChart data={filteredQuizRates} />
+          <WeeklyActivityChart data={filteredActivity} />
         </div>
       </div>
     </div>

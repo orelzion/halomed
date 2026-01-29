@@ -1,21 +1,21 @@
 'use client'
 
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import type { StreakDropoff } from '@/types/analytics'
+import type { StreakDistribution } from '@/types/analytics'
 
 interface Props {
-  data: StreakDropoff[]
+  data: StreakDistribution[]
 }
 
-export function StreakDropoffsChart({ data }: Props) {
+export function StreakDistributionChart({ data }: Props) {
   if (data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-muted-foreground">
@@ -24,24 +24,22 @@ export function StreakDropoffsChart({ data }: Props) {
     )
   }
 
-  const chartData = data
-    .sort((a, b) => a.days_before_dropoff - b.days_before_dropoff)
-    .map((d) => ({
-      day: d.days_before_dropoff,
-      streaksEnded: d.num_streaks_ended,
-      percentage: d.percentage,
-    }))
+  const chartData = data.map((d) => ({
+    range: d.streak_range,
+    users: d.user_count,
+    percentage: d.percentage,
+  }))
 
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={chartData}>
+        <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
           <XAxis
-            dataKey="day"
+            dataKey="range"
             stroke="hsl(var(--muted-foreground))"
             label={{
-              value: 'Days Before Drop-off',
+              value: 'Streak Days',
               position: 'insideBottom',
               offset: -5,
             }}
@@ -49,7 +47,7 @@ export function StreakDropoffsChart({ data }: Props) {
           <YAxis
             stroke="hsl(var(--muted-foreground))"
             label={{
-              value: 'Streaks Ended',
+              value: 'Users',
               angle: -90,
               position: 'insideLeft',
             }}
@@ -63,21 +61,13 @@ export function StreakDropoffsChart({ data }: Props) {
             formatter={(value, name) => {
               if (typeof value !== 'number') return ['', '']
               return [
-                name === 'streaksEnded'
-                  ? value.toLocaleString()
-                  : `${value.toFixed(1)}%`,
-                name === 'streaksEnded' ? 'Streaks Ended' : 'Percentage',
+                name === 'users' ? value.toLocaleString() : `${value.toFixed(1)}%`,
+                name === 'users' ? 'Users' : 'Percentage',
               ]
             }}
           />
-          <Area
-            type="monotone"
-            dataKey="streaksEnded"
-            stroke="#D4A373"
-            fill="#D4A373"
-            fillOpacity={0.3}
-          />
-        </AreaChart>
+          <Bar dataKey="users" fill="#D4A373" name="users" />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   )
