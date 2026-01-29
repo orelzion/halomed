@@ -330,7 +330,40 @@ export function QuizScreen() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // Mark quiz node as completed in learning_path
+    if (quizContentRef) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          // Find the quiz node by content_ref
+          const quizNodes = await db.learning_path
+            .find({
+              selector: {
+                content_ref: quizContentRef,
+                node_type: 'weekly_quiz',
+              },
+            })
+            .exec();
+
+          if (quizNodes.length > 0) {
+            const quizNode = quizNodes[0];
+            await quizNode.update({
+              $set: {
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            });
+            console.log('[QuizScreen] Marked quiz as completed:', quizContentRef);
+          } else {
+            console.warn('[QuizScreen] Quiz node not found in learning_path:', quizContentRef);
+          }
+        }
+      } catch (error) {
+        console.error('[QuizScreen] Error marking quiz as completed:', error);
+      }
+    }
+
     router.push('/');
   };
 

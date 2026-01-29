@@ -322,13 +322,11 @@ export function SyncProvider({ children }: SyncProviderProps) {
         // Setup replication
         const replicationStates = await setupReplication(database, session.user.id);
         replicationStatesRef.current = [
-          replicationStates.userStudyLog,
           replicationStates.contentCache,
-          replicationStates.tracks,
           replicationStates.userPreferences,
           replicationStates.learningPath,
           replicationStates.quizQuestions,
-        ];
+        ].filter(Boolean); // Filter out null values (e.g., learningPath if disabled)
 
         console.log('[RxDB] Replication setup complete');
 

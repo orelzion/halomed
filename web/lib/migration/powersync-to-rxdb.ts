@@ -145,14 +145,14 @@ export async function migrateFromPowerSync(
   console.log('[Migration] Starting PowerSync to RxDB migration...');
 
   try {
-    // Migrate user_study_log
-    console.log('[Migration] Migrating user_study_log...');
-    const studyLogs = normalizeRows(await powerSyncDb.getAll('SELECT * FROM user_study_log').catch(() => []));
-    if (studyLogs.length > 0) {
-      const converted = studyLogs.map((log: any) => convertToRxDBFormat(log, 'user_study_log'));
-      await rxdb.user_study_log.bulkInsert(converted);
-      console.log(`[Migration] Migrated ${converted.length} user_study_log entries`);
-    }
+    // DEPRECATED: user_study_log table removed (replaced by user_preferences + learning_path)
+    // console.log('[Migration] Migrating user_study_log...');
+    // const studyLogs = normalizeRows(await powerSyncDb.getAll('SELECT * FROM user_study_log').catch(() => []));
+    // if (studyLogs.length > 0) {
+    //   const converted = studyLogs.map((log: any) => convertToRxDBFormat(log, 'user_study_log'));
+    //   await rxdb.user_study_log.bulkInsert(converted);
+    //   console.log(`[Migration] Migrated ${converted.length} user_study_log entries`);
+    // }
 
     // Migrate content_cache
     console.log('[Migration] Migrating content_cache...');
@@ -163,14 +163,14 @@ export async function migrateFromPowerSync(
       console.log(`[Migration] Migrated ${converted.length} content_cache entries`);
     }
 
-    // Migrate tracks
-    console.log('[Migration] Migrating tracks...');
-    const tracks = normalizeRows(await powerSyncDb.getAll('SELECT * FROM tracks').catch(() => []));
-    if (tracks.length > 0) {
-      const converted = tracks.map((track: any) => convertToRxDBFormat(track, 'tracks'));
-      await rxdb.tracks.bulkInsert(converted);
-      console.log(`[Migration] Migrated ${converted.length} tracks`);
-    }
+    // DEPRECATED: tracks table removed (replaced by user_preferences + learning_path)
+    // console.log('[Migration] Migrating tracks...');
+    // const tracks = normalizeRows(await powerSyncDb.getAll('SELECT * FROM tracks').catch(() => []));
+    // if (tracks.length > 0) {
+    //   const converted = tracks.map((track: any) => convertToRxDBFormat(track, 'tracks'));
+    //   await rxdb.tracks.bulkInsert(converted);
+    //   console.log(`[Migration] Migrated ${converted.length} tracks`);
+    // }
 
     // Migrate user_preferences
     console.log('[Migration] Migrating user_preferences...');

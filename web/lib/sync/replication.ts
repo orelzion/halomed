@@ -30,9 +30,7 @@ export async function setupReplication(
   db: RxDatabase<DatabaseCollections>,
   userId: string
 ): Promise<{
-  userStudyLog: any;
   contentCache: any;
-  tracks: any;
   userPreferences: any;
   learningPath: any | null; // Deprecated: position-based model doesn't need learning_path sync
   quizQuestions: any;
@@ -107,8 +105,9 @@ export async function setupReplication(
     return row;
   };
 
-  // Setup user_study_log replication with 14-day window filtering
-  const userStudyLogReplication = replicateRxCollection({
+  // DEPRECATED: user_study_log table removed (replaced by user_preferences + learning_path)
+  // Keeping this commented for reference - replication code can be removed in future cleanup
+  /* const userStudyLogReplication = replicateRxCollection({
     collection: db.user_study_log,
     replicationIdentifier: 'user_study_log-supabase',
     live: true,
@@ -192,7 +191,7 @@ export async function setupReplication(
       batchSize: 50,
     },
     deletedField: '_deleted',
-  });
+  }); */
 
   // Setup content_cache replication with position-based filtering
   // Compute which content refs to sync based on user's current position from LOCAL RxDB
@@ -271,8 +270,9 @@ export async function setupReplication(
     deletedField: '_deleted',
   });
 
-  // Setup tracks replication (all tracks, no filtering)
-  const tracksReplication = replicateRxCollection({
+  // DEPRECATED: tracks table removed (replaced by user_preferences + learning_path)
+  // Keeping this commented for reference - replication code can be removed in future cleanup
+  /* const tracksReplication = replicateRxCollection({
     collection: db.tracks,
     replicationIdentifier: 'tracks-supabase',
     live: true,
@@ -344,7 +344,7 @@ export async function setupReplication(
       batchSize: 50,
     },
     deletedField: '_deleted',
-  });
+  }); */
 
   // Setup user_preferences replication
   const userPreferencesReplication = replicateRxCollection({
@@ -510,9 +510,7 @@ export async function setupReplication(
   // Wait for initial replication to complete
   console.log('[Replication] Waiting for initial replication...');
   await Promise.all([
-    userStudyLogReplication.awaitInitialReplication(),
     contentCacheReplication.awaitInitialReplication(),
-    tracksReplication.awaitInitialReplication(),
     userPreferencesReplication.awaitInitialReplication(),
     // learningPathReplication disabled - position-based model
     quizQuestionsReplication.awaitInitialReplication(),
@@ -557,9 +555,7 @@ export async function setupReplication(
 
   // Return replication states for monitoring
   return {
-    userStudyLog: userStudyLogReplication,
     contentCache: contentCacheReplication,
-    tracks: tracksReplication,
     userPreferences: userPreferencesReplication,
     learningPath: learningPathReplication,
     quizQuestions: quizQuestionsReplication,
