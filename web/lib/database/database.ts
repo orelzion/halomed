@@ -10,7 +10,9 @@ import './polyfill';
 import type { RxDatabase } from 'rxdb';
 // Note: RxDB core functions are imported dynamically to avoid webpack/SSR issues
 import {
+  userStudyLogSchema,
   contentCacheSchema,
+  tracksSchema,
   userPreferencesSchema,
   learningPathSchema,
   quizQuestionsSchema,
@@ -75,8 +77,14 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       console.log('[RxDB] Adding collections...');
       try {
         await rxdbDatabase.addCollections({
+          user_study_log: {
+            schema: userStudyLogSchema as any,
+          },
           content_cache: {
             schema: contentCacheSchema as any,
+          },
+          tracks: {
+            schema: tracksSchema as any,
           },
           user_preferences: {
             schema: userPreferencesSchema as any,
@@ -124,7 +132,7 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       }
 
       // Validate that all required collections were created
-      const requiredCollections = ['content_cache', 'user_preferences', 'learning_path', 'quiz_questions'];
+      const requiredCollections = ['user_study_log', 'content_cache', 'tracks', 'user_preferences', 'learning_path', 'quiz_questions'];
       const missingCollections = requiredCollections.filter(name => !rxdbDatabase?.[name as keyof DatabaseCollections]);
       if (missingCollections.length > 0) {
         console.error('[RxDB] Missing collections after initialization:', missingCollections);
