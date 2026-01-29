@@ -13,7 +13,7 @@ This milestone enhances HaLomeid with in-house analytics to understand user enga
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Analytics Foundation** - Database layer + metrics collection infrastructure
-- [ ] **Phase 2: Admin Dashboard** - Visualization + access control for engagement insights
+- [x] **Phase 2: Admin Dashboard** - Visualization + access control for engagement insights
 - [ ] **Phase 3: Quiz Generation** - Enhanced prompts with scenario/sevara questions
 - [ ] **Phase 4: Quiz Selection** - Pedagogical filtering + 20-question cap
 
@@ -50,8 +50,8 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Infrastructure + route protection (middleware, server client, types, layout)
-- [ ] 02-02-PLAN.md — Dashboard UI (page, charts, date filter, refresh button)
+- [x] 02-01-PLAN.md — Infrastructure + route protection (middleware, server client, types, layout)
+- [x] 02-02-PLAN.md — Dashboard UI (page, charts, date filter, refresh button)
 
 ### Phase 3: Quiz Generation
 **Goal**: System generates pedagogically-structured quiz questions in Hebrew with scenario and sevara types
