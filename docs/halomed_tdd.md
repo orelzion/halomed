@@ -1,10 +1,10 @@
 # Technical Design Document (TDD)
 ## HaLomeid (הלומד)
 
-**Version:** 1.4  
-**Status:** Ready for Implementation  
-**Last Updated:** 2025-01-13 (Schema verification and updates)  
-**Architecture:** Unified Backend, Offline-First Clients  
+**Version:** 2.0
+**Status:** Current Implementation
+**Last Updated:** 2026-01-29 (Position-based model update)
+**Architecture:** Unified Backend, Offline-First Clients
 **Platforms:** Android (Kotlin/Compose), iOS (Swift/SwiftUI), Web (Next.js/React)
 
 ---
@@ -82,19 +82,36 @@ Fonts must be bundled locally:
 
 ## 4. Database Schema (PostgreSQL)
 
-### 4.1 Tracks
+### 4.1 User Preferences
 
-Tracks define *what* is studied and *when* study units exist.
+Stores user-specific learning configuration and progress tracking.
 
 ```sql
-CREATE TABLE tracks (
+CREATE TABLE user_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL,
-  source_endpoint TEXT DEFAULT 'https://www.sefaria.org/api/',
-  schedule_type TEXT NOT NULL
-  -- MVP: 'DAILY_WEEKDAYS_ONLY'
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
+  current_content_index INTEGER DEFAULT 0 NOT NULL,
+  pace TEXT DEFAULT 'two_mishna' NOT NULL,
+  -- Options: 'one_chapter', 'two_mishna', 'seder_per_year'
+  review_intensity TEXT DEFAULT 'none' NOT NULL,
+  -- Options: 'none', 'light', 'medium', 'intensive'
+  path_start_date DATE DEFAULT CURRENT_DATE NOT NULL,
+  skip_friday BOOLEAN DEFAULT TRUE NOT NULL,
+  yom_tov_dates TEXT[] DEFAULT '{}',
+  -- Array of YYYY-MM-DD strings for Jewish holidays
+  streak_count INTEGER DEFAULT 0 NOT NULL,
+  last_study_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 ```
+
+**Key Fields:**
+- `current_content_index`: Global position in Mishnah (0-4505), determines what content is unlocked
+- `pace`: Learning speed - controls how many mishnayot unlock per day
+- `review_intensity`: Spaced repetition setting - controls review frequency
+- `path_start_date`: When the user started their learning journey
+- `yom_tov_dates`: User-specific holiday dates that skip study days
 
 ### 4.2 Content Cache
 
@@ -137,29 +154,75 @@ CREATE TABLE content_cache (
 
 **Note:** The `ai_explanation_json` field consolidates what was previously separate `ai_explanation_he` (TEXT) and `ai_deep_dive_json` (JSONB) fields into a single structured JSONB column.
 
-### 4.3 User Study Log
+### 4.3 Learning Path
 
-Represents scheduled units and completion state.
+Stores the computed learning path for each user, including learning nodes, reviews, quizzes, and chapter/tractate completion markers.
 
 ```sql
-CREATE TABLE user_study_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE learning_path (
+  id TEXT PRIMARY KEY,
+  -- Format: 'computed-{index}' for learning, 'review-session-{date}' for reviews,
+  --         'weekly-quiz-{date}' for quizzes, 'divider-{tractate}-{chapter}' for completions
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  track_id UUID REFERENCES tracks(id) ON DELETE CASCADE NOT NULL,
-  study_date DATE NOT NULL,
-  content_id UUID REFERENCES content_cache(id) ON DELETE SET NULL,
-  is_completed BOOLEAN DEFAULT FALSE NOT NULL,
+  node_index INTEGER NOT NULL,
+  -- Sequential index in the path (-1 for dynamically computed nodes like reviews)
+  node_type TEXT NOT NULL,
+  -- Options: 'learning', 'review_session', 'weekly_quiz', 'divider'
+  content_ref TEXT,
+  -- Mishnah reference (e.g., 'Mishnah_Berakhot.1.1') or special refs
+  tractate TEXT,
+  chapter INTEGER,
+  is_divider INTEGER DEFAULT 0 NOT NULL,
+  -- 1 for chapter/tractate completion markers, 0 otherwise
+  unlock_date DATE NOT NULL,
+  -- YYYY-MM-DD when this node becomes available
   completed_at TIMESTAMPTZ,
-  UNIQUE(user_id, study_date, track_id)
+  -- Timestamp when marked as completed
+  review_of_node_id TEXT,
+  -- For review nodes: reference to original learning node
+  review_items TEXT,
+  -- JSON string of ReviewItem[] for review sessions
+  review_count INTEGER,
+  -- Quick access count of items in review_session
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+CREATE INDEX idx_learning_path_user_unlock ON learning_path(user_id, unlock_date);
+CREATE INDEX idx_learning_path_user_type ON learning_path(user_id, node_type);
 ```
 
-A row exists only if a unit is scheduled for that user on that date.
+**Key Fields:**
+- `node_type`: Determines the type of node in the learning path
+  - `learning`: Regular Mishnah study node
+  - `review_session`: Spaced repetition review (grouped by date)
+  - `weekly_quiz`: Weekly assessment (Fridays)
+  - `divider`: Visual marker for chapter/tractate completion
+- `completed_at`: Timestamp when marked as completed (used for streak calculation)
+- `unlock_date`: Date when this node becomes available to the user
 
-**Fields:**
-- `completed_at`: Timestamp when the unit was marked as completed. Used for streak calculation to determine if completion occurred on the scheduled day (see Section 8.4).
+**Note:** The learning path is generated server-side based on user preferences (pace, review intensity, start date). It provides a deterministic, pre-computed study schedule.
 
-**Note:** Dates are stored as DATE (date-only, no time component) in UTC. Clients interpret and display dates according to the device's local time zone.
+### 4.4 Quiz Questions
+
+Stores generated quiz questions for weekly assessments.
+
+```sql
+CREATE TABLE quiz_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  content_ref TEXT NOT NULL,
+  -- Reference to the Mishnah this question is about
+  question_text_he TEXT NOT NULL,
+  -- Question in Hebrew
+  correct_answer_he TEXT NOT NULL,
+  -- Correct answer in Hebrew
+  wrong_answers_he TEXT[] NOT NULL,
+  -- Array of incorrect answers in Hebrew
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX idx_quiz_questions_ref ON quiz_questions(content_ref);
+```
 
 ---
 
@@ -188,60 +251,84 @@ A row exists only if a unit is scheduled for that user on that date.
 
 ---
 
-## 6. Track Scheduling (Server-Side)
+## 6. Position-Based Learning Path (Server-Side)
 
-### 6.1 Responsibility
+### 6.1 Architecture
 
-Scheduling is entirely server-driven.
+HaLomeid uses a **position-based model** where each user has:
+- A **current position** (`current_content_index`) in the global Mishnah sequence (0-4505)
+- A **pre-computed learning path** stored in `learning_path` table
+- Progress tracked by advancing the position as content is completed
 
-Clients:
-- Do not calculate calendars
-- Do not enforce rules
-- Simply render scheduled units
-- Determine dates using the device's local time zone
+This differs from traditional track-based systems:
+- No separate "tracks" - all users follow the same Mishnah sequence
+- Scheduling is deterministic based on position, pace, and start date
+- The entire learning path can be computed upfront
 
----
+### 6.2 Edge Function: generate-path
 
-### 6.2 Edge Function: generate-schedule
+Generates the complete learning path for a user based on their preferences.
 
 #### Inputs
 
-- user_id
-- track_id
-- start_date
-- days_ahead (fixed: 14)
+- `user_id`: User ID
+- `pace`: Learning speed ('one_chapter', 'two_mishna', 'seder_per_year')
+- `review_intensity`: Review frequency ('none', 'light', 'medium', 'intensive')
+- `force` (optional): Regenerate path even if it exists
 
 #### Process
 
-1. Read tracks.schedule_type
-2. Iterate dates within window
-3. For each date:
-   - If allowed by schedule type:
-     - Assign next content reference
-     - Create user_study_log row if missing
-4. Ensure content_cache exists for each reference
+1. Read user preferences from `user_preferences` table
+2. Calculate unlock dates for all content based on:
+   - `path_start_date`: When user started
+   - `pace`: How many mishnayot per day
+   - `skip_friday`: Whether to skip Fridays
+   - `yom_tov_dates`: User-specific holiday dates
+3. Generate path nodes:
+   - **Learning nodes**: Sequential Mishnah content
+   - **Divider nodes**: Chapter/tractate completion markers
+   - **Review nodes**: Spaced repetition based on review intensity
+   - **Quiz nodes**: Weekly assessments (Fridays)
+4. Insert all nodes into `learning_path` table
+5. Pre-generate content for next 14 days
 
-#### Track Joining
+#### Review Intervals
 
-Users may join a track **at any point**, without a fixed global start date.
-
-- When a user joins a track, `start_date` is set to the current date (based on device timezone)
-- The Edge Function creates the first scheduled unit for that user starting from the join date
-- Each user has their own track progression independent of other users
-- Content assignment continues sequentially from the user's join point
+Based on `review_intensity` setting:
+- `none`: No reviews
+- `light`: Review at 7 and 30 days after learning
+- `medium`: Review at 3, 7, and 30 days after learning
+- `intensive`: Review at 1, 3, 7, 14, and 30 days after learning
 
 ---
 
-### 6.3 MVP Schedule Rule
+### 6.3 Progress Tracking
 
-**DAILY_WEEKDAYS_ONLY**
+Progress is tracked through `current_content_index` in `user_preferences`:
 
-- Units generated on weekdays only
-- Shabbat and Jewish holidays are excluded
-- If no row exists for a date:
-  - No unit
-  - No completion expected
-  - No streak impact
+1. User completes a learning node
+2. Client marks node as completed in `learning_path` (sets `completed_at`)
+3. Client increments `current_content_index` in `user_preferences`
+4. All nodes where `index < current_content_index` are considered completed
+5. Streak is calculated based on consecutive daily completions
+
+**Key Property:** Progress is a simple counter, not date-dependent scheduling.
+
+---
+
+### 6.4 MVP Schedule Rules
+
+**Study Days:**
+- Weekdays (Sunday-Thursday) by default
+- Friday: Optional (controlled by `skip_friday` preference)
+- Saturday (Shabbat): Always skipped
+- Jewish holidays: Skipped (stored in `yom_tov_dates`)
+
+**Unlock Logic:**
+- Each node has an `unlock_date` computed at path generation time
+- Nodes become available when current date >= unlock_date
+- Completion of prerequisites is not required for unlock (just dates)
+- Users can skip ahead to any unlocked content
 
 ---
 
@@ -274,19 +361,38 @@ Users may join a track **at any point**, without a fixed global start date.
 
 ### 8.2 Synced Data
 
-- user_study_log rows within 14-day window
-- content_cache rows referenced by those logs
-- tracks (all tracks, no filtering)
-- user_preferences (user-specific)
-- learning_path (user-specific, within window)
-- quiz_questions (referenced by content in window)
+All data synced to local device:
+
+- **user_preferences**: User's learning configuration (pace, review intensity, progress)
+- **learning_path**: Path nodes within 14-day window (±14 days from current date)
+- **content_cache**: Content referenced by nodes in the window
+- **quiz_questions**: Questions for quizzes within the window
+
+**Rolling Window Strategy:**
+- Applied at query level during replication
+- Includes nodes where `unlock_date` is within ±14 days of current date
+- Window moves forward automatically as dates progress
+- Ensures offline access to recent history (for streak) and upcoming content
 
 ### 8.3 Content Generation During Sync
 
-- During initial sync, ensure all content in 14-day window is generated
-- Generate quizzes for all content in window
-- Use existing Edge Functions: `generate-schedule`, `generate-content`, `generate-quiz`
+**Initial Setup:**
+1. User completes onboarding (sets pace, review intensity)
+2. Edge Function `generate-path` is called to create full learning path
+3. Content for next 14 days is pre-generated during path creation
+
+**Ongoing Sync:**
+- During periodic sync, check for missing content in 14-day window
+- Generate any missing content using Edge Functions:
+  - `generate-content`: Creates Mishnah text + AI explanation
+  - `generate-quiz`: Creates quiz questions for weekly assessments
 - Non-blocking: Content generation happens in background
+- Users see loading states if content not yet available
+
+**Rollforward Strategy:**
+- As dates progress, the 14-day window moves forward
+- New content becomes visible as it enters the window
+- Old content (outside window) is retained in cache but not synced
 
 ### 8.4 Conflict Resolution
 
@@ -296,28 +402,32 @@ Users may join a track **at any point**, without a fixed global start date.
 
 ### 8.4 Streak Calculation
 
-Streaks are **derived data**, calculated on-demand from `user_study_log`.
+Streaks are **derived data**, calculated on-demand from `learning_path`.
 
 **Rules:**
 
-- Streaks are calculated **per track**
-- A streak represents consecutive **scheduled units** that were completed
-- Days without a scheduled unit:
-  - Do not increment the streak
-  - Do not break the streak
+- A streak represents consecutive **study days** with completed learning nodes
+- Days without study (Shabbat, holidays, Fridays if skipped) do not affect the streak
+- Only **learning nodes** (not reviews or quizzes) count toward the streak
 - Retroactive completion (marking past units as done) **does not affect the streak**
-- Only forward-in-time completions on the day of the scheduled unit contribute to streak
+- Only completions on or before the unlock date contribute to the streak
 
 **Algorithm:**
 
-1. Query `user_study_log` for the track, ordered by `study_date` descending
-2. Starting from the most recent scheduled unit:
-   - If `is_completed = true` and `completed_at` indicates completion on the scheduled day → increment streak
-   - If `is_completed = false` → streak ends
-   - Skip days without scheduled units (no row exists)
+1. Query `learning_path` for learning nodes, ordered by `unlock_date` descending
+2. Starting from the most recent unlocked learning node:
+   - If `completed_at` exists and completion date ≤ `unlock_date` → increment streak
+   - If `completed_at` is null or completion date > `unlock_date` → streak ends
+   - Skip non-learning nodes (reviews, quizzes, dividers)
+   - Skip nodes where `unlock_date` > current date (not yet unlocked)
 3. Return streak count
 
-**Note:** The `completed_at` field is used to determine if completion occurred on the scheduled day. Retroactive completions (where `completed_at` date differs from `study_date`) do not contribute to the streak.
+**Note:** The `completed_at` field is compared to `unlock_date` to ensure completion occurred on time. Late completions (retroactive) do not contribute to the streak.
+
+**Storage:** The calculated streak is cached in `user_preferences.streak_count` and updated when:
+- User completes a learning node on its unlock date
+- User breaks a streak by missing a day
+- Daily background sync recalculates streaks
 
 ---
 
@@ -367,9 +477,45 @@ Network is required only for:
 
 ### 11.1 Row Level Security
 
-- user_study_log: auth.uid() = user_id
-- content_cache: accessed via sync queries filtered by user's study logs
-- All tables added to Supabase Realtime publication for live updates
+All user-specific tables enforce RLS policies:
+
+**user_preferences:**
+```sql
+-- Users can only access their own preferences
+CREATE POLICY user_preferences_policy ON user_preferences
+  FOR ALL USING (auth.uid() = user_id);
+```
+
+**learning_path:**
+```sql
+-- Users can only access their own learning path
+CREATE POLICY learning_path_policy ON learning_path
+  FOR ALL USING (auth.uid() = user_id);
+```
+
+**quiz_questions:**
+```sql
+-- All authenticated users can read quiz questions
+CREATE POLICY quiz_questions_read_policy ON quiz_questions
+  FOR SELECT USING (auth.role() = 'authenticated');
+```
+
+**content_cache:**
+```sql
+-- All authenticated users can read cached content
+CREATE POLICY content_cache_read_policy ON content_cache
+  FOR SELECT USING (auth.role() = 'authenticated');
+```
+
+### 11.2 Realtime Subscriptions
+
+All tables are added to Supabase Realtime publication for live sync:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE user_preferences;
+ALTER PUBLICATION supabase_realtime ADD TABLE learning_path;
+ALTER PUBLICATION supabase_realtime ADD TABLE content_cache;
+ALTER PUBLICATION supabase_realtime ADD TABLE quiz_questions;
+```
 
 ---
 
@@ -387,9 +533,10 @@ Network is required only for:
 ## 13. Summary
 
 HaLomeid's technical architecture is:
-- Deterministic
-- Offline-first
-- Platform-agnostic
-- Track-driven rather than behavior-enforcing
+- **Deterministic**: Learning path is pre-computed based on user preferences
+- **Offline-first**: All essential data synced locally with 14-day rolling window
+- **Platform-agnostic**: Shared data model and business logic across all platforms
+- **Position-based**: Progress tracked by simple index counter, not date-dependent scheduling
+- **User-driven**: Each user has independent pace, start date, and review settings
 
-All platforms are equal citizens.
+All platforms are equal citizens, with the same capabilities and user experience.
