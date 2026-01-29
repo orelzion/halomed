@@ -62,15 +62,41 @@ export function usePath() {
   }, [preferences]);
 
   // Convert computed nodes to PathNode format
-  const convertNodes = useCallback((computedNodes: ComputedPathNode[], existingNodes: PathNode[]) => {
+  const convertNodes = useCallback(async (computedNodes: ComputedPathNode[], existingNodes: PathNode[]) => {
     // Find the current learning node index across all loaded nodes
     const allComputedNodes = [...existingNodes.map(n => ({ isCurrent: n.isCurrent })), ...computedNodes];
     const currentLearningIdx = allComputedNodes.findIndex(node => node.isCurrent);
     const existingCount = existingNodes.length;
-    
+
+    // Get database instance to check/create review_session nodes
+    const { getDatabase } = await import('@/lib/database/database');
+    const db = await getDatabase();
+
+    // Check existing review_session nodes for completion status
+    const reviewSessionNodes = computedNodes.filter(n => n.nodeType === 'review_session');
+    const reviewSessionCompletionMap = new Map<string, boolean>();
+
+    if (db && reviewSessionNodes.length > 0) {
+      const unlockDates = reviewSessionNodes.map(n => n.unlockDate);
+      const existingReviewSessions = await db.learning_path
+        .find({
+          selector: {
+            node_type: 'review_session',
+            unlock_date: { $in: unlockDates },
+          },
+        })
+        .exec();
+
+      // Map unlock_date -> isCompleted
+      for (const session of existingReviewSessions) {
+        const isCompleted = session.completed_at != null;
+        reviewSessionCompletionMap.set(session.unlock_date, isCompleted);
+      }
+    }
+
     return computedNodes.map((node, idx) => {
       const globalIdx = existingCount + idx;
-      
+
       // Generate unique node IDs based on type
       let nodeId: string;
       if (node.nodeType === 'review_session') {
@@ -82,13 +108,13 @@ export function usePath() {
       } else {
         nodeId = `computed-${node.index}`;
       }
-      
+
       // Determine if node is locked
       const isReviewSession = node.nodeType === 'review_session';
       const isWeeklyQuiz = node.nodeType === 'weekly_quiz';
       const isDivider = node.nodeType === 'divider';
       let isLocked: boolean;
-      
+
       if (isDivider) {
         isLocked = false;
       } else if (isReviewSession || isWeeklyQuiz) {
@@ -96,7 +122,10 @@ export function usePath() {
       } else {
         isLocked = !node.isCompleted && !node.isCurrent;
       }
-      
+
+      // Check if review_session is completed (from database)
+      const reviewSessionCompleted = isReviewSession ? (reviewSessionCompletionMap.get(node.unlockDate) || false) : false;
+
       return {
         id: nodeId,
         index: node.index,
@@ -107,7 +136,7 @@ export function usePath() {
         chapter: node.chapter,
         mishna: node.mishna,
         is_divider: node.nodeType === 'divider' ? 1 : 0,
-        completed_at: node.isCompleted ? new Date().toISOString() : null,
+        completed_at: (isReviewSession && reviewSessionCompleted) ? new Date().toISOString() : (node.isCompleted ? new Date().toISOString() : null),
         isCurrent: node.isCurrent,
         isLocked: isLocked,
         seder: node.seder,
@@ -124,27 +153,31 @@ export function usePath() {
   // Load initial page
   useEffect(() => {
     if (!progress || prefsLoading) return;
-    
-    const computedNodes = computePath(progress, 0, PAGE_SIZE);
-    const pathNodes = convertNodes(computedNodes, []);
-    setAllNodes(pathNodes);
-    setHasMore(computedNodes.length > 0);
-    setLoading(false);
+
+    const loadInitialPage = async () => {
+      const computedNodes = computePath(progress, 0, PAGE_SIZE);
+      const pathNodes = await convertNodes(computedNodes, []);
+      setAllNodes(pathNodes);
+      setHasMore(computedNodes.length > 0);
+      setLoading(false);
+    };
+
+    loadInitialPage();
   }, [progress, prefsLoading, convertNodes]);
 
   // Load more pages
-  const loadMore = useCallback(() => {
+  const loadMore = useCallback(async () => {
     if (!progress || !hasMore) return;
-    
+
     const nextPage = currentPage + 1;
     const computedNodes = computePath(progress, nextPage, PAGE_SIZE);
-    
+
     if (computedNodes.length === 0) {
       setHasMore(false);
       return;
     }
-    
-    const newNodes = convertNodes(computedNodes, allNodes);
+
+    const newNodes = await convertNodes(computedNodes, allNodes);
     setAllNodes(prev => [...prev, ...newNodes]);
     setCurrentPage(nextPage);
   }, [progress, currentPage, hasMore, allNodes, convertNodes]);

@@ -430,9 +430,10 @@ export function PathScreen() {
     if (node.node_type === 'weekly_quiz') {
       router.push(`/quiz/${node.id}`);
     } else if (node.node_type === 'review_session') {
-      // Pass the content indexes directly so ReviewScreen doesn't need to re-compute
+      // Pass the content indexes and unlock date so ReviewScreen can mark completion
       const indexes = node.review_item_indexes?.join(',') || '';
-      router.push(`/review?indexes=${indexes}`);
+      const date = node.unlock_date || '';
+      router.push(`/review?indexes=${indexes}&date=${date}`);
     } else if (node.content_ref) {
       router.push(`/study/path/${node.id}`);
     }
@@ -761,11 +762,12 @@ export function PathScreen() {
                   {/* Node card */}
                   <button
                     type="button"
+                    data-node-id={node.id}
                     ref={isCurrent ? currentRef : null}
                     onClick={() => handleNodeClick(node)}
                     disabled={isLocked}
                     aria-label={`${node.node_type === 'review_session' ? `${node.review_range_start}${node.review_range_end ? ` עד ${node.review_range_end}` : ''} - יום ${node.review_interval || '?'}` : node.content_ref ? formatContentRef(node.content_ref) : ''}, ${
-                      node.node_type === 'learning' ? t('path_node_learning') : 
+                      node.node_type === 'learning' ? t('path_node_learning') :
                       node.node_type === 'weekly_quiz' ? 'מבחן שבועי' :
                       node.node_type === 'review_session' ? 'מפגש חזרה' :
                       node.node_type === 'review' ? t('path_node_review') : ''

@@ -18,6 +18,7 @@ import type { ContentCacheDoc } from '@/lib/database/schemas';
 import { getInfoForIndex } from '@shared/lib/path-generator';
 import { supabase } from '@/lib/supabase/client';
 import { isPlaceholderContent } from '@/lib/utils/content-validation';
+import { useAuthContext } from '@/components/providers/AuthProvider';
 
 interface ReviewItemFromIndex {
   contentRef: string;
@@ -32,6 +33,7 @@ export function ReviewScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
+  const { session } = useAuthContext();
 
   // Get content indexes from URL query param (passed by PathScreen)
   const indexesParam = searchParams.get('indexes') || '';
@@ -75,6 +77,50 @@ export function ReviewScreen() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generatingCount, setGeneratingCount] = useState(0);
+
+  // Create review_session node in learning_path if it doesn't exist
+  useEffect(() => {
+    const reviewDate = searchParams.get('date');
+    if (!reviewDate || !session) return;
+
+    const ensureReviewSessionNode = async () => {
+      try {
+        const db = await getDatabase();
+        if (!db) return;
+
+        // Check if node exists
+        const existing = await db.learning_path
+          .find({
+            selector: {
+              node_type: 'review_session',
+              unlock_date: reviewDate,
+            },
+          })
+          .exec();
+
+        if (existing.length === 0) {
+          // Create the node
+          await db.learning_path.insert({
+            id: `review-session-${reviewDate}`,
+            user_id: session.user.id,
+            node_index: -1, // Special index for review sessions
+            node_type: 'review_session',
+            content_ref: 'review_session',
+            is_divider: 0,
+            unlock_date: reviewDate,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            _deleted: false,
+          });
+          console.log('[ReviewScreen] Created review_session node for date:', reviewDate);
+        }
+      } catch (error) {
+        console.error('[ReviewScreen] Error ensuring review_session node:', error);
+      }
+    };
+
+    ensureReviewSessionNode();
+  }, [searchParams, session]);
 
   // Load content for review items (same strategy as study page)
   useEffect(() => {
@@ -227,10 +273,40 @@ export function ReviewScreen() {
     router.back();
   };
 
-  const handleComplete = () => {
-    // In the position-based model, we don't need to save review results
-    // The reviews are auto-computed each day based on what was learned
-    // Future enhancement: could track review performance for analytics
+  const handleComplete = async () => {
+    // Mark the review session as completed in learning_path
+    const reviewDate = searchParams.get('date');
+    if (reviewDate) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          // Find review_session node with this unlock_date
+          const reviewNodes = await db.learning_path
+            .find({
+              selector: {
+                node_type: 'review_session',
+                unlock_date: reviewDate,
+              },
+            })
+            .exec();
+
+          if (reviewNodes.length > 0) {
+            // Mark as completed
+            await reviewNodes[0].update({
+              $set: {
+                completed_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            });
+            console.log('[ReviewScreen] Marked review session as completed:', reviewDate);
+          } else {
+            console.warn('[ReviewScreen] No review session node found for date:', reviewDate);
+          }
+        }
+      } catch (error) {
+        console.error('[ReviewScreen] Error marking review session as completed:', error);
+      }
+    }
     router.push('/');
   };
 
