@@ -78,49 +78,7 @@ export function ReviewScreen() {
   const [loading, setLoading] = useState(true);
   const [generatingCount, setGeneratingCount] = useState(0);
 
-  // Create review_session node in learning_path if it doesn't exist
-  useEffect(() => {
-    const reviewDate = searchParams.get('date');
-    if (!reviewDate || !session) return;
 
-    const ensureReviewSessionNode = async () => {
-      try {
-        const db = await getDatabase();
-        if (!db) return;
-
-        // Check if node exists
-        const existing = await db.learning_path
-          .find({
-            selector: {
-              node_type: 'review_session',
-              unlock_date: reviewDate,
-            },
-          })
-          .exec();
-
-        if (existing.length === 0) {
-          // Create the node
-          await db.learning_path.insert({
-            id: `review-session-${reviewDate}`,
-            user_id: session.user.id,
-            node_index: -1, // Special index for review sessions
-            node_type: 'review_session',
-            content_ref: 'review_session',
-            is_divider: 0,
-            unlock_date: reviewDate,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            _deleted: false,
-          });
-          console.log('[ReviewScreen] Created review_session node for date:', reviewDate);
-        }
-      } catch (error) {
-        console.error('[ReviewScreen] Error ensuring review_session node:', error);
-      }
-    };
-
-    ensureReviewSessionNode();
-  }, [searchParams, session]);
 
   // Load content for review items (same strategy as study page)
   useEffect(() => {
@@ -274,33 +232,39 @@ export function ReviewScreen() {
   };
 
   const handleComplete = async () => {
-    // Mark the review session as completed in learning_path
+    // Mark review completion in user_preferences
     const reviewDate = searchParams.get('date');
     if (reviewDate) {
       try {
         const db = await getDatabase();
         if (db) {
-          // Find review_session node with this unlock_date
-          const reviewNodes = await db.learning_path
-            .find({
-              selector: {
-                node_type: 'review_session',
-                unlock_date: reviewDate,
-              },
-            })
-            .exec();
+          if (!db.user_preferences) {
+            console.error('[ReviewScreen] user_preferences collection not available');
+            router.push('/');
+            return;
+          }
 
-          if (reviewNodes.length > 0) {
-            // Mark as completed
-            await reviewNodes[0].update({
-              $set: {
-                completed_at: new Date().toISOString(),
+          const userPrefs = await db.user_preferences.find().exec();
+          if (userPrefs.length > 0) {
+            const pref = userPrefs[0];
+            const existingDates = pref.review_completion_dates || [];
+            
+            // Add review date if not already present
+            if (!existingDates.includes(reviewDate)) {
+              const newReviewDates = [...existingDates, reviewDate];
+              console.log(`[ReviewScreen] Adding review completion date: ${reviewDate}`);
+              
+              await pref.patch({
+                review_completion_dates: newReviewDates,
                 updated_at: new Date().toISOString(),
-              },
-            });
-            console.log('[ReviewScreen] Marked review session as completed:', reviewDate);
+              });
+              
+              console.log(`[ReviewScreen] Updated review_completion_dates:`, newReviewDates);
+            } else {
+              console.log(`[ReviewScreen] Review completion already recorded for: ${reviewDate}`);
+            }
           } else {
-            console.warn('[ReviewScreen] No review session node found for date:', reviewDate);
+            console.warn('[ReviewScreen] No user_preferences found');
           }
         }
       } catch (error) {

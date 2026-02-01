@@ -331,32 +331,39 @@ export function QuizScreen() {
   };
 
   const handleFinish = async () => {
-    // Mark quiz node as completed in learning_path
+    // Mark quiz completion in user_preferences
     if (quizContentRef) {
       try {
         const db = await getDatabase();
         if (db) {
-          // Find the quiz node by content_ref
-          const quizNodes = await db.learning_path
-            .find({
-              selector: {
-                content_ref: quizContentRef,
-                node_type: 'weekly_quiz',
-              },
-            })
-            .exec();
+          if (!db.user_preferences) {
+            console.error('[QuizScreen] user_preferences collection not available');
+            router.push('/');
+            return;
+          }
 
-          if (quizNodes.length > 0) {
-            const quizNode = quizNodes[0];
-            await quizNode.update({
-              $set: {
-                completed_at: new Date().toISOString(),
+          const userPrefs = await db.user_preferences.find().exec();
+          if (userPrefs.length > 0) {
+            const pref = userPrefs[0];
+            const todayStr = new Date().toISOString().split('T')[0];
+            const existingDates = pref.quiz_completion_dates || [];
+            
+            // Add today's date if not already present
+            if (!existingDates.includes(todayStr)) {
+              const newQuizDates = [...existingDates, todayStr];
+              console.log(`[QuizScreen] Adding quiz completion date: ${todayStr}`);
+              
+              await pref.patch({
+                quiz_completion_dates: newQuizDates,
                 updated_at: new Date().toISOString(),
-              },
-            });
-            console.log('[QuizScreen] Marked quiz as completed:', quizContentRef);
+              });
+              
+              console.log(`[QuizScreen] Updated quiz_completion_dates:`, newQuizDates);
+            } else {
+              console.log(`[QuizScreen] Quiz completion already recorded for: ${todayStr}`);
+            }
           } else {
-            console.warn('[QuizScreen] Quiz node not found in learning_path:', quizContentRef);
+            console.warn('[QuizScreen] No user_preferences found');
           }
         }
       } catch (error) {

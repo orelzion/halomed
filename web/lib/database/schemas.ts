@@ -32,6 +32,8 @@ export interface UserPreferencesDoc{
   israel_mode?: boolean; // true = Israel (1 day Yom Tov), false = Diaspora (2 days)
   yom_tov_dates?: string[]; // Pre-computed Yom Tov dates from backend (YYYY-MM-DD)
   yom_tov_dates_until?: string; // Last date covered by yom_tov_dates
+  quiz_completion_dates?: string[]; // Dates when weekly quizzes were completed (YYYY-MM-DD)
+  review_completion_dates?: string[]; // Dates when review sessions were completed (YYYY-MM-DD)
   created_at: string;
   updated_at: string;
   _deleted: boolean;
@@ -97,7 +99,7 @@ export const contentCacheSchema: RxJsonSchema<ContentCacheDoc> = {
 
 // User Preferences Schema
 export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
-  version: 1, // Bumped for position-based storage
+  version: 2, // Bumped for completion dates arrays
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -114,6 +116,8 @@ export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
     israel_mode: { type: 'boolean' }, // Israel (1 day) vs Diaspora (2 days)
     yom_tov_dates: { type: 'array', items: { type: 'string' } }, // Pre-computed Yom Tov dates
     yom_tov_dates_until: { type: 'string' }, // Last date covered
+    quiz_completion_dates: { type: 'array', items: { type: 'string' } }, // Quiz completion dates
+    review_completion_dates: { type: 'array', items: { type: 'string' } }, // Review completion dates
     created_at: { type: 'string' }, // ISO timestamp
     updated_at: { type: 'string' }, // ISO timestamp
     _deleted: { type: 'boolean' }, // Soft delete flag

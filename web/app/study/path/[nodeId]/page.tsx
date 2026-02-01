@@ -34,7 +34,7 @@ export default function PathStudyPage() {
 
   useEffect(() => {
     const loadNode = async () => {
-      // Check if this is a computed node ID (from position-based model)
+      // Only support computed node IDs (position-based model)
       if (nodeId.startsWith('computed-')) {
         const index = parseInt(nodeId.replace('computed-', ''), 10);
         if (!isNaN(index)) {
@@ -51,34 +51,9 @@ export default function PathStudyPage() {
         }
       }
 
-      // Fall back to old learning_path lookup for backwards compatibility
-      try {
-        const db = await getDatabase();
-        if (!db) {
-          setLoading(false);
-          return;
-        }
-
-        const nodeDoc = await db.learning_path.findOne(nodeId).exec();
-
-        if (!nodeDoc) {
-          setLoading(false);
-          return;
-        }
-
-        const pathNode = nodeDoc.toJSON();
-        setNode({
-          id: pathNode.id,
-          content_ref: pathNode.content_ref ?? null,
-          node_type: pathNode.node_type,
-          contentIndex: null,
-        });
-        setIsReview(pathNode.node_type === 'review' || pathNode.review_of_node_id != null);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading path node:', error);
-        setLoading(false);
-      }
+      // No longer support old learning_path lookup
+      console.error('[PathStudyPage] Invalid node ID format:', nodeId);
+      setLoading(false);
     };
 
     if (nodeId) {
@@ -93,16 +68,19 @@ export default function PathStudyPage() {
       const db = await getDatabase();
       if (!db) return;
 
-      // For position-based model: update current_content_index in user_preferences
-      if (node.contentIndex !== null) {
-        if (!db.user_preferences) {
-          console.error('[Study] user_preferences collection not available');
-          router.push('/');
-          return;
-        }
-        const userPrefs = await db.user_preferences.find().exec();
-        if (userPrefs.length > 0) {
-          const pref = userPrefs[0];
+      // Always use user_preferences for completion tracking
+      if (!db.user_preferences) {
+        console.error('[Study] user_preferences collection not available');
+        router.push('/');
+        return;
+      }
+
+      const userPrefs = await db.user_preferences.find().exec();
+      if (userPrefs.length > 0) {
+        const pref = userPrefs[0];
+        
+        // For position-based model: update current_content_index
+        if (node.contentIndex !== null) {
           const currentIndex = pref.current_content_index ?? 0;
           
           // Only increment if completing and this is the current item
@@ -123,22 +101,9 @@ export default function PathStudyPage() {
             console.log(`[Study] Not incrementing: isCompleted=${isCompleted}, nodeIndex=${node.contentIndex}, currentIndex=${currentIndex}`);
           }
         }
-        router.push('/');
-        return;
+      } else {
+        console.warn('[Study] No user_preferences found');
       }
-
-      // Fall back to old learning_path update for backwards compatibility
-      const nodeDoc = await db.learning_path.findOne(nodeId).exec();
-      if (!nodeDoc) return;
-
-      const completedAt = isCompleted ? new Date().toISOString() : null;
-
-      await nodeDoc.update({
-        $set: {
-          completed_at: completedAt,
-          updated_at: new Date().toISOString(),
-        },
-      });
 
       router.push('/');
     } catch (error) {
