@@ -100,7 +100,8 @@ export function usePath() {
       if (isDivider) {
         isLocked = false;
       } else if (isReviewSession || isWeeklyQuiz) {
-        // Check if review/quiz was completed using user_preferences arrays
+        // Reviews/quizzes are optional - unlock if not in future
+        // Check if review/quiz was completed to show proper UI state
         let isCompleted = false;
         if (userPrefs && node.unlockDate) {
           if (isReviewSession) {
@@ -112,7 +113,8 @@ export function usePath() {
           }
         }
         
-        isLocked = !isCompleted && !node.isCurrent;
+        // Reviews/quizzes only locked if they're in the future, not if incomplete
+        isLocked = !node.isCurrent;
       } else {
         isLocked = !node.isCompleted && !node.isCurrent;
       }
