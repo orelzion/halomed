@@ -62,22 +62,8 @@ export function usePath() {
     };
   }, [preferences]);
 
-  // Convert computed nodes to PathNode format with user preferences check
-  const convertNodes = useCallback(async (computedNodes: ComputedPathNode[]): Promise<PathNode[]> => {
-    // Get user preferences to check completion dates
-    let userPrefs: UserPreferencesDoc | null = null;
-    try {
-      const { getDatabase } = await import('@/lib/database/database');
-      const db = await getDatabase();
-      if (db) {
-        const prefs = await db.user_preferences.find().exec();
-        if (prefs.length > 0) {
-          userPrefs = prefs[0];
-        }
-      }
-    } catch (error) {
-      console.warn('[usePath] Error fetching user preferences for review completion check:', error);
-    }
+  // Convert computed nodes to PathNode format (simplified - uses preferences from hook)
+  const convertNodes = useCallback((computedNodes: ComputedPathNode[]): PathNode[] => {
     return computedNodes.map((node) => {
       // Generate unique node IDs based on type
       let nodeId: string;
@@ -100,20 +86,7 @@ export function usePath() {
       if (isDivider) {
         isLocked = false;
       } else if (isReviewSession || isWeeklyQuiz) {
-        // Reviews/quizzes are optional - unlock if not in future
-        // Check if review/quiz was completed to show proper UI state
-        let isCompleted = false;
-        if (userPrefs && node.unlockDate) {
-          if (isReviewSession) {
-            const completedDates = userPrefs.review_completion_dates || [];
-            isCompleted = completedDates.includes(node.unlockDate);
-          } else if (isWeeklyQuiz) {
-            const completedDates = userPrefs.quiz_completion_dates || [];
-            isCompleted = completedDates.includes(node.unlockDate);
-          }
-        }
-        
-        // Reviews/quizzes only locked if they're in the future, not if incomplete
+        // Reviews/quizzes are always optional - never block learning
         isLocked = !node.isCurrent;
       } else {
         isLocked = !node.isCompleted && !node.isCurrent;
@@ -133,14 +106,13 @@ export function usePath() {
           if (node.isCompleted) {
             return new Date().toISOString();
           }
-          if ((isReviewSession || isWeeklyQuiz) && userPrefs && node.unlockDate) {
+          if ((isReviewSession || isWeeklyQuiz) && preferences && node.unlockDate) {
             const completedDates = isReviewSession 
-              ? (userPrefs.review_completion_dates || [])
-              : (userPrefs.quiz_completion_dates || []);
+              ? (preferences.review_completion_dates || [])
+              : (preferences.quiz_completion_dates || []);
             
-            const completedIndex = completedDates.indexOf(node.unlockDate);
-            if (completedIndex !== -1) {
-              return completedDates[completedIndex] + 'T00:00:00.000Z';
+            if (completedDates.includes(node.unlockDate)) {
+              return node.unlockDate + 'T00:00:00.000Z';
             }
           }
           return null;
