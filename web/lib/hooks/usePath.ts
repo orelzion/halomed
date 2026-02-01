@@ -85,7 +85,19 @@ export function usePath() {
       if (isDivider) {
         isLocked = false;
       } else if (isReviewSession || isWeeklyQuiz) {
-        isLocked = !node.isCurrent;
+        // Check if review/quiz was completed using user_preferences arrays
+        let isCompleted = false;
+        if (userPrefs && node.unlockDate) {
+          if (isReviewSession) {
+            const completedDates = userPrefs.review_completion_dates || [];
+            isCompleted = completedDates.includes(node.unlockDate);
+          } else if (isWeeklyQuiz) {
+            const completedDates = userPrefs.quiz_completion_dates || [];
+            isCompleted = completedDates.includes(node.unlockDate);
+          }
+        }
+        
+        isLocked = !isCompleted && !node.isCurrent;
       } else {
         isLocked = !node.isCompleted && !node.isCurrent;
       }
