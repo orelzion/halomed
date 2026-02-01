@@ -1,5 +1,5 @@
 // Types for analytics RPC function return values
-// Matches current schema: user_preferences + learning_path
+// Matches current schema: user_preferences (position-based model)
 
 export interface SummaryStats {
   total_users: number

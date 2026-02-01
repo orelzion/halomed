@@ -90,12 +90,7 @@ function convertToRxDBFormat(data: any, tableName: string): any {
     if (!converted.updated_at) {
       converted.updated_at = converted.completed_at || new Date().toISOString();
     }
-  } else if (tableName === 'learning_path') {
-    converted.is_divider = convertBoolean(converted.is_divider);
-    converted._deleted = false;
-    if (!converted.updated_at) {
-      converted.updated_at = converted.created_at || new Date().toISOString();
-    }
+
   } else {
     converted._deleted = false;
     if (!converted.updated_at) {
@@ -181,14 +176,10 @@ export async function migrateFromPowerSync(
       console.log(`[Migration] Migrated ${converted.length} user_preferences entries`);
     }
 
-    // Migrate learning_path
-    console.log('[Migration] Migrating learning_path...');
-    const learningPath = normalizeRows(await powerSyncDb.getAll('SELECT * FROM learning_path').catch(() => []));
-    if (learningPath.length > 0) {
-      const converted = learningPath.map((path: any) => convertToRxDBFormat(path, 'learning_path'));
-      await rxdb.learning_path.bulkInsert(converted);
-      console.log(`[Migration] Migrated ${converted.length} learning_path entries`);
-    }
+    // DEPRECATED: learning_path collection removed (Task 3.3)
+    // Position-based model computes path from current_content_index in user_preferences
+    // No longer need to migrate thousands of learning_path rows
+    console.log('[Migration] Skipping learning_path migration (position-based model)');
 
     // Migrate quiz_questions
     console.log('[Migration] Migrating quiz_questions...');

@@ -1,17 +1,14 @@
 // supabase/functions/generate-path/index.ts
-// Edge Function to generate full learning path for a user based on pace and review intensity
+// Edge Function to trigger content generation for user's next 14 days
+// Updated: Task 2.1 - Position-based implementation (no learning_path table)
 // Reference: Plan Section "Implementation Phases", scheduling.md
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { isScheduledDay, addDays, formatDate, parseDate, isJewishHoliday } from '../_shared/calendar.ts';
+import { isScheduledDay, addDays, formatDate } from '../_shared/calendar.ts';
 import { 
   getContentRefForIndex, 
-  getCurrentTractate, 
-  getCurrentChapter,
-  isChapterEndIndex,
-  isTractateEndIndex,
   getMishnayotIndicesForChapter,
   TOTAL_MISHNAYOT,
   TOTAL_CHAPTERS,
@@ -19,64 +16,19 @@ import {
 
 interface GeneratePathRequest {
   user_id: string;
-  force?: boolean; // If true, delete existing path and regenerate
-  dev_offset_days?: number; // In dev mode: offset start date backwards to simulate progress
-  // Partial regeneration parameters (for plan changes)
-  start_from_content_index?: number; // Content index to resume from (default 0)
-  start_node_index?: number; // Node index to continue from (default 0)
-  preserve_completed?: boolean; // If true, don't delete completed nodes (default false)
   // Optional: pass preferences directly (saves roundtrip, enables offline-first flow)
   pace?: 'one_mishna' | 'two_mishna' | 'one_chapter';
   review_intensity?: 'none' | 'light' | 'medium' | 'intensive';
 }
 
-interface PathNode {
-  node_index: number;
-  node_type: 'learning' | 'review' | 'quiz' | 'weekly_quiz' | 'divider';
-  content_ref: string | null;
-  tractate: string | null;
-  chapter: number | null;
-  is_divider: boolean;
-  unlock_date: string; // ISO date (YYYY-MM-DD)
-  review_of_node_id?: string | null;
-}
 
-/**
- * Checks if a date is Friday (day 5 in JavaScript Date.getDay())
- */
-function isFriday(date: Date): boolean {
-  return date.getDay() === 5;
-}
-
-/**
- * Checks if a date is Thursday (day 4 in JavaScript Date.getDay())
- */
-function isThursday(date: Date): boolean {
-  return date.getDay() === 4;
-}
-
-/**
- * Get the Thursday before a given Friday
- */
-function getThursdayBefore(friday: Date): Date {
-  const thursday = new Date(friday);
-  thursday.setDate(friday.getDate() - 1);
-  return thursday;
-}
-
-/**
- * Get the Friday of next week
- */
-function getNextFriday(friday: Date): Date {
-  const nextFriday = new Date(friday);
-  nextFriday.setDate(friday.getDate() + 7);
-  return nextFriday;
-}
 
 interface GeneratePathResponse {
   success: boolean;
-  nodes_created: number;
   message: string;
+  content_generated: number;
+  content_cached: number;
+  content_errors: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -120,7 +72,7 @@ Deno.serve(async (req: Request) => {
     if (body.pace && body.review_intensity) {
       // Preferences provided in request - save them to database first
       // This enables offline-first flow: client saves to RxDB, calls API with preferences,
-      // API saves to Supabase and generates path in one call
+      // API saves to Supabase and generates content in one call
       console.log(`[generate-path] Preferences provided in request, saving to database...`);
       
       const { error: upsertError } = await supabase
@@ -129,7 +81,7 @@ Deno.serve(async (req: Request) => {
           user_id: body.user_id,
           pace: body.pace,
           review_intensity: body.review_intensity,
-          streak_count: 0,
+          // Note: streak_count and other fields are managed separately
         }, {
           onConflict: 'user_id'
         });
@@ -149,7 +101,7 @@ Deno.serve(async (req: Request) => {
       // Fetch preferences from database
       const { data: preferences, error: prefError } = await supabase
         .from('user_preferences')
-        .select('pace, review_intensity')
+        .select('pace, review_intensity, current_content_index, path_start_date')
         .eq('user_id', body.user_id)
         .single();
 
@@ -162,477 +114,97 @@ Deno.serve(async (req: Request) => {
 
       pace = preferences.pace;
       review_intensity = preferences.review_intensity;
+      console.log(`[generate-path] Using existing preferences: pace=${pace}, review_intensity=${review_intensity}, current_content_index=${preferences.current_content_index}`);
     }
 
-    // Check if path already exists
-    const { data: existingPath, error: pathError } = await supabase
-      .from('learning_path')
-      .select('id, node_index, completed_at')
-      .eq('user_id', body.user_id)
-      .order('node_index', { ascending: false });
-
-    if (pathError) {
-      console.error('Error checking existing path:', pathError);
-    }
-
-    // Handle partial regeneration (preserve_completed mode)
-    const isPartialRegeneration = body.preserve_completed === true;
-    let nodesPreserved = 0;
+    // Generate content for the next 14 days based on user's position and pace
+    console.log(`[generate-path] Generating content for next 14 days for user ${body.user_id}`);
     
-    if (isPartialRegeneration && existingPath && existingPath.length > 0) {
-      console.log(`[generate-path] Partial regeneration: preserving completed nodes for user ${body.user_id}`);
-      
-      // Delete only incomplete nodes (completed_at IS NULL)
-      const { error: deleteError, count: deletedCount } = await supabase
-        .from('learning_path')
-        .delete()
-        .eq('user_id', body.user_id)
-        .is('completed_at', null);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fourteenDaysLater = new Date(today);
+    fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14);
+    const todayStr = formatDate(today);
+    const fourteenDaysLaterStr = formatDate(fourteenDaysLater);
 
-      if (deleteError) {
-        console.error('Error deleting incomplete nodes:', deleteError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to delete incomplete nodes',
-            details: deleteError.message 
-          }),
-          { status: 500, headers: corsHeaders }
-        );
-      }
-      
-      // Count preserved nodes
-      const { count: preservedCount } = await supabase
-        .from('learning_path')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', body.user_id);
-      
-      nodesPreserved = preservedCount || 0;
-      console.log(`[generate-path] Deleted ${deletedCount || 0} incomplete nodes, preserved ${nodesPreserved} completed nodes`);
-    } 
-    // If path exists and force is not true, return error (standard mode)
-    else if (existingPath && existingPath.length > 0 && !body.force) {
+    // Get current position from user_preferences
+    const { data: currentPrefs } = await supabase
+      .from('user_preferences')
+      .select('current_content_index, path_start_date')
+      .eq('user_id', body.user_id)
+      .single();
+
+    if (!currentPrefs) {
       return new Response(
-        JSON.stringify({ 
-          success: false,
-          message: 'Learning path already exists for this user. Set force=true to regenerate.',
-          nodes_created: 0
-        }),
-        { status: 400, headers: corsHeaders }
+        JSON.stringify({ error: 'User preferences not found' }),
+        { status: 404, headers: corsHeaders }
       );
     }
-    // If force is true, delete entire existing path (standard mode)
-    else if (existingPath && existingPath.length > 0 && body.force) {
-      console.log(`[generate-path] Force regeneration: deleting existing path for user ${body.user_id}`);
-      const { error: deleteError } = await supabase
-        .from('learning_path')
-        .delete()
-        .eq('user_id', body.user_id);
 
-      if (deleteError) {
-        console.error('Error deleting existing path:', deleteError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to delete existing path',
-            details: deleteError.message 
-          }),
-          { status: 500, headers: corsHeaders }
-        );
-      }
-      console.log(`[generate-path] Deleted existing path, regenerating...`);
-    }
-
-    // Generate path nodes
-    const nodes: PathNode[] = [];
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0); // Start of today
-    
-    // In dev mode: offset start date backwards to simulate being a few days into the path
-    const devOffsetDays = body.dev_offset_days || 0;
-    if (devOffsetDays > 0) {
-      currentDate.setDate(currentDate.getDate() - devOffsetDays);
-      console.log(`[generate-path] Dev mode: Starting path ${devOffsetDays} days in the past (${formatDate(currentDate)})`);
-    }
-    
-    // For partial regeneration: start from specified indices
-    let nodeIndex = body.start_node_index || 0;
-    let contentIndex = body.start_from_content_index || 0;
-    
-    if (isPartialRegeneration) {
-      console.log(`[generate-path] Partial regeneration: starting from content_index=${contentIndex}, node_index=${nodeIndex}`);
-    }
+    // Calculate content items for next 14 days using position-based logic
+    const contentRefsForNext14Days: string[] = [];
     let scheduledDaysCount = 0;
-    let currentChapter = 0;
-    let currentTractate: string | undefined = undefined;
-    let previousTractate: string | undefined = undefined;
-    let previousDate: Date | undefined = undefined; // Track previous date for completion dividers
-    let pendingQuizWeeks: string[] = []; // Track weeks where quiz was skipped due to holidays
+    let contentIndex = currentPrefs.current_content_index || 0;
+    let pathStartDate = currentPrefs.path_start_date ? new Date(currentPrefs.path_start_date) : today;
     
-    // Review intervals based on intensity setting
-    const REVIEW_INTERVALS: Record<string, number[]> = {
-      'none': [],
-      'light': [7, 30],
-      'medium': [3, 7, 30],
-      'intensive': [1, 3, 7, 14, 30],
-    };
-    const reviewIntervals = REVIEW_INTERVALS[review_intensity] || [];
-    
-    // Track learning nodes for review scheduling
-    const learningNodeDates: Map<number, { date: Date; contentRef: string; tractate: string; chapter: number }> = new Map();
-    
-    // Full Shas: Generate path for all 63 tractates (~4,192 mishnayot)
-    // No limits - generate complete path
-    
-    // Generate learning nodes for complete Shas
-    // Log progress every 100 nodes to track generation
-    let lastLogIndex = 0;
-    const LOG_INTERVAL = 100;
-    
-    while (contentIndex < TOTAL_MISHNAYOT) {
-      // Log progress periodically
-      if (nodes.length - lastLogIndex >= LOG_INTERVAL) {
-        console.log(`[generate-path] Generated ${nodes.length} nodes so far (content index: ${contentIndex}/${TOTAL_MISHNAYOT})`);
-        lastLogIndex = nodes.length;
-      }
+    // Generate content for each scheduled day in the 14-day window
+    while (scheduledDaysCount < 14) {
+      // Calculate the date for this scheduled day
+      const studyDate = new Date(pathStartDate);
+      studyDate.setDate(pathStartDate.getDate() + scheduledDaysCount);
       
-      // Find next scheduled weekday
-      let date = new Date(currentDate);
-      date.setDate(date.getDate() + scheduledDaysCount);
-      
-      // Skip to next weekday if needed
-      while (!(await isScheduledDay(date, 'DAILY_WEEKDAYS_ONLY'))) {
+      // Skip non-scheduled days (weekends, holidays based on user preferences)
+      if (!(await isScheduledDay(studyDate, 'DAILY_WEEKDAYS_ONLY'))) {
         scheduledDaysCount++;
-        date = new Date(currentDate);
-        date.setDate(date.getDate() + scheduledDaysCount);
-      }
-
-      // If this is Friday, handle weekly quiz
-      if (isFriday(date)) {
-        const fridayIsHoliday = await isJewishHoliday(date);
-        
-        if (fridayIsHoliday) {
-          // Friday is a holiday - check Thursday
-          const thursday = getThursdayBefore(date);
-          const thursdayIsHoliday = await isJewishHoliday(thursday);
-          
-          if (thursdayIsHoliday) {
-            // Both Friday and Thursday are holidays - skip this week's quiz
-            // The content will be included in next week's quiz
-            console.log(`[generate-path] Skipping quiz for week of ${formatDate(date)} - both Fri and Thu are holidays`);
-            // Mark that we're skipping (quiz will cover 2 weeks next time)
-            pendingQuizWeeks.push(formatDate(date));
-          } else {
-            // Thursday is available - put quiz on Thursday
-            console.log(`[generate-path] Moving quiz from Friday ${formatDate(date)} to Thursday ${formatDate(thursday)} (Friday is holiday)`);
-            
-            // Build content_ref with all covered weeks (this week + any pending)
-            const allWeeks = [...pendingQuizWeeks, formatDate(date)];
-            const contentRef = allWeeks.length > 1 
-              ? `weekly_quiz_${formatDate(thursday)}+${pendingQuizWeeks.join('+')}` 
-              : `weekly_quiz_${formatDate(thursday)}`;
-            pendingQuizWeeks = []; // Clear pending
-            
-            nodes.push({
-              node_index: nodeIndex++,
-              node_type: 'weekly_quiz',
-              content_ref: contentRef,
-              tractate: null,
-              chapter: null,
-              is_divider: false,
-              unlock_date: formatDate(thursday),
-            });
-          }
-        } else {
-          // Friday is not a holiday - add quiz normally
-          // Build content_ref with all covered weeks (this week + any pending)
-          const allWeeks = [...pendingQuizWeeks, formatDate(date)];
-          const contentRef = allWeeks.length > 1 
-            ? `weekly_quiz_${formatDate(date)}+${pendingQuizWeeks.join('+')}` 
-            : `weekly_quiz_${formatDate(date)}`;
-          pendingQuizWeeks = []; // Clear pending
-          
-          nodes.push({
-            node_index: nodeIndex++,
-            node_type: 'weekly_quiz',
-            content_ref: contentRef,
-            tractate: null,
-            chapter: null,
-            is_divider: false,
-            unlock_date: formatDate(date),
-          });
-        }
-        
-        // Skip to next scheduled day (Sunday)
-        scheduledDaysCount++;
-        previousDate = date;
         continue;
+      }
+      
+      // Stop if we've gone beyond the 14-day window
+      if (studyDate > fourteenDaysLater) {
+        break;
       }
 
       // Get content indices for this day based on pace
-      // For all paces, contentIndices contains MISHNAH indices (not chapter indices)
-      let contentIndices: number[] = [];
+      let dayContentIndices: number[] = [];
       
       if (pace === 'one_chapter') {
         // Chapter-per-day: get all mishnayot in the current chapter
-        // contentIndex here represents the chapter index (0-based)
-        if (contentIndex >= TOTAL_CHAPTERS) break;
-        
-        // Get all mishnah indices for this chapter
-        contentIndices = getMishnayotIndicesForChapter(contentIndex);
-        if (contentIndices.length === 0) {
-          console.warn(`[generate-path] No mishnayot found for chapter index ${contentIndex}`);
-          contentIndex += 1;
-          continue;
+        if (contentIndex < TOTAL_CHAPTERS) {
+          dayContentIndices = getMishnayotIndicesForChapter(contentIndex);
+          contentIndex += 1; // Move to next chapter
         }
-        
-        contentIndex += 1; // Move to next chapter
       } else if (pace === 'two_mishna') {
         // Two mishnayot per day
-        if (contentIndex + 1 >= TOTAL_MISHNAYOT) {
-          contentIndices = [contentIndex];
+        if (contentIndex < TOTAL_MISHNAYOT) {
+          dayContentIndices.push(contentIndex);
           contentIndex += 1;
-        } else {
-          contentIndices = [contentIndex, contentIndex + 1];
-          contentIndex += 2;
+          if (contentIndex < TOTAL_MISHNAYOT) {
+            dayContentIndices.push(contentIndex);
+            contentIndex += 1;
+          }
         }
       } else {
         // One mishna per day
-        contentIndices = [contentIndex];
-        contentIndex += 1;
+        if (contentIndex < TOTAL_MISHNAYOT) {
+          dayContentIndices.push(contentIndex);
+          contentIndex += 1;
+        }
       }
 
-      // Process each content item for this day, checking for tractate/chapter changes
-      for (let i = 0; i < contentIndices.length; i++) {
-        const idx = contentIndices[i];
-        // Always use mishnah-level content refs now (not chapter-level)
+      // Convert indices to content refs
+      for (const idx of dayContentIndices) {
         const contentRef = getContentRefForIndex(idx);
-        const chapter = getCurrentChapter(idx);
-        const tractate = getCurrentTractate(idx);
-        
-        if (!tractate || !chapter) {
-          console.warn(`[generate-path] Could not determine tractate/chapter for index ${idx}`);
-          continue;
-        }
-        
-        // Debug: Log tracking state periodically
-        if (nodeIndex % 50 === 0) {
-          console.log(`[generate-path] Tracking state at node ${nodeIndex}: idx=${idx}, tractate=${tractate}, chapter=${chapter}, currentTractate=${currentTractate}, currentChapter=${currentChapter}`);
-        }
-
-        // Check for tractate completion (insert divider BEFORE this learning node)
-        if (previousTractate && tractate !== previousTractate) {
-          // Log tractate divider creation for debugging
-          console.log(`[generate-path] Creating TRACTATE divider: ${previousTractate} chapter ${currentChapter}, date: ${formatDate(date)}, nodeIndex: ${nodeIndex}, contentIdx: ${idx}, newTractate: ${tractate}`);
-          
-          // Tractate completion divider - placed right after the last learning node
-          nodes.push({
-            node_index: nodeIndex++,
-            node_type: 'divider',
-            content_ref: null,
-            tractate: previousTractate,
-            chapter: currentChapter, // Last chapter of previous tractate
-            is_divider: true,
-            unlock_date: formatDate(date), // Same day, right before new tractate starts
-          });
-        }
-        // Check for chapter completion (only if same tractate)
-        else if (chapter !== currentChapter && currentChapter > 0 && tractate === currentTractate) {
-          // Log chapter divider creation for debugging
-          console.log(`[generate-path] Creating chapter divider: ${currentTractate} chapter ${currentChapter}, date: ${formatDate(date)}, nodeIndex: ${nodeIndex}, contentIdx: ${idx}, newChapter: ${chapter}`);
-          
-          // Chapter completion divider
-          nodes.push({
-            node_index: nodeIndex++,
-            node_type: 'divider',
-            content_ref: null,
-            tractate: currentTractate,
-            chapter: currentChapter,
-            is_divider: true,
-            unlock_date: formatDate(date), // Same day, right before new chapter starts
-          });
-        }
-
-        // Add learning node
-        const learningNode: PathNode = {
-          node_index: nodeIndex++,
-          node_type: 'learning',
-          content_ref: contentRef,
-          tractate: tractate,
-          chapter: chapter,
-          is_divider: false,
-          unlock_date: formatDate(date),
-        };
-        nodes.push(learningNode);
-        
-        // Track this learning node for review scheduling
-        learningNodeDates.set(idx, {
-          date: new Date(date),
-          contentRef: contentRef,
-          tractate: tractate,
-          chapter: chapter,
-        });
-
-        // Update tracking for next iteration
-        // IMPORTANT: previousTractate must be set to THIS content's tractate,
-        // not the old currentTractate, otherwise we'll create duplicate dividers
-        // when a tractate change spans across days
-        previousTractate = tractate;
-        currentTractate = tractate;
-        currentChapter = chapter;
+        contentRefsForNext14Days.push(contentRef);
       }
 
-      previousDate = date; // Track this date for completion dividers
       scheduledDaysCount++;
-
-      // Break if we've completed all content
-      if (pace === 'one_chapter' && contentIndex >= TOTAL_CHAPTERS) break;
-      if (pace !== 'one_chapter' && contentIndex >= TOTAL_MISHNAYOT) break;
     }
 
-    // Generate review nodes based on review_intensity setting
-    // Review nodes are scheduled at intervals after learning nodes
-    if (reviewIntervals.length > 0) {
-      console.log(`[generate-path] Generating review nodes with intensity '${review_intensity}' (intervals: ${reviewIntervals.join(', ')} days)`);
-      
-      // Track scheduled reviews to avoid duplicates (same content on same day)
-      const scheduledReviews = new Set<string>();
-      
-      let reviewNodesCount = 0;
-      let skippedDuplicates = 0;
-      for (const [contentIdx, learningInfo] of learningNodeDates) {
-        for (const interval of reviewIntervals) {
-          const reviewDate = addDays(learningInfo.date, interval);
-          
-          // Find next scheduled weekday for review date (skip Shabbat, holidays, and Fridays which are quiz-only)
-          let reviewScheduledDate = new Date(reviewDate);
-          let daysOffset = 0;
-          while (!(await isScheduledDay(reviewScheduledDate, 'DAILY_WEEKDAYS_ONLY')) || isFriday(reviewScheduledDate)) {
-            daysOffset++;
-            reviewScheduledDate = addDays(reviewDate, daysOffset);
-            if (daysOffset > 7) break; // Safety limit
-          }
-          
-          // Check for duplicate: same content on same day
-          const reviewKey = `${learningInfo.contentRef}:${formatDate(reviewScheduledDate)}`;
-          if (scheduledReviews.has(reviewKey)) {
-            skippedDuplicates++;
-            continue; // Skip duplicate review
-          }
-          scheduledReviews.add(reviewKey);
-          
-          nodes.push({
-            node_index: nodeIndex++,
-            node_type: 'review',
-            content_ref: learningInfo.contentRef,
-            tractate: learningInfo.tractate,
-            chapter: learningInfo.chapter,
-            is_divider: false,
-            unlock_date: formatDate(reviewScheduledDate),
-          });
-          reviewNodesCount++;
-        }
-      }
-      console.log(`[generate-path] Generated ${reviewNodesCount} review nodes (skipped ${skippedDuplicates} duplicates)`);
-    }
+    // Remove duplicates and filter for unique content refs
+    const uniqueContentRefs = Array.from(new Set(contentRefsForNext14Days));
+    console.log(`[generate-path] Found ${uniqueContentRefs.length} unique content items for next 14 days`);
 
-    // Insert final divider after last chapter/tractate
-    if (currentChapter > 0 && currentTractate) {
-      const lastDate = nodes.length > 0 ? parseDate(nodes[nodes.length - 1].unlock_date) : currentDate;
-      nodes.push({
-        node_index: nodeIndex++,
-        node_type: 'divider',
-        content_ref: null,
-        tractate: currentTractate,
-        chapter: currentChapter,
-        is_divider: true,
-        unlock_date: formatDate(addDays(lastDate, 1)),
-      });
-    }
-
-    console.log(`[generate-path] Generated ${nodes.length} total nodes, preparing for batch insert...`);
-    
-    // Insert nodes into database in batches to avoid memory/compute limits
-    const BATCH_SIZE = 1000;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = formatDate(today);
-    
-    const pathNodes = nodes.map(node => {
-      // In dev mode: mark early nodes as completed to simulate progress
-      // Only mark learning nodes (not quiz/review/divider) that are in the past
-      const isCompleted = devOffsetDays > 0 && 
-                         node.unlock_date < todayStr && 
-                         node.node_type === 'learning' && 
-                         !node.is_divider &&
-                         Math.random() > 0.3; // 70% chance of completion for past learning nodes
-      
-      return {
-        user_id: body.user_id,
-        node_index: node.node_index,
-        node_type: node.node_type === 'divider' ? 'learning' : node.node_type, // dividers stored as 'learning' type
-        content_ref: node.content_ref,
-        tractate: node.tractate,
-        chapter: node.chapter,
-        is_divider: node.is_divider,
-        unlock_date: node.unlock_date,
-        completed_at: isCompleted ? formatDate(today) : null,
-        review_of_node_id: node.review_of_node_id || null,
-      };
-    });
-
-    console.log(`[generate-path] Inserting ${pathNodes.length} nodes in batches of ${BATCH_SIZE}...`);
-    
-    let totalInserted = 0;
-    for (let i = 0; i < pathNodes.length; i += BATCH_SIZE) {
-      const batch = pathNodes.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase
-        .from('learning_path')
-        .insert(batch);
-
-      if (insertError) {
-        console.error(`[generate-path] Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to create learning path',
-            details: `Error at batch ${i / BATCH_SIZE + 1}: ${insertError.message}`,
-            nodes_inserted: totalInserted
-          }),
-          { status: 500, headers: corsHeaders }
-        );
-      }
-      
-      totalInserted += batch.length;
-      console.log(`[generate-path] Inserted batch ${i / BATCH_SIZE + 1}/${Math.ceil(pathNodes.length / BATCH_SIZE)} (${totalInserted}/${pathNodes.length} nodes)`);
-    }
-    
-    console.log(`[generate-path] Successfully inserted all ${totalInserted} nodes`);
-
-    // Pre-generate content for the next 14 days only
-    const todayForContent = new Date();
-    todayForContent.setHours(0, 0, 0, 0);
-    const fourteenDaysLater = new Date(todayForContent);
-    fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14);
-    const todayStrForContent = formatDate(todayForContent);
-    const fourteenDaysLaterStr = formatDate(fourteenDaysLater);
-
-    // Get all learning nodes (not quiz/review/divider) within next 14 days
-    const learningNodesInWindow = nodes.filter(node => 
-      node.node_type === 'learning' && 
-      !node.is_divider &&
-      node.content_ref &&
-      node.unlock_date >= todayStrForContent &&
-      node.unlock_date <= fourteenDaysLaterStr
-    );
-
-    // Extract unique content_ref values
-    const uniqueContentRefs = Array.from(new Set(
-      learningNodesInWindow
-        .map(node => node.content_ref)
-        .filter((ref): ref is string => ref !== null)
-    ));
-
-    console.log(`[generate-path] Pre-generating content for ${uniqueContentRefs.length} unique content items in next 14 days`);
-
-    // Check which content already exists and generate missing ones
+    // Generate content for unique refs
     let contentGenerated = 0;
     let contentSkipped = 0;
     let contentErrors = 0;
@@ -684,19 +256,18 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log(`[generate-path] Content generation summary: ${contentGenerated} generated, ${contentSkipped} already existed, ${contentErrors} errors`);
+    console.log(`[generate-path] Content generation complete: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors`);
 
-    const responseMessage = isPartialRegeneration
-      ? `Learning path partially regenerated: ${nodesPreserved} nodes preserved, ${nodes.length} new nodes created. Content: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors.`
-      : `Learning path generated with ${nodes.length} nodes. Content: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors.`;
+    const responseMessage = `Content generation triggered for next 14 days: ${contentGenerated} generated, ${contentSkipped} cached, ${contentErrors} errors.`;
 
     return new Response(
       JSON.stringify({
         success: true,
-        nodes_created: nodes.length,
-        nodes_preserved: nodesPreserved,
-        message: responseMessage
-      } as GeneratePathResponse & { nodes_preserved?: number }),
+        message: responseMessage,
+        content_generated: contentGenerated,
+        content_cached: contentSkipped,
+        content_errors: contentErrors,
+      } as GeneratePathResponse),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

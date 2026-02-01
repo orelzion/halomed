@@ -5,7 +5,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { formatDate } from '../_shared/calendar.ts';
+import { formatDate, addDays } from '../_shared/calendar.ts';
+import { isScheduledDay } from '../_shared/calendar.ts';
+import { 
+  getContentRefForIndex, 
+  getMishnayotIndicesForChapter,
+  TOTAL_MISHNAYOT,
+  TOTAL_CHAPTERS,
+} from '../_shared/content-order.ts';
 
 interface EnsureContentRequest {
   user_id: string;
@@ -62,29 +69,87 @@ Deno.serve(async (req: Request) => {
     const todayStr = formatDate(today);
     const fourteenDaysLaterStr = formatDate(fourteenDaysLater);
 
-    // Get all learning nodes (not quiz/review/divider) within next 14 days
-    const { data: learningNodes, error: nodesError } = await supabase
-      .from('learning_path')
-      .select('content_ref')
+    // Get user preferences and current position (Phase 1: position-based implementation)
+    const { data: preferences, error: prefsError } = await supabase
+      .from('user_preferences')
+      .select('pace, review_intensity, current_content_index, path_start_date')
       .eq('user_id', body.user_id)
-      .eq('node_type', 'learning')
-      .eq('is_divider', false)
-      .not('content_ref', 'is', null)
-      .gte('unlock_date', todayStr)
-      .lte('unlock_date', fourteenDaysLaterStr);
+      .single();
 
-    if (nodesError) {
-      console.error('Error fetching learning nodes:', nodesError);
+    if (prefsError || !preferences) {
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to fetch learning nodes',
-          details: nodesError.message 
+          error: 'User preferences not found',
+          details: prefsError?.message 
         }),
-        { status: 500, headers: corsHeaders }
+        { status: 404, headers: corsHeaders }
       );
     }
 
-    if (!learningNodes || learningNodes.length === 0) {
+    // Calculate content refs for next 14 days using position-based logic
+    const contentRefsForNext14Days: string[] = [];
+    let scheduledDaysCount = 0;
+    let contentIndex = preferences.current_content_index || 0;
+    let pathStartDate = preferences.path_start_date ? new Date(preferences.path_start_date) : today;
+    const pace = preferences.pace || 'one_mishna';
+    
+    // Generate content for each scheduled day in the 14-day window
+    while (scheduledDaysCount < 14) {
+      // Calculate the date for this scheduled day
+      const studyDate = new Date(pathStartDate);
+      studyDate.setDate(pathStartDate.getDate() + scheduledDaysCount);
+      
+      // Skip non-scheduled days (weekends)
+      if (!(await isScheduledDay(studyDate, 'DAILY_WEEKDAYS_ONLY'))) {
+        scheduledDaysCount++;
+        continue;
+      }
+      
+      // Stop if we've gone beyond the 14-day window
+      if (studyDate > fourteenDaysLater) {
+        break;
+      }
+
+      // Get content indices for this day based on pace
+      let dayContentIndices: number[] = [];
+      
+      if (pace === 'one_chapter') {
+        // Chapter-per-day: get all mishnayot in the current chapter
+        if (contentIndex < TOTAL_CHAPTERS) {
+          dayContentIndices = getMishnayotIndicesForChapter(contentIndex);
+          contentIndex += 1; // Move to next chapter
+        }
+      } else if (pace === 'two_mishna') {
+        // Two mishnayot per day
+        if (contentIndex < TOTAL_MISHNAYOT) {
+          dayContentIndices.push(contentIndex);
+          contentIndex += 1;
+          if (contentIndex < TOTAL_MISHNAYOT) {
+            dayContentIndices.push(contentIndex);
+            contentIndex += 1;
+          }
+        }
+      } else {
+        // One mishna per day
+        if (contentIndex < TOTAL_MISHNAYOT) {
+          dayContentIndices.push(contentIndex);
+          contentIndex += 1;
+        }
+      }
+
+      // Convert indices to content refs
+      for (const idx of dayContentIndices) {
+        const contentRef = getContentRefForIndex(idx);
+        contentRefsForNext14Days.push(contentRef);
+      }
+
+      scheduledDaysCount++;
+    }
+
+    // Remove duplicates and filter for unique content refs
+    const uniqueContentRefs = Array.from(new Set(contentRefsForNext14Days));
+
+    if (uniqueContentRefs.length === 0) {
       return new Response(
         JSON.stringify({
           success: true,
@@ -92,18 +157,11 @@ Deno.serve(async (req: Request) => {
           content_generated: 0,
           content_cached: 0,
           content_errors: 0,
-          message: 'No learning nodes found in the next 14 days'
+          message: 'No content scheduled for the next 14 days'
         } as EnsureContentResponse),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Extract unique content_ref values
-    const uniqueContentRefs = Array.from(new Set(
-      learningNodes
-        .map(node => node.content_ref)
-        .filter((ref): ref is string => ref !== null)
-    ));
 
     console.log(`[ensure-content] Checking ${uniqueContentRefs.length} unique content items for user ${body.user_id}`);
 

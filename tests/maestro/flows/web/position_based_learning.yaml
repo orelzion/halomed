@@ -1,0 +1,58 @@
+# Maestro E2E Test: Position-Based Learning Model Validation
+# Task 4.1 - E2E Tests for Critical Capabilities
+# 
+# Comprehensive tests to verify that the position-based model maintains all three 
+# critical capabilities after migration from node-based to position-based tracking.
+#
+# Critical Capabilities Tested:
+# 1. 30-item lookback: Verify scroll back shows 30 completed items
+# 2. Infinite pagination: Test "Load more" through multiple pages  
+# 3. Optional reviews: Skip review, verify next learning node unlocks
+# 4. Optional quizzes: Skip quiz, verify progress continues
+#
+# Additional Test Cases:
+# 5. Mixed Behavior Test: Skip both reviews and quizzes for multiple weeks
+# 6. Data Integrity Test: Verify current_content_index updates correctly
+
+---
+# Wait for initial load
+- waitForAnimationToEnd
+
+# Test 1: 30-Item Lookback Test
+- runFlow: subflows/test_30_item_lookback.yaml
+
+# Reset for next test
+- launchApp
+
+# Test 2: Infinite Pagination Test
+- runFlow: subflows/test_infinite_pagination.yaml
+
+# Reset for next test
+- launchApp
+
+# Test 3: Optional Reviews Test
+- runFlow: subflows/test_optional_reviews.yaml
+
+# Reset for next test
+- launchApp
+
+# Test 4: Optional Quizzes Test
+- runFlow: subflows/test_optional_quizzes.yaml
+
+# Reset for next test
+- launchApp
+
+# Test 5: Mixed Behavior Test
+- runFlow: subflows/test_mixed_behavior.yaml
+
+# Reset for next test
+- launchApp
+
+# Test 6: Data Integrity Test
+- runFlow: subflows/test_data_integrity.yaml
+
+# Final verification - return to home screen
+- assertVisible:
+    text: "הלומד"
+
+- killApp

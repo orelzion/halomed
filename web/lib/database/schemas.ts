@@ -45,25 +45,7 @@ export interface ReviewItem {
   heRef?: string;
 }
 
-export interface LearningPathDoc {
-  id: string;
-  user_id: string;
-  node_index: number;
-  node_type: string; // 'learn', 'review_session', 'quiz', 'weekly_quiz'
-  content_ref?: string;
-  tractate?: string;
-  chapter?: number;
-  is_divider: number;
-  unlock_date: string;
-  completed_at?: string;
-  review_of_node_id?: string;
-  // New fields for review sessions (Task 15.4)
-  review_items?: string; // JSON string of ReviewItem[]
-  review_count?: number;
-  created_at: string;
-  updated_at: string;
-  _deleted: boolean;
-}
+
 
 export interface QuizQuestionsDoc {
   id: string;
@@ -126,33 +108,7 @@ export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
   indexes: ['user_id'],
 };
 
-// Learning Path Schema
-export const learningPathSchema: RxJsonSchema<LearningPathDoc> = {
-  version: 1, // Bumped for review_items and review_count (Task 15.4)
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    user_id: { type: 'string' },
-    node_index: { type: 'number' },
-    node_type: { type: 'string' }, // 'learn', 'review_session', 'quiz', 'weekly_quiz'
-    content_ref: { type: 'string' }, // nullable
-    tractate: { type: 'string' }, // nullable
-    chapter: { type: 'number' }, // nullable
-    is_divider: { type: 'number' }, // 0 or 1 (boolean as integer)
-    unlock_date: { type: 'string' }, // YYYY-MM-DD
-    completed_at: { type: 'string' }, // ISO timestamp, nullable
-    review_of_node_id: { type: 'string' }, // nullable
-    // New fields for review sessions (Task 15.4)
-    review_items: { type: 'string' }, // JSONB as JSON string (ReviewItem[])
-    review_count: { type: 'number' }, // Quick access count of items in review_session
-    created_at: { type: 'string' }, // ISO timestamp
-    updated_at: { type: 'string' }, // ISO timestamp
-    _deleted: { type: 'boolean' }, // Soft delete flag
-  },
-  required: ['id', 'user_id', 'node_index', 'node_type', 'is_divider', 'unlock_date', 'created_at', 'updated_at', '_deleted'],
-  indexes: ['user_id', 'unlock_date', ['user_id', 'node_index'], ['user_id', 'unlock_date'], 'node_type'],
-};
+
 
 // Quiz Questions Schema
 export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
@@ -178,19 +134,16 @@ export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
 // RxDB collection types
 export type ContentCacheCollection = RxCollection<ContentCacheDoc>;
 export type UserPreferencesCollection = RxCollection<UserPreferencesDoc>;
-export type LearningPathCollection = RxCollection<LearningPathDoc>;
 export type QuizQuestionsCollection = RxCollection<QuizQuestionsDoc>;
 
 // RxDB document types
 export type ContentCacheDocument = RxDocument<ContentCacheDoc>;
 export type UserPreferencesDocument = RxDocument<UserPreferencesDoc>;
-export type LearningPathDocument = RxDocument<LearningPathDoc>;
 export type QuizQuestionsDocument = RxDocument<QuizQuestionsDoc>;
 
 // Database collections type
 export interface DatabaseCollections {
   content_cache: ContentCacheCollection;
   user_preferences: UserPreferencesCollection;
-  learning_path: LearningPathCollection;
   quiz_questions: QuizQuestionsCollection;
 }

@@ -309,27 +309,11 @@ export function PathScreen() {
     }
   }, [loading, nodes.length]);
 
-  // Check Supabase count in development to show sync progress
+  // DEPRECATED: learning_path table removed (Task 3.3)
+  // Position-based model uses user_preferences.current_content_index
   useEffect(() => {
-    // Only check Supabase count in development
-    if (process.env.NODE_ENV === 'development' && session?.user.id) {
-      (async () => {
-        try {
-          const { count } = await supabase
-            .from('learning_path')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', session.user.id);
-          if (count !== null) {
-            setSupabaseNodeCount(count);
-          }
-        } catch {
-          // Ignore errors
-        }
-      })();
-    } else {
-      // In production, always set to null
-      setSupabaseNodeCount(null);
-    }
+    // Always set to null since learning_path no longer exists
+    setSupabaseNodeCount(null);
   }, [session?.user.id, nodes.length]);
 
   // Show loading with mascot

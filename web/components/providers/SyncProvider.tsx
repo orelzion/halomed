@@ -324,9 +324,8 @@ export function SyncProvider({ children }: SyncProviderProps) {
         replicationStatesRef.current = [
           replicationStates.contentCache,
           replicationStates.userPreferences,
-          replicationStates.learningPath,
           replicationStates.quizQuestions,
-        ].filter(Boolean); // Filter out null values (e.g., learningPath if disabled)
+        ];
 
         console.log('[RxDB] Replication setup complete');
 

@@ -12,7 +12,6 @@ import type { RxDatabase } from 'rxdb';
 import {
   contentCacheSchema,
   userPreferencesSchema,
-  learningPathSchema,
   quizQuestionsSchema,
   type DatabaseCollections,
 } from './schemas';
@@ -21,8 +20,9 @@ import { migrateFromPowerSync } from '../migration/powersync-to-rxdb';
 let rxdbDatabase: RxDatabase<DatabaseCollections> | null = null;
 let databasePromise: Promise<RxDatabase<DatabaseCollections> | null> | null = null;
 
-// Migration flag key
+// Migration flag keys
 const MIGRATION_FLAG_KEY = 'halomeid_migration_complete_v1';
+const LEARNING_PATH_CLEANUP_KEY = 'halomeid_learning_path_cleanup_complete_v2';
 
 /**
  * Get or create RxDB database instance
@@ -99,20 +99,7 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
             },
             autoMigrate: true, // Ensure migration runs automatically
           },
-          learning_path: {
-            schema: learningPathSchema as any,
-            // Migration strategy for version 0 -> 1 (added review_items, review_count)
-            migrationStrategies: {
-              1: function(oldDoc: any) {
-                // Add new fields with default values
-                return {
-                  ...oldDoc,
-                  review_items: oldDoc.review_items || null,
-                  review_count: oldDoc.review_count || null,
-                };
-              },
-            },
-          },
+
           quiz_questions: {
             schema: quizQuestionsSchema as any,
           },
@@ -124,7 +111,7 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       }
 
       // Validate that all required collections were created
-      const requiredCollections = ['content_cache', 'user_preferences', 'learning_path', 'quiz_questions'];
+      const requiredCollections = ['content_cache', 'user_preferences', 'quiz_questions'];
       const missingCollections = requiredCollections.filter(name => !rxdbDatabase?.[name as keyof DatabaseCollections]);
       if (missingCollections.length > 0) {
         console.error('[RxDB] Missing collections after initialization:', missingCollections);
@@ -148,6 +135,23 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
         console.log('[RxDB] Migration already completed, skipping');
       }
 
+      // Clean up learning_path collection if it exists (Task 3.3)
+      const learningPathCleanupComplete = localStorage.getItem(LEARNING_PATH_CLEANUP_KEY) === 'true';
+      
+      if (!learningPathCleanupComplete) {
+        console.log('[RxDB] Cleaning up legacy learning_path collection...');
+        try {
+          await cleanupLearningPathCollection(rxdbDatabase);
+          localStorage.setItem(LEARNING_PATH_CLEANUP_KEY, 'true');
+          console.log('[RxDB] Learning path cleanup completed successfully');
+        } catch (cleanupError) {
+          console.error('[RxDB] Learning path cleanup failed:', cleanupError);
+          // Don't throw - app continues without learning_path
+        }
+      } else {
+        console.log('[RxDB] Learning path cleanup already completed, skipping');
+      }
+
       return rxdbDatabase;
     } catch (error) {
       console.error('[RxDB] Failed to initialize database:', error);
@@ -164,10 +168,37 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
 }
 
 /**
+ * Clean up learning_path collection from existing databases
+ * This removes the large collection that's no longer needed (Task 3.3)
+ */
+async function cleanupLearningPathCollection(db: RxDatabase<DatabaseCollections>): Promise<void> {
+  try {
+    // Check if learning_path collection exists (from previous versions)
+    const collections = db.collections;
+    
+    if ('learning_path' in collections) {
+      console.log('[RxDB] Found legacy learning_path collection, removing...');
+      // @ts-ignore - learning_path may not be in current DatabaseCollections type
+      const learningPathCollection = collections.learning_path as any;
+      
+      // Drop the collection
+      await learningPathCollection.remove();
+      console.log('[RxDB] Successfully removed learning_path collection');
+    } else {
+      console.log('[RxDB] No learning_path collection found, nothing to clean up');
+    }
+  } catch (error) {
+    console.error('[RxDB] Error cleaning up learning_path collection:', error);
+    throw error;
+  }
+}
+
+/**
  * Clear database instance (for testing or reset)
  */
 export function clearDatabase(): void {
   rxdbDatabase = null;
   databasePromise = null;
   localStorage.removeItem(MIGRATION_FLAG_KEY);
+  localStorage.removeItem(LEARNING_PATH_CLEANUP_KEY);
 }

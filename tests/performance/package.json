@@ -1,0 +1,19 @@
+{
+  "name": "halomed-performance-tests",
+  "version": "1.0.0",
+  "description": "Performance testing suite for HaLomeid migration validation",
+  "scripts": {
+    "test:performance": "node run-all-tests.js",
+    "test:database": "node database-performance.js",
+    "test:sync": "node sync-performance.js", 
+    "test:client": "node client-performance.js",
+    "test:storage": "node storage-performance.js",
+    "test:load": "node load-testing.js",
+    "test:quick": "node quick-test.js",
+    "report": "node generate-report.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "puppeteer": "^21.0.0"
+  }
+}

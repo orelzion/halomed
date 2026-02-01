@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Capture learning path generated event
+  // DEPRECATED: learning_path collection removed (Task 3.3)
+  // Track path generation for analytics - now computes position-based path
   const pathData = JSON.parse(responseBody);
   captureServerEvent(user.id, 'learning_path_generated', {
     is_forced: force,
