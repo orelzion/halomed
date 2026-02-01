@@ -129,7 +129,22 @@ export function usePath() {
         chapter: node.chapter,
         mishna: node.mishna,
         is_divider: node.nodeType === 'divider' ? 1 : 0,
-        completed_at: node.isCompleted ? new Date().toISOString() : null,
+        completed_at: (() => {
+          if (node.isCompleted) {
+            return new Date().toISOString();
+          }
+          if ((isReviewSession || isWeeklyQuiz) && userPrefs && node.unlockDate) {
+            const completedDates = isReviewSession 
+              ? (userPrefs.review_completion_dates || [])
+              : (userPrefs.quiz_completion_dates || []);
+            
+            const completedIndex = completedDates.indexOf(node.unlockDate);
+            if (completedIndex !== -1) {
+              return completedDates[completedIndex] + 'T00:00:00.000Z';
+            }
+          }
+          return null;
+        })(),
         isCurrent: node.isCurrent,
         isLocked: isLocked,
         seder: node.seder,
