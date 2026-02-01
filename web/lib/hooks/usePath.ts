@@ -9,6 +9,7 @@ import {
   type Pace,
   type ReviewIntensity,
 } from '@shared/lib/path-generator';
+import { type UserPreferencesDoc } from '@/lib/database/schemas';
 
 export interface PathNode {
   id: string;
@@ -61,8 +62,22 @@ export function usePath() {
     };
   }, [preferences]);
 
-  // Convert computed nodes to PathNode format (simplified - no database dependencies)
-  const convertNodes = useCallback((computedNodes: ComputedPathNode[]): PathNode[] => {
+  // Convert computed nodes to PathNode format with user preferences check
+  const convertNodes = useCallback(async (computedNodes: ComputedPathNode[]): Promise<PathNode[]> => {
+    // Get user preferences to check completion dates
+    let userPrefs: UserPreferencesDoc | null = null;
+    try {
+      const { getDatabase } = await import('@/lib/database/database');
+      const db = await getDatabase();
+      if (db) {
+        const prefs = await db.user_preferences.find().exec();
+        if (prefs.length > 0) {
+          userPrefs = prefs[0];
+        }
+      }
+    } catch (error) {
+      console.warn('[usePath] Error fetching user preferences for review completion check:', error);
+    }
     return computedNodes.map((node) => {
       // Generate unique node IDs based on type
       let nodeId: string;
@@ -132,14 +147,14 @@ export function usePath() {
 
     const loadInitialPage = async () => {
       const computedNodes = computePath(progress, 0, PAGE_SIZE);
-      const pathNodes = convertNodes(computedNodes);
+      const pathNodes = await convertNodes(computedNodes);
       setAllNodes(pathNodes);
       setHasMore(computedNodes.length > 0);
       setLoading(false);
     };
 
     loadInitialPage();
-  }, [progress, prefsLoading, convertNodes]);
+  }, [progress, prefsLoading]);
 
   // Load more pages
   const loadMore = useCallback(async () => {
@@ -153,7 +168,7 @@ export function usePath() {
       return;
     }
 
-    const newNodes = convertNodes(computedNodes);
+    const newNodes = await convertNodes(computedNodes);
     setAllNodes(prev => [...prev, ...newNodes]);
     setCurrentPage(nextPage);
   }, [progress, currentPage, hasMore, convertNodes]);
