@@ -105,49 +105,12 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const periodicSyncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const replicationStatesRef = useRef<any[]>([]);
 
-  const upsertTodayLogsFallback = useCallback(
-    async (tracks: Array<{ id: string; start_date: string | null }>, today: string, userId: string) => {
-      for (const track of tracks) {
-        const startDate = track.start_date || today;
-        if (startDate > today) {
-          continue;
-        }
-
-        // Check if entry exists to preserve completion status
-        const { data: existingLog } = await supabase
-          .from('user_study_log')
-          .select('is_completed, completed_at')
-          .eq('user_id', userId)
-          .eq('track_id', track.id)
-          .eq('study_date', today)
-          .maybeSingle();
-
-        let logError;
-        if (existingLog) {
-          // Entry exists - only update content_id, preserve completion
-          const { error } = await supabase
-            .from('user_study_log')
-            .update({ content_id: null })
-            .eq('user_id', userId)
-            .eq('track_id', track.id)
-            .eq('study_date', today);
-          logError = error;
-        } else {
-          // New entry - create with is_completed: false
-          const { error } = await supabase.from('user_study_log').insert({
-            user_id: userId,
-            track_id: track.id,
-            study_date: today,
-            content_id: null,
-            is_completed: false,
-          });
-          logError = error;
-        }
-
-        if (logError) {
-          console.error('Fallback log upsert error:', logError);
-        }
-      }
+const upsertTodayLogsFallback = useCallback(
+    async (today: string, userId: string) => {
+      // DEPRECATED: tracks table removed in migration to position-based model
+      // User study logs are now managed by position-based computePath()
+      // This function is kept for compatibility but no longer creates daily logs
+      console.log(`[Sync] Position-based model - no daily log creation needed`);
     },
     []
   );
@@ -201,54 +164,21 @@ export function SyncProvider({ children }: SyncProviderProps) {
       isSyncingScheduleRef.current = true;
 
       try {
-        const { data: tracks, error: tracksError } = await supabase.from('tracks').select('id, start_date');
-
-        if (tracksError) {
-          logScheduleError('Schedule tracks load error', tracksError, 'n/a');
-          return;
-        }
+// DEPRECATED: tracks table removed in migration to position-based model
+        // Track scheduling is now handled by computePath() in shared/lib/path-generator.ts
+        console.log(`[Sync] Position-based model - no track scheduling needed`);
 
         const today = getTodayDate();
-        const trackList = tracks ?? [];
-        let hadFunctionError = false;
+        // DEPRECATED: tracks table removed - position-based model uses computePath()
+        console.log(`[Sync] Position-based model - no track scheduling needed`);
 
-        console.log(`[Sync] Generating schedule for ${trackList.length} tracks, 14 days ahead from ${today}`);
-
-        for (const track of trackList) {
-          const startDate = track.start_date || today;
-          const response = await fetch('/api/generate-schedule', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              track_id: track.id,
-              start_date: startDate,
-              days_ahead: 14,
-            }),
-          });
-
-          if (!response.ok) {
-            const details = await response.text();
-            logScheduleError('Schedule invoke error', details, '/api/generate-schedule');
-            hadFunctionError = true;
-          } else {
-            console.log(`[Sync] Schedule generated for track ${track.id}`);
-          }
-        }
-
-        if (hadFunctionError) {
-          await upsertTodayLogsFallback(trackList, today, session.user.id);
-        }
-
-        // Mark sync as completed
-        markSyncCompleted();
+// DEPRECATED: All track-related code removed in migration to position-based model
+// Schedule generation is now handled by computePath() in shared/lib/path-generator.ts
       } catch (scheduleError) {
         console.error('Schedule generation failed:', scheduleError);
         const today = getTodayDate();
-        const { data: tracks } = await supabase.from('tracks').select('id, start_date');
-        await upsertTodayLogsFallback(tracks ?? [], today, session.user.id);
+        // DEPRECATED: tracks table removed - position-based model uses computePath()
+        await upsertTodayLogsFallback(today, session.user.id);
       } finally {
         isSyncingScheduleRef.current = false;
       }
