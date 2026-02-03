@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { usePreferences } from './usePreferences';
 import { 
   computePath, 
-  getTodaysContent,
   type PathNode as ComputedPathNode,
   type Pace,
   type ReviewIntensity,
@@ -62,6 +61,24 @@ export function usePath() {
     };
   }, [preferences]);
 
+  // Helper function to determine if a review/quiz node appears before the first uncompleted learning node
+  function isBeforeCurrentLearningNode(
+    node: ComputedPathNode,
+    allNodes: ComputedPathNode[]
+  ): boolean {
+    // Find the first uncompleted learning node's position in the allNodes array
+    const firstUncompletedLearningIdx = allNodes.findIndex(
+      n => n.nodeType === 'learning' && !n.isCompleted
+    );
+    if (firstUncompletedLearningIdx === -1) return true; // All learning nodes completed
+    
+    // Find this node's position in the array
+    const thisNodeIdx = allNodes.indexOf(node);
+    
+    // Review/quiz is unlocked if it appears before the first uncompleted learning node
+    return thisNodeIdx < firstUncompletedLearningIdx;
+  }
+
   // Convert computed nodes to PathNode format (simplified - uses preferences from hook)
   const convertNodes = useCallback((computedNodes: ComputedPathNode[]): PathNode[] => {
     return computedNodes.map((node) => {
@@ -86,10 +103,12 @@ export function usePath() {
       if (isDivider) {
         isLocked = false;
       } else if (isReviewSession || isWeeklyQuiz) {
-        // Reviews/quizzes are always optional - never block learning
-        isLocked = !node.isCurrent;
+        // Reviews/quizzes: unlocked if completed, current, or appear before the current learning node
+        // Once unlocked, they stay unlocked forever
+        isLocked = !node.isCompleted && !node.isCurrent && !isBeforeCurrentLearningNode(node, computedNodes);
       } else {
-        isLocked = !node.isCompleted && !node.isCurrent;
+        // Learning nodes: unlocked if completed, current, or accessible (when review/quiz is current)
+        isLocked = !node.isCompleted && !node.isCurrent && !node.isAccessible;
       }
 
       return {
@@ -177,32 +196,4 @@ export function usePath() {
   };
 }
 
-/**
- * Hook to get today's content for studying
- */
-export function useTodaysContent() {
-  const { preferences, loading } = usePreferences();
 
-  const todaysContent = useMemo(() => {
-    if (!preferences || loading) return null;
-
-    const yomTovDatesSet = new Set<string>(preferences.yom_tov_dates || []);
-    
-    const progress = {
-      currentContentIndex: preferences.current_content_index ?? 0,
-      pace: (preferences.pace || 'two_mishna') as Pace,
-      reviewIntensity: (preferences.review_intensity || 'none') as ReviewIntensity,
-      startDate: preferences.path_start_date 
-        ? new Date(preferences.path_start_date) 
-        : new Date(),
-      studyDays: {
-        skipFriday: preferences.skip_friday ?? true,
-        yomTovDates: yomTovDatesSet,
-      },
-    };
-
-    return getTodaysContent(progress);
-  }, [preferences, loading]);
-
-  return { content: todaysContent, loading };
-}

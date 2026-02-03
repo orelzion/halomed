@@ -58,6 +58,7 @@ export interface PathNode {
   reviewRangeStart?: string; // First item in review range (Hebrew, e.g., "ברכות א:ג")
   reviewRangeEnd?: string; // Last item in review range (Hebrew, e.g., "ברכות ב:ד")
   reviewItemIndexes?: number[]; // Content indexes of items to review (passed directly to review page)
+  isAccessible?: boolean; // True if this node should be unlocked even though it's not "current"
 }
 
 export interface ReviewItem {
@@ -853,10 +854,6 @@ export function computePath(
     const isLastNodeOfWeek = !hasNextItem || (nextFridayStr !== currentWeekFriday);
     
     if (isLastNodeOfWeek && currentWeekFriday) {
-      const today = formatLocalDate(new Date());
-      const quizIsAvailable = currentWeekFriday <= today;
-      const quizIsCompleted = i < currentContentIndex && quizIsAvailable;
-      
       path.push({
         index: -1,
         contentRef: `weekly_quiz_${currentWeekFriday}`,
@@ -864,7 +861,8 @@ export function computePath(
         tractateHebrew: info.tractate.hebrew,
         chapter: info.chapter,
         mishna: 0,
-        isCompleted: quizIsCompleted,
+        // Quiz completion tracked via quiz_completion_dates in convertNodes
+        isCompleted: false,
         isCurrent: false, // Will be set at the end if this is the first unlocked node
         seder: info.tractate.seder,
         unlockDate: currentWeekFriday,
@@ -880,18 +878,25 @@ export function computePath(
     }
   }
 
-  // Mark the first unlocked, uncompleted node as "current"
+  // Position-based progression: no date gating
+  // Mark the first uncompleted non-divider node as "current"
   // This could be a review, quiz, or learning node
-  const today = formatLocalDate(new Date());
   for (const node of path) {
-    // Skip dividers
     if (node.nodeType === 'divider') continue;
-
-    // Check if this node is unlocked and not completed
-    const isUnlocked = node.unlockDate <= today;
-    if (isUnlocked && !node.isCompleted) {
+    if (!node.isCompleted) {
       node.isCurrent = true;
-      break; // Only mark the first one as current
+      break;
+    }
+  }
+
+  // If the current node is a review/quiz, also mark the next learning node as accessible
+  const currentNode = path.find(n => n.isCurrent);
+  if (currentNode && (currentNode.nodeType === 'review_session' || currentNode.nodeType === 'weekly_quiz')) {
+    for (const node of path) {
+      if (node.nodeType === 'learning' && !node.isCompleted) {
+        node.isAccessible = true;
+        break;
+      }
     }
   }
 
