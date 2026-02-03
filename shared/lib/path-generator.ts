@@ -880,13 +880,26 @@ export function computePath(
 
   // Position-based progression: no date gating
   // Mark the first uncompleted non-divider node as "current"
-  // This could be a review, quiz, or learning node
-  for (const node of path) {
+  // But skip quiz/review nodes that appear before current learning frontier
+  const firstUncompletedLearningIdx = path.findIndex(
+    n => n.nodeType === 'learning' && !n.isCompleted
+  );
+
+  for (let idx = 0; idx < path.length; idx++) {
+    const node = path[idx];
     if (node.nodeType === 'divider') continue;
-    if (!node.isCompleted) {
-      node.isCurrent = true;
-      break;
+    if (node.isCompleted) continue;
+
+    // Skip quiz/review nodes that are before the current learning position
+    // These are structurally "passed" — user has progressed beyond them
+    if ((node.nodeType === 'weekly_quiz' || node.nodeType === 'review_session') 
+        && firstUncompletedLearningIdx !== -1 
+        && idx < firstUncompletedLearningIdx) {
+      continue;
     }
+
+    node.isCurrent = true;
+    break;
   }
 
   // If the current node is a review/quiz, also mark the next learning node as accessible
