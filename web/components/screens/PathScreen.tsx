@@ -414,10 +414,9 @@ export function PathScreen() {
     if (node.node_type === 'weekly_quiz') {
       router.push(`/quiz/${node.id}`);
     } else if (node.node_type === 'review_session') {
-      // Pass the content indexes and unlock date so ReviewScreen can mark completion
+      // Pass the content indexes directly so ReviewScreen doesn't need to re-compute
       const indexes = node.review_item_indexes?.join(',') || '';
-      const date = node.unlock_date || '';
-      router.push(`/review?indexes=${indexes}&date=${date}`);
+      router.push(`/review?indexes=${indexes}`);
     } else if (node.content_ref) {
       router.push(`/study/path/${node.id}`);
     }

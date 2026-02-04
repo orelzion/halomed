@@ -74,7 +74,7 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
       // Add collections
       console.log('[RxDB] Adding collections...');
       try {
-        await rxdbDatabase.addCollections({
+await rxdbDatabase.addCollections({
           content_cache: {
             schema: contentCacheSchema as any,
           },
@@ -99,7 +99,6 @@ export async function getDatabase(): Promise<RxDatabase<DatabaseCollections> | n
             },
             autoMigrate: true, // Ensure migration runs automatically
           },
-
           quiz_questions: {
             schema: quizQuestionsSchema as any,
           },

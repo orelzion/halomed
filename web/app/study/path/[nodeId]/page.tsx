@@ -68,19 +68,16 @@ export default function PathStudyPage() {
       const db = await getDatabase();
       if (!db) return;
 
-      // Always use user_preferences for completion tracking
-      if (!db.user_preferences) {
-        console.error('[Study] user_preferences collection not available');
-        router.push('/');
-        return;
-      }
-
-      const userPrefs = await db.user_preferences.find().exec();
-      if (userPrefs.length > 0) {
-        const pref = userPrefs[0];
-        
-        // For position-based model: update current_content_index
-        if (node.contentIndex !== null) {
+      // For position-based model: update current_content_index in user_preferences
+      if (node.contentIndex !== null) {
+        if (!db.user_preferences) {
+          console.error('[Study] user_preferences collection not available');
+          router.push('/');
+          return;
+        }
+        const userPrefs = await db.user_preferences.find().exec();
+        if (userPrefs.length > 0) {
+          const pref = userPrefs[0];
           const currentIndex = pref.current_content_index ?? 0;
           
           // Only increment if completing and this is the current item

@@ -18,7 +18,6 @@ import type { ContentCacheDoc } from '@/lib/database/schemas';
 import { getInfoForIndex } from '@shared/lib/path-generator';
 import { supabase } from '@/lib/supabase/client';
 import { isPlaceholderContent } from '@/lib/utils/content-validation';
-import { useAuthContext } from '@/components/providers/AuthProvider';
 
 interface ReviewItemFromIndex {
   contentRef: string;
@@ -33,7 +32,6 @@ export function ReviewScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useTranslation();
-  const { session } = useAuthContext();
 
   // Get content indexes from URL query param (passed by PathScreen)
   const indexesParam = searchParams.get('indexes') || '';
@@ -77,9 +75,6 @@ export function ReviewScreen() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generatingCount, setGeneratingCount] = useState(0);
-
-
-
   // Load content for review items (same strategy as study page)
   useEffect(() => {
     if (reviews.length === 0) {
