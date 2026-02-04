@@ -15,7 +15,7 @@ import {
   quizQuestionsSchema,
   type DatabaseCollections,
 } from './schemas';
-import { migrateFromPowerSync } from '../migration/powersync-to-rxdb';
+
 
 let rxdbDatabase: RxDatabase<DatabaseCollections> | null = null;
 let databasePromise: Promise<RxDatabase<DatabaseCollections> | null> | null = null;
@@ -117,22 +117,9 @@ await rxdbDatabase.addCollections({
         // Don't throw - continue with available collections, but log for debugging
       }
 
-      // Check if migration is needed
-      const migrationComplete = localStorage.getItem(MIGRATION_FLAG_KEY) === 'true';
-      
-      if (!migrationComplete) {
-        console.log('[RxDB] Migration not completed, running legacy migration...');
-        try {
-          await migrateFromPowerSync(rxdbDatabase);
-          localStorage.setItem(MIGRATION_FLAG_KEY, 'true');
-          console.log('[RxDB] Migration completed successfully');
-        } catch (migrationError) {
-          console.error('[RxDB] Migration failed, app will continue with RxDB:', migrationError);
-          // Don't throw - app continues with RxDB (may be empty for new users)
-        }
-      } else {
-        console.log('[RxDB] Migration already completed, skipping');
-      }
+      // Legacy migration from PowerSync has been completed and removed
+      // The migration flag is kept for backward compatibility
+      console.log('[RxDB] PowerSync to RxDB migration already completed');
 
       // Clean up learning_path collection if it exists (Task 3.3)
       const learningPathCleanupComplete = localStorage.getItem(LEARNING_PATH_CLEANUP_KEY) === 'true';
