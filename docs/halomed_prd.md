@@ -57,8 +57,8 @@ HaLomeid guides users through the complete Mishnah (Shas) - all 6 orders, 63 tra
 During onboarding, users configure their learning experience:
 
 **Pace Options:**
-- **Two Mishnayot** (default): ~10 years to complete
-- **One Chapter**: ~2 years to complete
+- **Two Mishnayot** (default): ~6 years to complete
+- **One Chapter**: ~1.5 years to complete
 - **Seder per Year**: Complete one order (seder) every year
 
 **Review Intensity:**
@@ -77,17 +77,17 @@ During onboarding, users configure their learning experience:
 
 ### 4.3 Path Generation
 
-The learning path is generated server-side when a user:
-1. Completes onboarding (sets preferences)
-2. Changes their pace or review intensity
+The learning path is computed **client-side** when a user views their learning journey. The shared `path-generator.ts` library calculates the complete path from user preferences.
 
-The path includes:
+Path computation includes:
 - **Learning nodes**: Sequential Mishnah content
 - **Review sessions**: Spaced repetition based on intensity setting
 - **Weekly quizzes**: Assessments on Fridays covering the week's content
 - **Completion markers**: Visual celebrations for finishing chapters/tractates
 
-Each node has an **unlock date** calculated from the user's start date and pace. Content becomes available on its unlock date, not dependent on completing previous items.
+Each node has a **unlock date** calculated from the user's start date and pace. Content becomes available on its unlock date, not dependent on completing previous items.
+
+**Server-side role:** Edge Functions pre-generate content (Mishnah text + AI explanations) for upcoming nodes, ensuring offline availability.
 
 ---
 

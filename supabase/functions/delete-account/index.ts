@@ -49,19 +49,22 @@ Deno.serve(async (req: Request) => {
 
     // Delete all user data from all tables
     // Note: Due to CASCADE constraints, deleting from auth.users will automatically
-    // delete related rows in: user_study_log, user_preferences, user_consent_preferences
-    // Note: learning_path table removed in Phase 1 position-based implementation
-    // However, we'll delete explicitly first to ensure proper cleanup and error handling
+    // delete related rows in: user_preferences, user_consent_preferences
+    // Note: user_study_log and learning_path tables were removed in Phase 1
+    // We attempt to delete them but ignore errors if tables don't exist
 
-    // Delete user_study_log
-    const { error: studyLogsError } = await supabase
-      .from('user_study_log')
-      .delete()
-      .eq('user_id', userId);
+    // Try to delete user_study_log (may not exist)
+    try {
+      const { error: studyLogsError } = await supabase
+        .from('user_study_log')
+        .delete()
+        .eq('user_id', userId);
 
-    if (studyLogsError) {
-      console.error('Error deleting user_study_log:', studyLogsError);
-      // Continue with deletion - CASCADE will handle it
+      if (studyLogsError && !studyLogsError.message.includes('does not exist')) {
+        console.error('Error deleting user_study_log:', studyLogsError);
+      }
+    } catch (e) {
+      // Table may not exist, ignore
     }
 
     // Delete user_preferences
@@ -72,7 +75,6 @@ Deno.serve(async (req: Request) => {
 
     if (preferencesError) {
       console.error('Error deleting user_preferences:', preferencesError);
-      // Continue with deletion - CASCADE will handle it
     }
 
     // Delete user_consent_preferences
@@ -83,7 +85,6 @@ Deno.serve(async (req: Request) => {
 
     if (consentError && consentError.code !== 'PGRST116') { // PGRST116 = no rows found
       console.error('Error deleting user_consent_preferences:', consentError);
-      // Continue with deletion - CASCADE will handle it
     }
 
     // Note: learning_path deletion removed in Phase 1 position-based implementation

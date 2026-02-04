@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { captureServerEvent, getPostHogClient } from '@/lib/posthog-server';
 
-type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
+type Pace = 'two_mishna' | 'one_chapter' | 'seder_per_year';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
 
 interface UpdatePreferencesBody {
@@ -10,7 +10,7 @@ interface UpdatePreferencesBody {
   review_intensity: ReviewIntensity;
 }
 
-const VALID_PACES: Pace[] = ['one_mishna', 'two_mishna', 'one_chapter'];
+const VALID_PACES: Pace[] = ['two_mishna', 'one_chapter', 'seder_per_year'];
 const VALID_REVIEW_INTENSITIES: ReviewIntensity[] = ['none', 'light', 'medium', 'intensive'];
 
 export async function POST(request: NextRequest) {

@@ -9,7 +9,7 @@ import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { formatDate } from '../_shared/calendar.ts';
 import { getContentIndexForRef } from '../_shared/content-order.ts';
 
-type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
+type Pace = 'two_mishna' | 'one_chapter' | 'seder_per_year';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
 
 interface UpdatePreferencesRequest {
@@ -25,7 +25,7 @@ interface UpdatePreferencesResponse {
   // Note: nodes_preserved and nodes_created removed in position-based implementation
 }
 
-const VALID_PACES: Pace[] = ['one_mishna', 'two_mishna', 'one_chapter'];
+const VALID_PACES: Pace[] = ['two_mishna', 'one_chapter', 'seder_per_year'];
 const VALID_REVIEW_INTENSITIES: ReviewIntensity[] = ['none', 'light', 'medium', 'intensive'];
 
 Deno.serve(async (req: Request) => {

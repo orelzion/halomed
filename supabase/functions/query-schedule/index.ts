@@ -1,5 +1,7 @@
 // supabase/functions/query-schedule/index.ts
 // Edge Function to query user's schedule for a track (all scheduled units, not just 14-day window)
+// DEPRECATED: This function uses the old tracks/user_study_log model
+// The current implementation uses client-side path computation via path-generator.ts
 // Reference: tasks.md Section 9, Task 9.3
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -26,6 +28,18 @@ interface QueryScheduleResponse {
 }
 
 Deno.serve(async (req: Request) => {
+  // DEPRECATED: Return error immediately - tracks table was removed
+  // The current implementation uses client-side path computation
+  return new Response(
+    JSON.stringify({ 
+      error: 'DEPRECATED: query-schedule is no longer supported. Path is computed client-side.',
+      deprecated: true,
+      message: 'This Edge Function used the old tracks/user_study_log model which has been removed.'
+    }),
+    { status: 410, headers: { 'Content-Type': 'application/json' } }
+  );
+
+  // Original code preserved below for reference...
   // Handle CORS preflight
   const corsResponse = handleCorsPreflight(req);
   if (corsResponse) return corsResponse;

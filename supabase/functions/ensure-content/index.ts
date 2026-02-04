@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
     let scheduledDaysCount = 0;
     let contentIndex = preferences.current_content_index || 0;
     let pathStartDate = preferences.path_start_date ? new Date(preferences.path_start_date) : today;
-    const pace = preferences.pace || 'one_mishna';
+    const pace = preferences.pace || 'two_mishna';
     
     // Generate content for each scheduled day in the 14-day window
     while (scheduledDaysCount < 14) {
@@ -119,6 +119,16 @@ Deno.serve(async (req: Request) => {
           dayContentIndices = getMishnayotIndicesForChapter(contentIndex);
           contentIndex += 1; // Move to next chapter
         }
+      } else if (pace === 'seder_per_year') {
+        // Seder per year: calculate based on current position in the Mishnah
+        if (contentIndex < TOTAL_MISHNAYOT) {
+          // Calculate mishnayot per day for current chapter based on average
+          const avgPerDay = Math.ceil(TOTAL_MISHNAYOT / 250); // ~18 mishnayot per day
+          for (let i = 0; i < avgPerDay && contentIndex < TOTAL_MISHNAYOT; i++) {
+            dayContentIndices.push(contentIndex);
+            contentIndex++;
+          }
+        }
       } else if (pace === 'two_mishna') {
         // Two mishnayot per day
         if (contentIndex < TOTAL_MISHNAYOT) {
@@ -130,7 +140,7 @@ Deno.serve(async (req: Request) => {
           }
         }
       } else {
-        // One mishna per day
+        // Fallback: one mishna per day
         if (contentIndex < TOTAL_MISHNAYOT) {
           dayContentIndices.push(contentIndex);
           contentIndex += 1;
