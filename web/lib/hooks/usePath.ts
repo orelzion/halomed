@@ -4,11 +4,11 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { usePreferences } from './usePreferences';
 import { 
   computePath, 
-  getTodaysContent,
   type PathNode as ComputedPathNode,
   type Pace,
   type ReviewIntensity,
 } from '@shared/lib/path-generator';
+import { type UserPreferencesDoc } from '@/lib/database/schemas';
 
 export interface PathNode {
   id: string;
@@ -61,16 +61,27 @@ export function usePath() {
     };
   }, [preferences]);
 
-  // Convert computed nodes to PathNode format
-  const convertNodes = useCallback((computedNodes: ComputedPathNode[], existingNodes: PathNode[]) => {
-    // Find the current learning node index across all loaded nodes
-    const allComputedNodes = [...existingNodes.map(n => ({ isCurrent: n.isCurrent })), ...computedNodes];
-    const currentLearningIdx = allComputedNodes.findIndex(node => node.isCurrent);
-    const existingCount = existingNodes.length;
+  // Helper function to determine if a review/quiz node appears before the first uncompleted learning node
+  function isBeforeCurrentLearningNode(
+    node: ComputedPathNode,
+    allNodes: ComputedPathNode[]
+  ): boolean {
+    // Find the first uncompleted learning node's position in the allNodes array
+    const firstUncompletedLearningIdx = allNodes.findIndex(
+      n => n.nodeType === 'learning' && !n.isCompleted
+    );
+    if (firstUncompletedLearningIdx === -1) return true; // All learning nodes completed
     
-    return computedNodes.map((node, idx) => {
-      const globalIdx = existingCount + idx;
-      
+    // Find this node's position in the array
+    const thisNodeIdx = allNodes.indexOf(node);
+    
+    // Review/quiz is unlocked if it appears before the first uncompleted learning node
+    return thisNodeIdx < firstUncompletedLearningIdx;
+  }
+
+  // Convert computed nodes to PathNode format (simplified - uses preferences from hook)
+  const convertNodes = useCallback((computedNodes: ComputedPathNode[]): PathNode[] => {
+    return computedNodes.map((node) => {
       // Generate unique node IDs based on type
       let nodeId: string;
       if (node.nodeType === 'review_session') {
@@ -82,21 +93,24 @@ export function usePath() {
       } else {
         nodeId = `computed-${node.index}`;
       }
-      
+
       // Determine if node is locked
       const isReviewSession = node.nodeType === 'review_session';
       const isWeeklyQuiz = node.nodeType === 'weekly_quiz';
       const isDivider = node.nodeType === 'divider';
       let isLocked: boolean;
-      
+
       if (isDivider) {
         isLocked = false;
       } else if (isReviewSession || isWeeklyQuiz) {
-        isLocked = currentLearningIdx !== -1 && globalIdx > currentLearningIdx;
+        // Reviews/quizzes: unlocked if completed, current, or appear before the current learning node
+        // Once unlocked, they stay unlocked forever
+        isLocked = !node.isCompleted && !node.isCurrent && !isBeforeCurrentLearningNode(node, computedNodes);
       } else {
-        isLocked = !node.isCompleted && !node.isCurrent;
+        // Learning nodes: unlocked if completed, current, or accessible (when review/quiz is current)
+        isLocked = !node.isCompleted && !node.isCurrent && !node.isAccessible;
       }
-      
+
       return {
         id: nodeId,
         index: node.index,
@@ -107,7 +121,21 @@ export function usePath() {
         chapter: node.chapter,
         mishna: node.mishna,
         is_divider: node.nodeType === 'divider' ? 1 : 0,
-        completed_at: node.isCompleted ? new Date().toISOString() : null,
+        completed_at: (() => {
+          if (node.isCompleted) {
+            return new Date().toISOString();
+          }
+          if ((isReviewSession || isWeeklyQuiz) && preferences && node.unlockDate) {
+            const completedDates = isReviewSession 
+              ? (preferences.review_completion_dates || [])
+              : (preferences.quiz_completion_dates || []);
+            
+            if (completedDates.includes(node.unlockDate)) {
+              return node.unlockDate + 'T00:00:00.000Z';
+            }
+          }
+          return null;
+        })(),
         isCurrent: node.isCurrent,
         isLocked: isLocked,
         seder: node.seder,
@@ -124,72 +152,48 @@ export function usePath() {
   // Load initial page
   useEffect(() => {
     if (!progress || prefsLoading) return;
-    
-    const computedNodes = computePath(progress, 0, PAGE_SIZE);
-    const pathNodes = convertNodes(computedNodes, []);
-    setAllNodes(pathNodes);
-    setHasMore(computedNodes.length > 0);
-    setLoading(false);
-  }, [progress, prefsLoading, convertNodes]);
+
+    const loadInitialPage = async () => {
+      const computedNodes = computePath(progress, 0, PAGE_SIZE);
+      const pathNodes = await convertNodes(computedNodes);
+      setAllNodes(pathNodes);
+      setHasMore(computedNodes.length > 0);
+      setLoading(false);
+    };
+
+    loadInitialPage();
+  }, [progress, prefsLoading]);
 
   // Load more pages
-  const loadMore = useCallback(() => {
+  const loadMore = useCallback(async () => {
     if (!progress || !hasMore) return;
-    
+
     const nextPage = currentPage + 1;
     const computedNodes = computePath(progress, nextPage, PAGE_SIZE);
-    
+
     if (computedNodes.length === 0) {
       setHasMore(false);
       return;
     }
-    
-    const newNodes = convertNodes(computedNodes, allNodes);
+
+    const newNodes = await convertNodes(computedNodes);
     setAllNodes(prev => [...prev, ...newNodes]);
     setCurrentPage(nextPage);
-  }, [progress, currentPage, hasMore, allNodes, convertNodes]);
+  }, [progress, currentPage, hasMore, convertNodes]);
 
-  // Find current node index
+  // Find current node index (first uncompleted learning node)
   const currentNodeIndex = useMemo(() => {
     const idx = allNodes.findIndex(n => n.isCurrent);
     return idx >= 0 ? idx : null;
   }, [allNodes]);
 
-  return { 
-    nodes: allNodes, 
-    loading, 
+  return {
+    nodes: allNodes,
+    loading,
     currentNodeIndex,
     loadMore,
     hasMore,
   };
 }
 
-/**
- * Hook to get today's content for studying
- */
-export function useTodaysContent() {
-  const { preferences, loading } = usePreferences();
 
-  const todaysContent = useMemo(() => {
-    if (!preferences || loading) return null;
-
-    const yomTovDatesSet = new Set<string>(preferences.yom_tov_dates || []);
-    
-    const progress = {
-      currentContentIndex: preferences.current_content_index ?? 0,
-      pace: (preferences.pace || 'two_mishna') as Pace,
-      reviewIntensity: (preferences.review_intensity || 'none') as ReviewIntensity,
-      startDate: preferences.path_start_date 
-        ? new Date(preferences.path_start_date) 
-        : new Date(),
-      studyDays: {
-        skipFriday: preferences.skip_friday ?? true,
-        yomTovDates: yomTovDatesSet,
-      },
-    };
-
-    return getTodaysContent(progress);
-  }, [preferences, loading]);
-
-  return { content: todaysContent, loading };
-}

@@ -259,26 +259,29 @@ export function PathScreen() {
   }, [pathname]);
   
   // Scroll to current node once when entering the path screen
+  // Current node is the first unlocked, uncompleted node (learning, review, or quiz)
   useEffect(() => {
     // Skip if we've already scrolled this visit
     if (hasScrolledThisVisitRef.current) return;
-    
+
     const isOnPathScreen = pathname === '/' || pathname === '/path';
     if (!isOnPathScreen || loading || nodes.length === 0 || currentNodeIndex === null) return;
-    
-    // Verify that the node at currentNodeIndex is actually the current (uncompleted) node
+
+    // Verify that the node exists
     const node = nodes[currentNodeIndex];
-    if (!node || !node.isCurrent || node.isLocked) return;
-    
+    if (!node) return;
+
     // All loaded nodes are visible, no need to check visibleCount
-    
+
     // Wait for ref to be attached to the DOM element
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        if (currentRef.current && !hasScrolledThisVisitRef.current) {
-          currentRef.current.scrollIntoView({ 
-            behavior: 'instant', 
-            block: 'center' 
+        // Find the ref for the current node
+        const element = document.querySelector(`[data-node-id="${node.id}"]`);
+        if (element && !hasScrolledThisVisitRef.current) {
+          element.scrollIntoView({
+            behavior: 'instant',
+            block: 'center'
           });
           hasScrolledThisVisitRef.current = true;
         }
@@ -306,27 +309,11 @@ export function PathScreen() {
     }
   }, [loading, nodes.length]);
 
-  // Check Supabase count in development to show sync progress
+  // DEPRECATED: learning_path table removed (Task 3.3)
+  // Position-based model uses user_preferences.current_content_index
   useEffect(() => {
-    // Only check Supabase count in development
-    if (process.env.NODE_ENV === 'development' && session?.user.id) {
-      (async () => {
-        try {
-          const { count } = await supabase
-            .from('learning_path')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', session.user.id);
-          if (count !== null) {
-            setSupabaseNodeCount(count);
-          }
-        } catch {
-          // Ignore errors
-        }
-      })();
-    } else {
-      // In production, always set to null
-      setSupabaseNodeCount(null);
-    }
+    // Always set to null since learning_path no longer exists
+    setSupabaseNodeCount(null);
   }, [session?.user.id, nodes.length]);
 
   // Show loading with mascot
@@ -758,11 +745,12 @@ export function PathScreen() {
                   {/* Node card */}
                   <button
                     type="button"
+                    data-node-id={node.id}
                     ref={isCurrent ? currentRef : null}
                     onClick={() => handleNodeClick(node)}
                     disabled={isLocked}
                     aria-label={`${node.node_type === 'review_session' ? `${node.review_range_start}${node.review_range_end ? ` עד ${node.review_range_end}` : ''} - יום ${node.review_interval || '?'}` : node.content_ref ? formatContentRef(node.content_ref) : ''}, ${
-                      node.node_type === 'learning' ? t('path_node_learning') : 
+                      node.node_type === 'learning' ? t('path_node_learning') :
                       node.node_type === 'weekly_quiz' ? 'מבחן שבועי' :
                       node.node_type === 'review_session' ? 'מפגש חזרה' :
                       node.node_type === 'review' ? t('path_node_review') : ''

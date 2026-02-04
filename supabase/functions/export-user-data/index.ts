@@ -14,7 +14,8 @@ interface ExportDataResponse {
     user_study_log: any[];
     user_preferences: any[];
     user_consent_preferences: any[];
-    learning_path: any[];
+    // Note: learning_path removed in position-based implementation
+    // All path data is now stored in user_preferences.current_content_index
   };
 }
 
@@ -121,20 +122,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Fetch learning_path
-    const { data: learningPath, error: learningPathError } = await supabase
-      .from('learning_path')
-      .select('*')
-      .eq('user_id', userId)
-      .order('node_index', { ascending: true });
-
-    if (learningPathError) {
-      console.error('Error fetching learning_path:', learningPathError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch learning path', details: learningPathError.message }),
-        { status: 500, headers: corsHeaders }
-      );
-    }
+    // Note: learning_path table removed in Phase 1 position-based implementation
+    // All path data is now stored in user_preferences.current_content_index
+    console.log('[export-user-data] Skipping learning_path export (Phase 1: position-based implementation)');
 
     // Construct response
     const response: ExportDataResponse = {
@@ -144,7 +134,6 @@ Deno.serve(async (req: Request) => {
         user_study_log: studyLogs || [],
         user_preferences: preferences || [],
         user_consent_preferences: consentPreferences || [],
-        learning_path: learningPath || [],
       },
     };
 

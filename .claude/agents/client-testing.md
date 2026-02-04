@@ -13,6 +13,8 @@ The Client Testing Guide covers end-to-end (E2E) testing of client applications 
 - Streak display tests
 - Offline behavior tests
 - CI/CD integration for client tests
+- Performance testing and migration validation
+- Database, sync, client, storage, and load testing
 
 ## Technology: Maestro
 
@@ -59,6 +61,18 @@ tests/
 │   │   └── ios/
 │   └── shared/
 │       └── setup.yaml
+└── performance/
+    ├── database-performance.js      # Database query performance tests
+    ├── sync-performance.js         # Data sync and bandwidth tests
+    ├── client-performance.js        # Browser rendering and interaction tests
+    ├── storage-performance.js       # IndexedDB and local storage tests
+    ├── load-testing.js             # Concurrent user and scalability tests
+    ├── generate-report.js           # Comprehensive report generator
+    ├── run-all-tests.js             # Test orchestrator
+    ├── package.json                 # Dependencies and scripts
+    ├── results/                     # Test output directory
+    ├── README.md                    # Performance testing overview
+    └── EXECUTION_GUIDE.md           # Detailed execution instructions
 ```
 
 ## Test Flows Examples
@@ -268,9 +282,63 @@ jobs:
 | Streak Display | `streak/streak_display.yaml` | Verify streak indicator |
 | Offline Read | `offline/offline_read.yaml` | Read content offline |
 | Offline Complete | `offline/offline_complete.yaml` | Mark complete offline |
+| Migration Performance | `migration_performance.yaml` | Validate migration benefits and performance improvements |
+
+## Performance Testing (Task 4.2)
+
+### Purpose
+Validate performance improvements from migrating from `learning_path` table (221K+ records) to position-based model in `user_preferences`.
+
+### Test Categories
+
+| Category | Test File | Key Metrics |
+|----------|-----------|------------|
+| Database Performance | `database-performance.js` | Query response time, Edge Function speed |
+| Sync Performance | `sync-performance.js` | Bandwidth usage, data transfer reduction |
+| Client Performance | `client-performance.js` | Page load time, memory usage |
+| Storage Performance | `storage-performance.js` | IndexedDB size, storage efficiency |
+| Load Testing | `load-testing.js` | Concurrent user handling, scalability |
+
+### Running Performance Tests
+
+```bash
+# Install dependencies
+cd tests/performance
+npm install
+
+# Run all performance tests
+npm run test:performance
+
+# Run individual tests
+npm run test:database
+npm run test:sync
+npm run test:client
+npm run test:storage
+npm run test:load
+
+# Generate comprehensive report
+npm run report
+```
+
+### Expected Improvements
+
+Based on migration documentation:
+- **Database**: 99.9% reduction in analytics queries (221K → ~28 rows)
+- **Sync**: 95% reduction in data transfer
+- **Client**: 50% faster page load times
+- **Storage**: 90% reduction in IndexedDB usage
+
+### Performance Report Output
+
+- `performance-report.html` - Visual dashboard with metrics
+- `combined-results.json` - Raw performance data
+- Individual JSON files for each test category
 
 ## Reference Documents
 
 - **PRD Section 7**: Core App Flow (test scenarios)
 - **TDD Section 10**: Platform Implementations
 - **Maestro Docs**: https://maestro.mobile.dev/
+- **Migration Summary**: `docs/task_1_3_analytics_migration_summary.md`
+- **Performance Testing Guide**: `tests/performance/README.md`
+- **Performance Execution Guide**: `tests/performance/EXECUTION_GUIDE.md`

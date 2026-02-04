@@ -18,9 +18,7 @@ interface SupabaseCheckpoint {
   updated_at: string;
 }
 
-interface LearningPathCheckpoint extends SupabaseCheckpoint {
-  node_index: number;
-}
+
 
 /**
  * Setup replication for all collections
@@ -30,11 +28,8 @@ export async function setupReplication(
   db: RxDatabase<DatabaseCollections>,
   userId: string
 ): Promise<{
-  userStudyLog: any;
   contentCache: any;
-  tracks: any;
   userPreferences: any;
-  learningPath: any | null; // Deprecated: position-based model doesn't need learning_path sync
   quizQuestions: any;
 }> {
   console.log('[Replication] Setting up RxDB Supabase replications...');
@@ -51,9 +46,6 @@ export async function setupReplication(
     // Convert boolean fields
     if (tableName === 'user_study_log' && typeof doc.is_completed === 'boolean') {
       doc.is_completed = doc.is_completed ? 1 : 0;
-    }
-    if (tableName === 'learning_path' && typeof doc.is_divider === 'boolean') {
-      doc.is_divider = doc.is_divider ? 1 : 0;
     }
     // Preserve null values for nullable fields (don't delete them)
     // Nullable fields that should be preserved: completed_at, content_ref, review_of_node_id, etc.
@@ -91,9 +83,6 @@ export async function setupReplication(
     if (tableName === 'user_study_log' && typeof row.is_completed === 'number') {
       row.is_completed = row.is_completed !== 0;
     }
-    if (tableName === 'learning_path' && typeof row.is_divider === 'number') {
-      row.is_divider = row.is_divider !== 0;
-    }
     // Remove RxDB internal fields
     delete row._deleted;
     
@@ -107,8 +96,9 @@ export async function setupReplication(
     return row;
   };
 
-  // Setup user_study_log replication with 14-day window filtering
-  const userStudyLogReplication = replicateRxCollection({
+  // DEPRECATED: user_study_log table removed (replaced by user_preferences + learning_path)
+  // Keeping this commented for reference - replication code can be removed in future cleanup
+  /* const userStudyLogReplication = replicateRxCollection({
     collection: db.user_study_log,
     replicationIdentifier: 'user_study_log-supabase',
     live: true,
@@ -192,7 +182,7 @@ export async function setupReplication(
       batchSize: 50,
     },
     deletedField: '_deleted',
-  });
+  }); */
 
   // Setup content_cache replication with position-based filtering
   // Compute which content refs to sync based on user's current position from LOCAL RxDB
@@ -271,8 +261,9 @@ export async function setupReplication(
     deletedField: '_deleted',
   });
 
-  // Setup tracks replication (all tracks, no filtering)
-  const tracksReplication = replicateRxCollection({
+  // DEPRECATED: tracks table removed (replaced by user_preferences + learning_path)
+  // Keeping this commented for reference - replication code can be removed in future cleanup
+  /* const tracksReplication = replicateRxCollection({
     collection: db.tracks,
     replicationIdentifier: 'tracks-supabase',
     live: true,
@@ -344,7 +335,7 @@ export async function setupReplication(
       batchSize: 50,
     },
     deletedField: '_deleted',
-  });
+  }); */
 
   // Setup user_preferences replication
   const userPreferencesReplication = replicateRxCollection({
@@ -421,12 +412,10 @@ export async function setupReplication(
     deletedField: '_deleted',
   });
 
-  // DEPRECATED: learning_path replication disabled
-  // Position-based model computes path from current_content_index in user_preferences
-  // No need to sync thousands of learning_path rows anymore
-  // Keeping the collection for backwards compatibility but not syncing it
-  const learningPathReplication = null;
-  console.log('[Replication] learning_path sync disabled (position-based model)');
+// DEPRECATED: learning_path collection completely removed (Task 3.3)
+// Position-based model computes path from current_content_index in user_preferences
+// No need to sync thousands of learning_path rows anymore
+console.log('[Replication] learning_path collection removed (position-based model)');
 
   // Setup quiz_questions replication
   const quizQuestionsReplication = replicateRxCollection({
@@ -510,11 +499,8 @@ export async function setupReplication(
   // Wait for initial replication to complete
   console.log('[Replication] Waiting for initial replication...');
   await Promise.all([
-    userStudyLogReplication.awaitInitialReplication(),
     contentCacheReplication.awaitInitialReplication(),
-    tracksReplication.awaitInitialReplication(),
     userPreferencesReplication.awaitInitialReplication(),
-    // learningPathReplication disabled - position-based model
     quizQuestionsReplication.awaitInitialReplication(),
   ]);
 
@@ -557,11 +543,8 @@ export async function setupReplication(
 
   // Return replication states for monitoring
   return {
-    userStudyLog: userStudyLogReplication,
     contentCache: contentCacheReplication,
-    tracks: tracksReplication,
     userPreferences: userPreferencesReplication,
-    learningPath: learningPathReplication,
     quizQuestions: quizQuestionsReplication,
   };
 }

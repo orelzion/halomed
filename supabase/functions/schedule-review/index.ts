@@ -1,31 +1,25 @@
 // supabase/functions/schedule-review/index.ts
-// Edge Function to schedule review nodes when a learning node is completed
-// Implements spaced repetition based on user's review_intensity setting
-// Reference: Plan Section "Spaced Repetition Schedule"
+// Edge Function to track review completion dates in user_preferences
+// Records when users complete review sessions for position-based review scheduling
+// Reference: Plan Section "Position-Based Review Scheduling"
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
-import { isScheduledDay, addDays, formatDate } from '../_shared/calendar.ts';
 
 interface ScheduleReviewRequest {
   user_id: string;
-  completed_node_id: string; // The learning node that was just completed
+  completion_date: string; // Date of the review completion (YYYY-MM-DD)
+  review_items_completed?: number; // Number of items reviewed in this session
+  track_id?: string; // Optional: track identifier for context
 }
 
 interface ScheduleReviewResponse {
   success: boolean;
-  review_nodes_created: number;
+  completion_tracked: boolean;
   message: string;
+  total_completion_dates: number;
 }
-
-// Review intervals based on intensity
-const REVIEW_INTERVALS: Record<string, number[]> = {
-  'none': [],
-  'light': [7, 30],
-  'medium': [3, 7, 30],
-  'intensive': [1, 3, 7, 14, 30],
-};
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
@@ -50,19 +44,39 @@ Deno.serve(async (req: Request) => {
     const body: ScheduleReviewRequest = await req.json();
 
     // Validate request
-    if (!body.user_id || !body.completed_node_id) {
+    if (!body.user_id || !body.completion_date) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: user_id, completed_node_id' }),
+        JSON.stringify({ error: 'Missing required fields: user_id, completion_date' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Validate completion_date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(body.completion_date)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid completion_date format. Expected: YYYY-MM-DD' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Validate that the date is not in the future
+    const completionDate = new Date(body.completion_date + 'T00:00:00Z');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (completionDate > today) {
+      return new Response(
+        JSON.stringify({ error: 'Completion date cannot be in the future' }),
         { status: 400, headers: corsHeaders }
       );
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user preferences to determine review intervals
+    // Get current user preferences
     const { data: preferences, error: prefError } = await supabase
       .from('user_preferences')
-      .select('review_intensity')
+      .select('review_completion_dates')
       .eq('user_id', body.user_id)
       .single();
 
@@ -73,109 +87,62 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { review_intensity } = preferences;
-    const intervals = REVIEW_INTERVALS[review_intensity] || [];
+    // Get existing completion dates array (default to empty array)
+    const existingDates = preferences.review_completion_dates || [];
 
-    // If no reviews (intensity = 'none'), return early
-    if (intervals.length === 0) {
+    // Check if this completion date is already tracked
+    if (existingDates.includes(body.completion_date)) {
       return new Response(
         JSON.stringify({
           success: true,
-          review_nodes_created: 0,
-          message: 'No review nodes scheduled (review intensity: none)'
+          completion_tracked: false,
+          message: 'Completion date already tracked',
+          total_completion_dates: existingDates.length
         } as ScheduleReviewResponse),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get the completed learning node
-    const { data: completedNode, error: nodeError } = await supabase
-      .from('learning_path')
-      .select('id, node_index, content_ref, tractate, chapter, unlock_date')
-      .eq('id', body.completed_node_id)
-      .eq('user_id', body.user_id)
-      .eq('node_type', 'learning')
-      .single();
+    // Add new completion date to the array
+    const updatedDates = [...existingDates, body.completion_date].sort();
 
-    if (nodeError || !completedNode) {
+    // Update user preferences with new completion date
+    const { error: updateError } = await supabase
+      .from('user_preferences')
+      .update({
+        review_completion_dates: updatedDates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', body.user_id);
+
+    if (updateError) {
+      console.error('Error updating review completion dates:', updateError);
       return new Response(
-        JSON.stringify({ error: 'Completed learning node not found' }),
-        { status: 404, headers: corsHeaders }
+        JSON.stringify({ 
+          error: 'Failed to track review completion',
+          details: updateError.message 
+        }),
+        { status: 500, headers: corsHeaders }
       );
     }
 
-    // Get the highest node_index to insert review nodes after existing nodes
-    const { data: maxNode, error: maxError } = await supabase
-      .from('learning_path')
-      .select('node_index')
-      .eq('user_id', body.user_id)
-      .order('node_index', { ascending: false })
-      .limit(1)
-      .single();
-
-    let nextNodeIndex = completedNode.node_index + 1;
-    if (maxNode && maxNode.node_index >= nextNodeIndex) {
-      nextNodeIndex = maxNode.node_index + 1;
-    }
-
-    // Get completion date (use unlock_date as base, or current date)
-    const completionDate = parseDate(completedNode.unlock_date);
-    const reviewNodes = [];
-
-    // Create review nodes for each interval
-    for (const interval of intervals) {
-      const reviewDate = addDays(completionDate, interval);
-      
-      // Find next scheduled weekday for review date
-      let reviewScheduledDate = new Date(reviewDate);
-      let daysOffset = 0;
-      while (!(await isScheduledDay(reviewScheduledDate, 'DAILY_WEEKDAYS_ONLY'))) {
-        daysOffset++;
-        reviewScheduledDate = addDays(reviewDate, daysOffset);
-      }
-
-      reviewNodes.push({
-        user_id: body.user_id,
-        node_index: nextNodeIndex++,
-        node_type: 'review',
-        content_ref: completedNode.content_ref,
-        tractate: completedNode.tractate,
-        chapter: completedNode.chapter,
-        is_divider: false,
-        unlock_date: formatDate(reviewScheduledDate),
-        review_of_node_id: completedNode.id,
-      });
-    }
-
-    // Insert review nodes
-    if (reviewNodes.length > 0) {
-      const { error: insertError } = await supabase
-        .from('learning_path')
-        .insert(reviewNodes);
-
-      if (insertError) {
-        console.error('Error inserting review nodes:', insertError);
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to create review nodes',
-            details: insertError.message 
-          }),
-          { status: 500, headers: corsHeaders }
-        );
-      }
+    // Optional: Log review session details for analytics (if track_id provided)
+    if (body.track_id && body.review_items_completed) {
+      console.log(`Review session completed: user=${body.user_id}, date=${body.completion_date}, track=${body.track_id}, items=${body.review_items_completed}`);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        review_nodes_created: reviewNodes.length,
-        message: `Scheduled ${reviewNodes.length} review nodes`
+        completion_tracked: true,
+        message: `Review completion tracked for ${body.completion_date}`,
+        total_completion_dates: updatedDates.length
       } as ScheduleReviewResponse),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error scheduling reviews:', error);
+    console.error('Error tracking review completion:', error);
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
@@ -185,8 +152,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-
-// Helper function to parse date
-function parseDate(dateString: string): Date {
-  return new Date(dateString + 'T00:00:00Z');
-}

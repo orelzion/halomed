@@ -40,8 +40,9 @@ if [ -z "$STAGED_FILES" ]; then
     # No staged files - skip API key check
     echo "   (No staged files - skipping API key check)"
 else
-    if echo "$STAGED_FILES" | xargs grep -l "sk-[A-Za-z0-9]\{48\}" 2>/dev/null | grep -v "\.md$" | grep -v "\.example" | grep -v "security-check.sh" | head -1; then
-        echo "❌ ERROR: Hardcoded API key found!"
+    FOUND_API_KEY_FILE=$(echo "$STAGED_FILES" | xargs grep -l "sk-[A-Za-z0-9]\{48\}" 2>/dev/null | grep -v "\.md$" | grep -v "\.example" | grep -v "security-check.sh" | head -1 || true)
+    if [ -n "$FOUND_API_KEY_FILE" ]; then
+        echo "❌ ERROR: Hardcoded API key found in: $FOUND_API_KEY_FILE"
         echo "   Use environment variables instead"
         exit 1
     fi

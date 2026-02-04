@@ -13,6 +13,10 @@ const withSerwist = withSerwistInit({
 const nextConfig: NextConfig = {
   // Empty turbopack config to silence warnings when using --webpack flag
   turbopack: {},
+  // Enable auth interrupts for forbidden() function
+  experimental: {
+    authInterrupts: true,
+  },
   // PostHog reverse proxy configuration
   async rewrites() {
     return [

@@ -75,7 +75,6 @@ export function ReviewScreen() {
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
   const [generatingCount, setGeneratingCount] = useState(0);
-
   // Load content for review items (same strategy as study page)
   useEffect(() => {
     if (reviews.length === 0) {
@@ -227,10 +226,46 @@ export function ReviewScreen() {
     router.back();
   };
 
-  const handleComplete = () => {
-    // In the position-based model, we don't need to save review results
-    // The reviews are auto-computed each day based on what was learned
-    // Future enhancement: could track review performance for analytics
+  const handleComplete = async () => {
+    // Mark review completion in user_preferences
+    const reviewDate = searchParams.get('date');
+    if (reviewDate) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          if (!db.user_preferences) {
+            console.error('[ReviewScreen] user_preferences collection not available');
+            router.push('/');
+            return;
+          }
+
+          const userPrefs = await db.user_preferences.find().exec();
+          if (userPrefs.length > 0) {
+            const pref = userPrefs[0];
+            const existingDates = pref.review_completion_dates || [];
+            
+            // Add review date if not already present
+            if (!existingDates.includes(reviewDate)) {
+              const newReviewDates = [...existingDates, reviewDate];
+              console.log(`[ReviewScreen] Adding review completion date: ${reviewDate}`);
+              
+              await pref.patch({
+                review_completion_dates: newReviewDates,
+                updated_at: new Date().toISOString(),
+              });
+              
+              console.log(`[ReviewScreen] Updated review_completion_dates:`, newReviewDates);
+            } else {
+              console.log(`[ReviewScreen] Review completion already recorded for: ${reviewDate}`);
+            }
+          } else {
+            console.warn('[ReviewScreen] No user_preferences found');
+          }
+        }
+      } catch (error) {
+        console.error('[ReviewScreen] Error marking review session as completed:', error);
+      }
+    }
     router.push('/');
   };
 

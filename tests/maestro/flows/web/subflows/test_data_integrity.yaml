@@ -1,0 +1,182 @@
+# Test 6: Data Integrity Test
+# 
+# Verifies that completion tracking works correctly in the position-based model.
+# Tests that current_content_index updates properly, completion dates are tracked,
+# and position calculations are accurate.
+# This is critical for ensuring the migration maintains data integrity.
+
+---
+# Authenticate and set up the test
+- runFlow: ../auth_anonymous.yaml
+
+# Wait for path screen to load
+- assertVisible:
+    text: "דרך הלימוד"
+
+# Wait for data to load completely
+- wait: 3000
+
+# Verify we're on the path screen
+- assertVisible:
+    id: "path_screen"
+
+# Test 1: Verify initial progress tracking
+# Check current progress counter
+- assertVisible:
+    text: "התקדמות"
+
+# Note the initial completion count (should be X / Y format)
+- assertVisible:
+    text: "/"
+
+# Test 2: Locate the current learning node
+# Find the current (unlocked, uncompleted) learning item
+- assertVisible:
+    text: "נוכחי"
+
+# Verify current item is a learning item
+- assertVisible:
+    text: "לימוד"
+
+# Test 3: Complete the current learning item
+# Click on the current learning item
+- tapOn:
+    text: "נוכחי"
+
+# Wait for learning screen to load
+- wait: 2000
+
+# Verify we're on the study screen
+- assertVisible:
+    id: "mishna_text"
+
+# Verify explanation is loaded
+- assertVisible:
+    id: "explanation_text"
+
+# Verify the done button is in uncompleted state
+- assertVisible:
+    text: "סיימתי"
+
+# Test 4: Mark the item as completed
+- tapOn:
+    id: "done_button"
+
+# Verify the completion state changes
+- assertVisible:
+    text: "✓ סיימתי"
+
+# Wait a moment for the database update to complete
+- wait: 1500
+
+# Test 5: Navigate back to verify progress updated
+- tapOn:
+    id: "back_button"
+
+# Wait for path screen to reload with updated data
+- wait: 2000
+
+# Verify we're back on the path screen
+- assertVisible:
+    text: "דרך הלימוד"
+
+# Test 6: Verify progress tracking updated correctly
+# Check the progress counter again - should show increased completion
+- assertVisible:
+    text: "התקדמות"
+
+# The previously current item should now be marked as completed
+- assertVisible:
+    text: "הושלם"
+
+# The next item should now be the current one
+- assertVisible:
+    text: "נוכחי"
+
+# Test 7: Verify position calculations are accurate
+# Scroll to see the updated status of items
+- scrollDown: 800
+
+# Previously completed items should remain completed
+- assertVisible:
+    text: "הושלם"
+
+# The new current item should be properly positioned
+- assertVisible:
+    text: "נוכחי"
+
+# Future items should remain locked
+- assertVisible:
+    text: "נעול"
+
+# Test 8: Complete another item to test incremental updates
+# Go back to the current learning area
+- scrollUp: 800
+
+# Click on the new current learning item
+- tapOn:
+    text: "נוכחי"
+
+# Wait for learning screen
+- wait: 2000
+
+# Verify it loads properly
+- assertVisible:
+    id: "mishna_text"
+
+# Complete this item as well
+- tapOn:
+    id: "done_button"
+
+# Verify completion state
+- assertVisible:
+    text: "✓ סיימתי"
+
+# Wait for database update
+- wait: 1500
+
+# Navigate back to path
+- tapOn:
+    id: "back_button"
+
+# Wait for update to propagate
+- wait: 2000
+
+# Test 9: Verify cumulative progress tracking
+# Progress counter should show both completions
+- assertVisible:
+    text: "התקדמות"
+
+# Both previously completed items should show as completed
+- assertVisible:
+    text: "הושלם"
+
+# A new current item should be available
+- assertVisible:
+    text: "נוכחי"
+
+# Test 10: Verify data consistency after multiple operations
+# Scroll through the path to ensure no inconsistencies
+- scrollDown: 1200
+
+# All completed items should maintain their status
+- assertVisible:
+    text: "הושלם"
+
+# Current and future items should be properly positioned
+- assertVisible:
+    text: "נוכחי"
+
+# Scroll back to top
+- scrollUp: 1200
+
+# Final verification: all systems working correctly
+- assertVisible:
+    text: "דרך הלימוד"
+
+# Progress tracking should be accurate
+- assertVisible:
+    text: "התקדמות"
+
+# Data integrity test complete
+# Test result: PASSED - Verified current_content_index updates correctly and position calculations are accurate

@@ -51,7 +51,7 @@
   },
   {
     "event_name": "learning_path_generated",
-    "description": "Server successfully generated a learning path for user",
+    "description": "Server successfully generated a learning path for user (position-based model)",
     "file_path": "app/api/generate-path/route.ts"
   },
   {

@@ -22,8 +22,7 @@ interface UpdatePreferencesResponse {
   success: boolean;
   message: string;
   preferences_updated: boolean;
-  nodes_preserved: number;
-  nodes_created: number;
+  // Note: nodes_preserved and nodes_created removed in position-based implementation
 }
 
 const VALID_PACES: Pace[] = ['one_mishna', 'two_mishna', 'one_chapter'];
@@ -155,36 +154,23 @@ Deno.serve(async (req: Request) => {
 
     console.log(`[update-preferences] Preferences updated successfully`);
 
-    // Find the last completed learning node to determine where to resume
-    const { data: lastCompletedNode, error: nodeError } = await supabase
-      .from('learning_path')
-      .select('id, node_index, content_ref, tractate, chapter')
+    // Get current position from user_preferences (Phase 1: position-based implementation)
+    const { data: currentPrefs, error: prefsError } = await supabase
+      .from('user_preferences')
+      .select('current_content_index, completed_units_count')
       .eq('user_id', body.user_id)
-      .not('completed_at', 'is', null)
-      .not('content_ref', 'is', null) // Only learning nodes have content_ref
-      .eq('is_divider', false)
-      .order('node_index', { ascending: false })
-      .limit(1)
       .single();
 
     let startFromContentIndex = 0;
-    let startNodeIndex = 0;
 
-    if (lastCompletedNode && lastCompletedNode.content_ref) {
-      // Calculate the content index to resume from
-      // We need to start from the NEXT content after the last completed one
-      const lastContentIndex = getContentIndexForRef(lastCompletedNode.content_ref);
-      if (lastContentIndex !== null) {
-        startFromContentIndex = lastContentIndex + 1;
-        startNodeIndex = lastCompletedNode.node_index + 1;
-        console.log(`[update-preferences] Last completed: ${lastCompletedNode.content_ref} (index ${lastContentIndex})`);
-        console.log(`[update-preferences] Will resume from content_index=${startFromContentIndex}, node_index=${startNodeIndex}`);
-      }
+    if (currentPrefs) {
+      startFromContentIndex = currentPrefs.current_content_index || 0;
+      console.log(`[update-preferences] Current position: content_index=${startFromContentIndex}, completed_count=${currentPrefs.completed_units_count}`);
     } else {
-      console.log(`[update-preferences] No completed learning nodes found, will regenerate from beginning`);
+      console.log(`[update-preferences] No user preferences found, will regenerate from beginning`);
     }
 
-    // Fire-and-forget: Call generate-path with partial regeneration parameters
+    // Fire-and-forget: Call generate-path with new position-based parameters
     // We don't wait for it to complete - the client will see updates via RxDB sync
     console.log(`[update-preferences] Triggering generate-path in background (fire-and-forget)...`);
     
@@ -198,9 +184,8 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         user_id: body.user_id,
-        preserve_completed: true,
-        start_from_content_index: startFromContentIndex,
-        start_node_index: startNodeIndex
+        pace: body.pace,
+        review_intensity: body.review_intensity
       }),
     }).then(async (response) => {
       if (response.ok) {
@@ -218,7 +203,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Preferences updated successfully. Path regeneration started in background.`,
+        message: `Preferences updated successfully. Content generation started in background.`,
         preferences_updated: true,
         regenerating_path: true
       } as UpdatePreferencesResponse & { regenerating_path?: boolean }),

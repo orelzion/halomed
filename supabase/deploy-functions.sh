@@ -36,11 +36,11 @@ deploy_function() {
   echo "Deploying: $func"
   
   if [ "$no_verify" = "true" ]; then
-    echo "  (--no-verify-jwt)"
-    supabase functions deploy "$func" --no-verify-jwt --project-ref "$PROJECT_REF"
+    echo "  (--use-api --no-verify-jwt)"
+    npx supabase functions deploy "$func" --use-api --no-verify-jwt --project-ref "$PROJECT_REF"
   else
-    echo "  (with JWT verification)"
-    supabase functions deploy "$func" --project-ref "$PROJECT_REF"
+    echo "  (--use-api with JWT verification)"
+    npx supabase functions deploy "$func" --use-api --project-ref "$PROJECT_REF"
   fi
   
   echo "Done: $func"

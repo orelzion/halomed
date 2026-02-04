@@ -330,7 +330,47 @@ export function QuizScreen() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // Mark quiz completion in user_preferences
+    if (quizContentRef) {
+      try {
+        const db = await getDatabase();
+        if (db) {
+          if (!db.user_preferences) {
+            console.error('[QuizScreen] user_preferences collection not available');
+            router.push('/');
+            return;
+          }
+
+          const userPrefs = await db.user_preferences.find().exec();
+          if (userPrefs.length > 0) {
+            const pref = userPrefs[0];
+            const todayStr = new Date().toISOString().split('T')[0];
+            const existingDates = pref.quiz_completion_dates || [];
+            
+            // Add today's date if not already present
+            if (!existingDates.includes(todayStr)) {
+              const newQuizDates = [...existingDates, todayStr];
+              console.log(`[QuizScreen] Adding quiz completion date: ${todayStr}`);
+              
+              await pref.patch({
+                quiz_completion_dates: newQuizDates,
+                updated_at: new Date().toISOString(),
+              });
+              
+              console.log(`[QuizScreen] Updated quiz_completion_dates:`, newQuizDates);
+            } else {
+              console.log(`[QuizScreen] Quiz completion already recorded for: ${todayStr}`);
+            }
+          } else {
+            console.warn('[QuizScreen] No user_preferences found');
+          }
+        }
+      } catch (error) {
+        console.error('[QuizScreen] Error marking quiz as completed:', error);
+      }
+    }
+
     router.push('/');
   };
 

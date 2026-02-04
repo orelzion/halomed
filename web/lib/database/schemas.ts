@@ -7,18 +7,6 @@
 import type { RxJsonSchema, RxCollection, RxDocument } from 'rxdb';
 
 // Document types for each collection
-export interface UserStudyLogDoc {
-  id: string;
-  user_id: string;
-  track_id: string;
-  study_date: string;
-  content_id?: string;
-  is_completed: number;
-  completed_at?: string;
-  updated_at: string;
-  _deleted: boolean;
-}
-
 export interface ContentCacheDoc {
   id: string;
   ref_id: string;
@@ -30,17 +18,7 @@ export interface ContentCacheDoc {
   _deleted: boolean;
 }
 
-export interface TracksDoc {
-  id: string;
-  title: string;
-  source_endpoint?: string;
-  schedule_type: string;
-  start_date?: string;
-  updated_at: string;
-  _deleted: boolean;
-}
-
-export interface UserPreferencesDoc {
+export interface UserPreferencesDoc{
   id: string;
   user_id: string;
   pace: string; // 'one_chapter' | 'seder_per_year' | 'two_mishna'
@@ -54,6 +32,8 @@ export interface UserPreferencesDoc {
   israel_mode?: boolean; // true = Israel (1 day Yom Tov), false = Diaspora (2 days)
   yom_tov_dates?: string[]; // Pre-computed Yom Tov dates from backend (YYYY-MM-DD)
   yom_tov_dates_until?: string; // Last date covered by yom_tov_dates
+  quiz_completion_dates?: string[]; // Dates when weekly quizzes were completed (YYYY-MM-DD)
+  review_completion_dates?: string[]; // Dates when review sessions were completed (YYYY-MM-DD)
   created_at: string;
   updated_at: string;
   _deleted: boolean;
@@ -65,25 +45,7 @@ export interface ReviewItem {
   heRef?: string;
 }
 
-export interface LearningPathDoc {
-  id: string;
-  user_id: string;
-  node_index: number;
-  node_type: string; // 'learn', 'review_session', 'quiz', 'weekly_quiz'
-  content_ref?: string;
-  tractate?: string;
-  chapter?: number;
-  is_divider: number;
-  unlock_date: string;
-  completed_at?: string;
-  review_of_node_id?: string;
-  // New fields for review sessions (Task 15.4)
-  review_items?: string; // JSON string of ReviewItem[]
-  review_count?: number;
-  created_at: string;
-  updated_at: string;
-  _deleted: boolean;
-}
+
 
 export interface QuizQuestionsDoc {
   id: string;
@@ -97,26 +59,6 @@ export interface QuizQuestionsDoc {
   updated_at: string;
   _deleted: boolean;
 }
-
-// User Study Log Schema
-export const userStudyLogSchema: RxJsonSchema<UserStudyLogDoc> = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    user_id: { type: 'string' },
-    track_id: { type: 'string' },
-    study_date: { type: 'string' }, // YYYY-MM-DD
-    content_id: { type: 'string' }, // nullable
-    is_completed: { type: 'number' }, // 0 or 1 (boolean as integer)
-    completed_at: { type: 'string' }, // ISO timestamp, nullable
-    updated_at: { type: 'string' }, // ISO timestamp
-    _deleted: { type: 'boolean' }, // Soft delete flag
-  },
-  required: ['id', 'user_id', 'track_id', 'study_date', 'updated_at', '_deleted'],
-  indexes: ['user_id', 'track_id', 'study_date', ['user_id', 'study_date'], ['user_id', 'track_id']],
-};
 
 // Content Cache Schema
 export const contentCacheSchema: RxJsonSchema<ContentCacheDoc> = {
@@ -137,26 +79,9 @@ export const contentCacheSchema: RxJsonSchema<ContentCacheDoc> = {
   indexes: ['ref_id'],
 };
 
-// Tracks Schema
-export const tracksSchema: RxJsonSchema<TracksDoc> = {
-  version: 0,
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    title: { type: 'string' },
-    source_endpoint: { type: 'string' },
-    schedule_type: { type: 'string' },
-    start_date: { type: 'string' }, // YYYY-MM-DD, nullable
-    updated_at: { type: 'string' }, // ISO timestamp
-    _deleted: { type: 'boolean' }, // Soft delete flag
-  },
-  required: ['id', 'title', 'schedule_type', 'updated_at', '_deleted'],
-};
-
 // User Preferences Schema
 export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
-  version: 1, // Bumped for position-based storage
+  version: 2, // Bumped for completion dates arrays
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -173,6 +98,8 @@ export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
     israel_mode: { type: 'boolean' }, // Israel (1 day) vs Diaspora (2 days)
     yom_tov_dates: { type: 'array', items: { type: 'string' } }, // Pre-computed Yom Tov dates
     yom_tov_dates_until: { type: 'string' }, // Last date covered
+    quiz_completion_dates: { type: 'array', items: { type: 'string' } }, // Quiz completion dates
+    review_completion_dates: { type: 'array', items: { type: 'string' } }, // Review completion dates
     created_at: { type: 'string' }, // ISO timestamp
     updated_at: { type: 'string' }, // ISO timestamp
     _deleted: { type: 'boolean' }, // Soft delete flag
@@ -181,33 +108,7 @@ export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
   indexes: ['user_id'],
 };
 
-// Learning Path Schema
-export const learningPathSchema: RxJsonSchema<LearningPathDoc> = {
-  version: 1, // Bumped for review_items and review_count (Task 15.4)
-  primaryKey: 'id',
-  type: 'object',
-  properties: {
-    id: { type: 'string', maxLength: 100 },
-    user_id: { type: 'string' },
-    node_index: { type: 'number' },
-    node_type: { type: 'string' }, // 'learn', 'review_session', 'quiz', 'weekly_quiz'
-    content_ref: { type: 'string' }, // nullable
-    tractate: { type: 'string' }, // nullable
-    chapter: { type: 'number' }, // nullable
-    is_divider: { type: 'number' }, // 0 or 1 (boolean as integer)
-    unlock_date: { type: 'string' }, // YYYY-MM-DD
-    completed_at: { type: 'string' }, // ISO timestamp, nullable
-    review_of_node_id: { type: 'string' }, // nullable
-    // New fields for review sessions (Task 15.4)
-    review_items: { type: 'string' }, // JSONB as JSON string (ReviewItem[])
-    review_count: { type: 'number' }, // Quick access count of items in review_session
-    created_at: { type: 'string' }, // ISO timestamp
-    updated_at: { type: 'string' }, // ISO timestamp
-    _deleted: { type: 'boolean' }, // Soft delete flag
-  },
-  required: ['id', 'user_id', 'node_index', 'node_type', 'is_divider', 'unlock_date', 'created_at', 'updated_at', '_deleted'],
-  indexes: ['user_id', 'unlock_date', ['user_id', 'node_index'], ['user_id', 'unlock_date'], 'node_type'],
-};
+
 
 // Quiz Questions Schema
 export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
@@ -231,27 +132,18 @@ export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
 };
 
 // RxDB collection types
-export type UserStudyLogCollection = RxCollection<UserStudyLogDoc>;
 export type ContentCacheCollection = RxCollection<ContentCacheDoc>;
-export type TracksCollection = RxCollection<TracksDoc>;
 export type UserPreferencesCollection = RxCollection<UserPreferencesDoc>;
-export type LearningPathCollection = RxCollection<LearningPathDoc>;
 export type QuizQuestionsCollection = RxCollection<QuizQuestionsDoc>;
 
 // RxDB document types
-export type UserStudyLogDocument = RxDocument<UserStudyLogDoc>;
 export type ContentCacheDocument = RxDocument<ContentCacheDoc>;
-export type TracksDocument = RxDocument<TracksDoc>;
 export type UserPreferencesDocument = RxDocument<UserPreferencesDoc>;
-export type LearningPathDocument = RxDocument<LearningPathDoc>;
 export type QuizQuestionsDocument = RxDocument<QuizQuestionsDoc>;
 
 // Database collections type
 export interface DatabaseCollections {
-  user_study_log: UserStudyLogCollection;
   content_cache: ContentCacheCollection;
-  tracks: TracksCollection;
   user_preferences: UserPreferencesCollection;
-  learning_path: LearningPathCollection;
   quiz_questions: QuizQuestionsCollection;
 }

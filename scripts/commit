@@ -1,6 +1,0 @@
-#!/bin/bash
-# Simple wrapper for commit_agent.py
-# Usage: ./commit [message] [--no-push]
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 "$SCRIPT_DIR/commit_agent.py" "$@"

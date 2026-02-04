@@ -49,7 +49,8 @@ Deno.serve(async (req: Request) => {
 
     // Delete all user data from all tables
     // Note: Due to CASCADE constraints, deleting from auth.users will automatically
-    // delete related rows in: user_study_log, user_preferences, user_consent_preferences, learning_path
+    // delete related rows in: user_study_log, user_preferences, user_consent_preferences
+    // Note: learning_path table removed in Phase 1 position-based implementation
     // However, we'll delete explicitly first to ensure proper cleanup and error handling
 
     // Delete user_study_log
@@ -85,16 +86,8 @@ Deno.serve(async (req: Request) => {
       // Continue with deletion - CASCADE will handle it
     }
 
-    // Delete learning_path
-    const { error: learningPathError } = await supabase
-      .from('learning_path')
-      .delete()
-      .eq('user_id', userId);
-
-    if (learningPathError) {
-      console.error('Error deleting learning_path:', learningPathError);
-      // Continue with deletion - CASCADE will handle it
-    }
+    // Note: learning_path deletion removed in Phase 1 position-based implementation
+    console.log('[delete-account] Skipping learning_path deletion (Phase 1: position-based implementation)');
 
     // Delete the Supabase Auth user using admin API
     // This will trigger CASCADE deletions for any remaining data

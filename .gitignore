@@ -23,3 +23,13 @@ Thumbs.db
 # AI assistants (allow agent guides, ignore settings)
 .claude/settings.json
 .claude/settings.local.json
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+.next/
+out/
+dist/
+build/

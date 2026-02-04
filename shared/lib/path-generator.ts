@@ -58,6 +58,7 @@ export interface PathNode {
   reviewRangeStart?: string; // First item in review range (Hebrew, e.g., "ברכות א:ג")
   reviewRangeEnd?: string; // Last item in review range (Hebrew, e.g., "ברכות ב:ד")
   reviewItemIndexes?: number[]; // Content indexes of items to review (passed directly to review page)
+  isAccessible?: boolean; // True if this node should be unlocked even though it's not "current"
 }
 
 export interface ReviewItem {
@@ -748,8 +749,9 @@ export function computePath(
   for (let i = startIndex; i <= endIndex; i++) {
     const info = getInfoForIndex(i);
     if (!info) continue;
-    
-    const isCurrent = i === currentContentIndex;
+
+    // Don't set isCurrent yet - we'll do it at the end for the first unlocked node
+    const isCompleted = i < currentContentIndex;
     const unlockDate = getUnlockDate(i, pace, startDate, studyDays);
     
     // Add review session node for this date if not already added
@@ -781,7 +783,7 @@ export function computePath(
         chapter: 0,
         mishna: 0,
         isCompleted: false,
-        isCurrent: false, // Review sessions are not "current" - user chooses when to do them
+        isCurrent: false, // Will be set at the end if this is the first unlocked node
         seder: '',
         unlockDate: unlockDate,
         nodeType: 'review_session',
@@ -801,8 +803,8 @@ export function computePath(
       tractateHebrew: info.tractate.hebrew,
       chapter: info.chapter,
       mishna: info.mishna,
-      isCompleted: i < currentContentIndex,
-      isCurrent: isCurrent, // Learning node is current regardless of reviews
+      isCompleted: isCompleted,
+      isCurrent: false, // Will be set at the end if this is the first unlocked node
       seder: info.tractate.seder,
       unlockDate: unlockDate,
       nodeType: 'learning',
@@ -852,10 +854,6 @@ export function computePath(
     const isLastNodeOfWeek = !hasNextItem || (nextFridayStr !== currentWeekFriday);
     
     if (isLastNodeOfWeek && currentWeekFriday) {
-      const today = formatLocalDate(new Date());
-      const quizIsAvailable = currentWeekFriday <= today;
-      const quizIsCompleted = i < currentContentIndex && quizIsAvailable;
-      
       path.push({
         index: -1,
         contentRef: `weekly_quiz_${currentWeekFriday}`,
@@ -863,8 +861,9 @@ export function computePath(
         tractateHebrew: info.tractate.hebrew,
         chapter: info.chapter,
         mishna: 0,
-        isCompleted: quizIsCompleted,
-        isCurrent: quizIsAvailable && !quizIsCompleted && i >= currentContentIndex,
+        // Quiz completion tracked via quiz_completion_dates in convertNodes
+        isCompleted: false,
+        isCurrent: false, // Will be set at the end if this is the first unlocked node
         seder: info.tractate.seder,
         unlockDate: currentWeekFriday,
         nodeType: 'weekly_quiz',
@@ -878,7 +877,42 @@ export function computePath(
       currentWeekFriday = null;
     }
   }
-  
+
+  // Position-based progression: no date gating
+  // Mark the first uncompleted non-divider node as "current"
+  // But skip quiz/review nodes that appear before current learning frontier
+  const firstUncompletedLearningIdx = path.findIndex(
+    n => n.nodeType === 'learning' && !n.isCompleted
+  );
+
+  for (let idx = 0; idx < path.length; idx++) {
+    const node = path[idx];
+    if (node.nodeType === 'divider') continue;
+    if (node.isCompleted) continue;
+
+    // Skip quiz/review nodes that are before the current learning position
+    // These are structurally "passed" — user has progressed beyond them
+    if ((node.nodeType === 'weekly_quiz' || node.nodeType === 'review_session') 
+        && firstUncompletedLearningIdx !== -1 
+        && idx < firstUncompletedLearningIdx) {
+      continue;
+    }
+
+    node.isCurrent = true;
+    break;
+  }
+
+  // If the current node is a review/quiz, also mark the next learning node as accessible
+  const currentNode = path.find(n => n.isCurrent);
+  if (currentNode && (currentNode.nodeType === 'review_session' || currentNode.nodeType === 'weekly_quiz')) {
+    for (const node of path) {
+      if (node.nodeType === 'learning' && !node.isCompleted) {
+        node.isAccessible = true;
+        break;
+      }
+    }
+  }
+
   return path;
 }
 

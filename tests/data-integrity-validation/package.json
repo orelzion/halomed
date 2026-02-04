@@ -1,0 +1,43 @@
+{
+  "name": "data-integrity-validation",
+  "version": "1.0.0",
+  "description": "Comprehensive data integrity validation for learning path migration",
+  "main": "run-validation.js",
+  "scripts": {
+    "validate": "node run-validation.js",
+    "validate:streak": "node validators/streak-validation.js",
+    "validate:progress": "node validators/progress-validation.js", 
+    "validate:completions": "node validators/completion-validation.js",
+    "validate:preferences": "node validators/preferences-validation.js",
+    "validate:rollback": "node validators/rollback-validation.js",
+    "validate:new-users": "node test-scenarios/new-users.js",
+    "validate:regular-users": "node test-scenarios/regular-users.js",
+    "validate:power-users": "node test-scenarios/power-users.js",
+    "validate:edge-cases": "node test-scenarios/edge-cases.js",
+    "validate:quick": "node run-validation.js --quick",
+    "report": "node reporting/report-generator.js",
+    "test": "npm run validate:quick"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1",
+    "chart.js": "^4.4.0",
+    "chalk": "^4.1.2",
+    "cli-table3": "^0.6.3",
+    "date-fns": "^3.0.0",
+    "fs-extra": "^11.1.1",
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0"
+  },
+  "keywords": [
+    "data-integrity",
+    "migration",
+    "validation",
+    "database",
+    "supabase"
+  ],
+  "author": "HaLomeid Team",
+  "license": "MIT"
+}
