@@ -102,16 +102,32 @@ Deno.serve(async (req: Request) => {
       users_with_streak_7plus: (prefsData || []).filter((p) => (p.streak_count || 0) >= 7).length,
       users_with_streak_30plus: (prefsData || []).filter((p) => (p.streak_count || 0) >= 30).length,
       retention_7d_rate: activeUsers30d > 0 ? Math.round((activeUsers7d / activeUsers30d) * 1000) / 10 : 0,
-      completion_rate_30d: 0, // No study log table
-      quiz_completion_rate_30d: 0, // No study log table
-      review_completion_rate_30d: 0, // No study log table
+      completion_rate_30d: 0,
+      quiz_completion_rate_30d: 0,
+      review_completion_rate_30d: 0,
       week_over_week_change: 0,
       month_over_month_change: 0,
       users_with_preferences: totalUsers,
-      onboarding_completion_rate: 100,
+      onboarding_completion_rate: totalUsers > 0 ? Math.round(((prefsData || []).filter((p) => p.pace && p.review_intensity).length / totalUsers) * 1000) / 10 : 0,
       content_cached: contentCount || 0,
       quiz_questions: quizCount || 0,
       refreshed_at: new Date().toISOString(),
+      // Additional fields for UI components
+      passRate: 0,
+      on_pace_pct: 0,
+      behind_1_7_count: 0,
+      behind_7_plus_count: 0,
+      behind_7_plus_pct: 0,
+      hardest: '-',
+      hardest_label: '-',
+      completion: 0,
+      dropOff: 0,
+      biggestDropOff: '-',
+      retention: 0,
+      retentionTrend: '-',
+      paceAdherence: '-',
+      paceTrend: '-',
+      on_pace_count: 0,
     };
 
     return new Response(JSON.stringify({
