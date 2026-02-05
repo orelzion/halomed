@@ -1,0 +1,9 @@
+{
+  "name": "analytics",
+  "version": "1.0.0",
+  "description": "Analytics data aggregation function",
+  "main": "index.ts",
+  "imports": {
+    "jsr:@supabase/functions-js/edge-runtime.d.ts": "https://deno.land/x/supabase_functions_js/edge-runtime.d.ts"
+  }
+}

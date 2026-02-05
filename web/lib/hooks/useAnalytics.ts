@@ -48,94 +48,55 @@ export function useAnalytics(range: DateRange = '7d'): AnalyticsData {
     setError(null)
 
     try {
-      const [
-        summaryResult,
-        paceResult,
-        cohortResult,
-        paceAdherenceResult,
-        paceSummaryResult,
-        difficultyResult,
-        hardestResult,
-        funnelResult,
-        reviewResult,
-      ] = await Promise.all([
-        supabase.rpc('get_summary_stats'),
-        supabase.rpc('get_user_pace_distribution'),
-        supabase.rpc('get_cohort_retention'),
-        supabase.rpc('get_pace_adherence'),
-        supabase.rpc('get_pace_adherence_summary'),
-        supabase.rpc('get_content_difficulty'),
-        supabase.rpc('get_hardest_content', { limit_count: 10 }),
-        supabase.rpc('get_onboarding_funnel'),
-        supabase.rpc('get_review_completion'),
-      ])
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analytics`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ date_range: range }),
+        }
+      )
 
-      if (summaryResult.error) throw new Error(summaryResult.error.message)
-      if (summaryResult.data) {
-        setSummary((summaryResult.data as SummaryStats[])[0] || null)
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics')
       }
 
-      if (paceResult.data) {
-        setUserPace(paceResult.data as UserPaceDistribution[])
-      }
+      const result = await response.json()
 
-      if (cohortResult.error) {
-        console.warn('Cohort retention not available:', cohortResult.error)
-        setCohortRetention([])
-      } else if (cohortResult.data) {
-        setCohortRetention(cohortResult.data as CohortRetention[])
-      }
-
-      if (paceAdherenceResult.error) {
-        console.warn('Pace adherence not available:', paceAdherenceResult.error)
-        setPaceAdherence([])
-      } else if (paceAdherenceResult.data) {
-        setPaceAdherence(paceAdherenceResult.data as PaceAdherence[])
-      }
-
-      if (paceSummaryResult.error) {
-        setPaceAdherenceSummary(null)
-      } else if (paceSummaryResult.data) {
-        const data = paceSummaryResult.data as PaceAdherenceSummary[]
-        setPaceAdherenceSummary(data[0] || null)
-      }
-
-      if (difficultyResult.error) {
-        setContentDifficulty([])
-      } else if (difficultyResult.data) {
-        setContentDifficulty(difficultyResult.data as ContentDifficulty[])
-      }
-
-      if (hardestResult.error) {
-        setHardestContent([])
-      } else if (hardestResult.data) {
-        setHardestContent(hardestResult.data as HardestContent[])
-      }
-
-      if (funnelResult.error) {
-        setOnboardingFunnel(null)
-      } else if (funnelResult.data) {
-        setOnboardingFunnel((funnelResult.data as OnboardingFunnel[])[0] || null)
-      }
-
-      if (reviewResult.error) {
-        setReviewCompletion([])
-      } else if (reviewResult.data) {
-        setReviewCompletion(reviewResult.data as ReviewCompletion[])
-      }
+      setSummary(result.summary?.[0] || null)
+      setUserPace(result.userPace || [])
+      setCohortRetention(result.cohortRetention || [])
+      setPaceAdherence(result.paceAdherence || [])
+      setPaceAdherenceSummary(null)
+      setContentDifficulty(result.contentDifficulty || [])
+      setHardestContent([])
+      setOnboardingFunnel(result.onboardingFunnel || null)
+      setReviewCompletion(result.reviewCompletion || [])
     } catch (err) {
       console.error('Error fetching analytics:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch analytics')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [range])
 
   const refresh = useCallback(async () => {
-    const { error: refreshError } = await supabase.rpc('refresh_all_views')
-    if (refreshError) {
-      console.error('Error refreshing views:', refreshError)
-    }
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analytics`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh: true }),
+      }
+    )
     await fetchAnalytics()
   }, [fetchAnalytics])
 
