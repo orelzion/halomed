@@ -53,6 +53,7 @@ export async function setupReplication(
     const nullableFields = [
       'completed_at', 'content_ref', 'review_of_node_id', 'tractate', 'chapter', 'explanation',
       'last_study_date', 'path_start_date', 'yom_tov_dates_until', // user_preferences nullable fields
+      'correct_answer', // old column, removed from schema but may exist in local docs
     ];
     Object.keys(doc).forEach((key) => {
       // Keep null values for nullable fields, convert others to undefined (which RxDB will ignore)
@@ -69,6 +70,9 @@ export async function setupReplication(
     // All user_preferences fields now sync to Supabase
     // (migration 20260127110000 added skip_friday, skip_yom_tov, israel_mode, yom_tov_dates, yom_tov_dates_until)
     user_preferences: [],
+    // quiz_questions: correct_answer was renamed to correct_answer_index
+    // Remove old field from local docs before sending to Supabase
+    quiz_questions: ['correct_answer'],
   };
 
   // Helper to convert RxDB doc to Supabase row

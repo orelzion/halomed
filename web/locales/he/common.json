@@ -66,6 +66,8 @@
   "quiz_correct": "נכון!",
   "quiz_incorrect": "לא נכון",
   "quiz_explanation": "הסבר",
+  "quiz_type_halacha": "הלכה למעשה",
+  "quiz_type_sevara": "סברא",
   "quiz_continue": "המשך",
   "review_badge": "חזרה",
   "back": "חזור",

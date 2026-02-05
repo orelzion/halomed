@@ -101,6 +101,14 @@ await rxdbDatabase.addCollections({
           },
           quiz_questions: {
             schema: quizQuestionsSchema as any,
+            // Migration strategy for version 0 -> 1 (renamed correct_answer to correct_answer_index, added question_type)
+            migrationStrategies: {
+              1: function(_oldDoc: any) {
+                console.log('[RxDB] Migrating quiz_questions doc from v0 to v1 - deleting to force re-pull');
+                // Return null to delete the old document, forcing a clean re-pull from server
+                return null;
+              },
+            },
           },
         });
         console.log('[RxDB] Collections added successfully');
