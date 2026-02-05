@@ -12,9 +12,15 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Create client with explicit JWT verification disabled
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      }
+    });
 
     // Get user preferences (main data source)
     const { data: prefsData } = await supabase

@@ -55,6 +55,7 @@ export function useAnalytics(range: DateRange = '7d'): AnalyticsData {
         {
           method: 'POST',
           headers: {
+            authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
             apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
             'Content-Type': 'application/json',
           },
@@ -92,6 +93,7 @@ export function useAnalytics(range: DateRange = '7d'): AnalyticsData {
       {
         method: 'POST',
         headers: {
+          authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
           'Content-Type': 'application/json',
         },
