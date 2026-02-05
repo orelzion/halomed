@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/lib/i18n'
 import { CollapsibleSection } from './CollapsibleSection'
 import type { ContentDifficulty, HardestContent } from '@/types/analytics'
 
@@ -27,12 +27,14 @@ export function ContentPerformanceSection({
     }
   }, [hardestContent])
 
+  const hardestLabel = t('content.hardestMishnayot')
+
   return (
     <CollapsibleSection
       title={t('sections.content.title')}
       description={t('sections.content.description')}
       summaryValue={summary.passRate}
-      summaryTrend={t('content.hardestMishnayot')}: {summary.hardest}
+      summaryTrend={`${hardestLabel}: ${summary.hardest}`}
       defaultOpen={false}
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

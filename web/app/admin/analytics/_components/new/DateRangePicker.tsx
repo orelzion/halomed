@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Calendar } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { DateRange, CustomDateRange } from '@/types/analytics'
 
@@ -43,7 +42,9 @@ export function DateRangeFilter({ value, onChange, className }: DateRangeFilterP
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-4 py-2 bg-card border border-muted rounded-lg hover:bg-muted/50 transition-colors"
       >
-        <Calendar className="w-4 h-4 text-muted-foreground" />
+        <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
         <span className="text-sm font-medium text-foreground">
           {value === 'custom' ? t('dateRange.custom') : t(`dateRange.${value}`)}
         </span>

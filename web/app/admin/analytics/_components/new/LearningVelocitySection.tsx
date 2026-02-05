@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/lib/i18n'
 import { CollapsibleSection } from './CollapsibleSection'
 import type { PaceAdherence, PaceAdherenceSummary } from '@/types/analytics'
 
@@ -27,12 +27,14 @@ export function LearningVelocitySection({
     }
   }, [summary])
 
+  const behindPace = t('velocity.behindPace')
+
   return (
     <CollapsibleSection
       title={t('sections.velocity.title')}
       description={t('sections.velocity.description')}
       summaryValue={displaySummary.onPace}
-      summaryTrend={`${displaySummary.behind} ${t('velocity.behindPace')}`}
+      summaryTrend={`${displaySummary.behind} ${behindPace}`}
       defaultOpen={false}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

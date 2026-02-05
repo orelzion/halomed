@@ -1,6 +1,6 @@
 'use client'
 
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/lib/i18n'
 import { KPICard } from './KPICard'
 import type { SummaryStats } from '@/types/analytics'
 
@@ -17,7 +17,7 @@ export function HealthKPIRow({ data, loading = false }: HealthKPIRowProps) {
       key: 'activeUsers',
       label: t('kpi.activeUsers.label'),
       value: data.active_users_7d,
-      trend: (data.week_over_week_change || 0) > 0 ? 'up' : (data.week_over_week_change || 0) < 0 ? 'down' : 'neutral',
+      trend: ((data.week_over_week_change || 0) > 0 ? 'up' : (data.week_over_week_change || 0) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
       trendPercentage: Math.abs(data.week_over_week_change || 0),
       comparisonLabel: t('trends.vsPrevious'),
     },
@@ -33,7 +33,7 @@ export function HealthKPIRow({ data, loading = false }: HealthKPIRowProps) {
       key: 'onboarding',
       label: t('kpi.onboardingComplete.label'),
       value: `${data.onboarding_completion_rate || 0}%`,
-      trend: (data.month_over_month_change || 0) > 0 ? 'up' : (data.month_over_month_change || 0) < 0 ? 'down' : 'neutral',
+      trend: ((data.month_over_month_change || 0) > 0 ? 'up' : (data.month_over_month_change || 0) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
       trendPercentage: Math.abs(data.month_over_month_change || 0),
       comparisonLabel: `${data.users_with_preferences} / ${data.total_users}`,
     },
@@ -41,7 +41,7 @@ export function HealthKPIRow({ data, loading = false }: HealthKPIRowProps) {
       key: 'streak',
       label: t('kpi.avgStreak.label'),
       value: data.avg_streak || 0,
-      trend: (data.week_over_week_change || 0) > 0 ? 'up' : (data.week_over_week_change || 0) < 0 ? 'down' : 'neutral',
+      trend: ((data.week_over_week_change || 0) > 0 ? 'up' : (data.week_over_week_change || 0) < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
       trendPercentage: Math.abs(data.week_over_week_change || 0),
       comparisonLabel: `${data.users_with_streak_7plus} ${t('retention.streakDistribution')}`,
     },

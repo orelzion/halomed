@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/lib/i18n'
 import { CollapsibleSection } from './CollapsibleSection'
 import { CohortHeatmap } from './CohortHeatmap'
 import type { CohortRetention, PaceAdherence } from '@/types/analytics'

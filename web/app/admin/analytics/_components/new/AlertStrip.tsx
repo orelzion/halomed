@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
-import { X, AlertCircle, AlertTriangle, Info } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import type { AnalyticsAlert } from '@/types/analytics'
 
@@ -10,6 +9,21 @@ interface AlertStripProps {
   alerts: AnalyticsAlert[]
   className?: string
   onDismiss?: (id: string) => void
+}
+
+function AlertIcon({ type }: { type: string }) {
+  if (type === 'warning') {
+    return (
+      <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
 }
 
 export function AlertStrip({ alerts, className, onDismiss }: AlertStripProps) {
@@ -42,12 +56,6 @@ export function AlertStrip({ alerts, className, onDismiss }: AlertStripProps) {
 
   if (visibleAlerts.length === 0) return null
 
-  const alertIcons = {
-    info: Info,
-    warning: AlertTriangle,
-    error: AlertCircle,
-  }
-
   const alertStyles = {
     info: 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300',
     warning:
@@ -57,33 +65,32 @@ export function AlertStrip({ alerts, className, onDismiss }: AlertStripProps) {
 
   return (
     <div className={cn('space-y-2', className)}>
-      {visibleAlerts.map((alert) => {
-        const Icon = alertIcons[alert.type]
-        return (
-          <div
-            key={alert.id}
-            className={cn(
-              'flex items-center gap-3 px-4 py-3 rounded-lg border',
-              alertStyles[alert.type]
-            )}
+      {visibleAlerts.map((alert) => (
+        <div
+          key={alert.id}
+          className={cn(
+            'flex items-center gap-3 px-4 py-3 rounded-lg border',
+            alertStyles[alert.type]
+          )}
+        >
+          <AlertIcon type={alert.type} />
+          <span className="flex-1 text-sm font-medium">{alert.message}</span>
+          {alert.value !== undefined && alert.threshold !== undefined && (
+            <span className="text-xs opacity-75">
+              {alert.value} / {alert.threshold}
+            </span>
+          )}
+          <button
+            onClick={() => handleDismiss(alert.id)}
+            className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded transition-colors"
+            aria-label="Dismiss"
           >
-            <Icon className="w-5 h-5 flex-shrink-0" />
-            <span className="flex-1 text-sm font-medium">{alert.message}</span>
-            {alert.value !== undefined && alert.threshold !== undefined && (
-              <span className="text-xs opacity-75">
-                {alert.value} / {alert.threshold}
-              </span>
-            )}
-            <button
-              onClick={() => handleDismiss(alert.id)}
-              className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded transition-colors"
-              aria-label="Dismiss"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )
-      })}
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ))}
     </div>
   )
 }

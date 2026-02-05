@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export interface CollapsibleSectionProps {
@@ -52,9 +51,13 @@ export function CollapsibleSection({
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             {isOpen ? (
-              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
             ) : (
-              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             )}
             <h3 className="text-lg font-semibold text-foreground">{title}</h3>
           </div>

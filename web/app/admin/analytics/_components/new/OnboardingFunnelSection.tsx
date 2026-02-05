@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/lib/i18n'
 import { CollapsibleSection } from './CollapsibleSection'
 import { FunnelChart } from './FunnelChart'
 import type { OnboardingFunnel } from '@/types/analytics'
@@ -82,12 +82,14 @@ export function OnboardingFunnelSection({
     }
   }, [data])
 
+  const biggestDropOff = t('onboarding.biggestDropOff')
+
   return (
     <CollapsibleSection
       title={t('sections.onboarding.title')}
       description={t('sections.onboarding.description')}
       summaryValue={summary.completion}
-      summaryTrend={t('onboarding.biggestDropOff')}: {summary.dropOff}
+      summaryTrend={`${biggestDropOff}: ${summary.dropOff}`}
       defaultOpen={false}
     >
       <FunnelChart steps={funnelSteps} />

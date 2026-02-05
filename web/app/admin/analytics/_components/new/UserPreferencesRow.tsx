@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/lib/i18n'
 import { KPICard } from './KPICard'
 import type { UserPaceDistribution, ReviewCompletion } from '@/types/analytics'
 
@@ -77,6 +77,7 @@ export function UserPreferencesRow({
                   medium: t('preferences.reviewIntensity.medium'),
                   intensive: t('preferences.reviewIntensity.intensive'),
                 }[review.review_intensity] || review.review_intensity
+                const completionRate = review.overall_completion_rate || 0
 
                 return (
                   <div key={review.review_intensity} className="flex items-center gap-2">
@@ -84,13 +85,13 @@ export function UserPreferencesRow({
                       <div className="flex justify-between text-sm mb-1">
                         <span>{intensityLabel}</span>
                         <span className="text-muted-foreground">
-                          {review.percentage}%
+                          {completionRate}%
                         </span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-accent rounded-full transition-all"
-                          style={{ width: `${review.percentage}%` }}
+                          style={{ width: `${completionRate}%` }}
                         />
                       </div>
                     </div>
