@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/providers/AuthProvider';
 import { supabase } from '@/lib/supabase/client';
@@ -106,6 +106,17 @@ function DeleteIcon({ className = '' }: { className?: string }) {
   );
 }
 
+// Chart icon for analytics
+function ChartIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" x2="18" y1="20" y2="10" />
+      <line x1="12" x2="12" y1="20" y2="4" />
+      <line x1="6" x2="6" y1="20" y2="14" />
+    </svg>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -117,6 +128,24 @@ export default function ProfilePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isAdminOrDev, setIsAdminOrDev] = useState(false);
+
+  useEffect(() => {
+    const isLocalhost = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    
+    if (isLocalhost) {
+      setIsAdminOrDev(true);
+      return;
+    }
+    
+    if (user) {
+      supabase.from('user_roles').select('role').eq('user_id', user.id).single()
+        .then(({ data }) => {
+          if (data?.role === 'admin') setIsAdminOrDev(true);
+        });
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -356,6 +385,26 @@ export default function ProfilePage() {
         <div className="mb-6">
           <StudyPlanCard onChangePlan={() => setIsChangePlanDialogOpen(true)} />
         </div>
+
+        {/* Admin Section - Only visible to admins or on localhost */}
+        {isAdminOrDev && (
+          <div className="mb-6">
+            <h2 className="font-source text-lg font-semibold text-[var(--text-primary)] mb-4">
+              ניהול
+            </h2>
+            <button
+              onClick={() => router.push('/admin/analytics')}
+              className="w-full flex items-center gap-4 p-4 bg-white/80 dark:bg-gray-800/50 rounded-2xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group"
+            >
+              <div className="w-11 h-11 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-900/50 transition-colors">
+                <ChartIcon className="text-purple-600 dark:text-purple-400 w-5 h-5" aria-hidden="true" />
+              </div>
+              <span className="font-explanation text-purple-600 dark:text-purple-400 font-semibold">
+                סטטיסטיקות
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Privacy Rights Section */}
         <div className="mt-8">
