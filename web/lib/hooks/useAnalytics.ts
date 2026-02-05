@@ -48,13 +48,21 @@ export function useAnalytics(range: DateRange = '7d'): AnalyticsData {
     setError(null)
 
     try {
+      // Try to get session, but function works without it (verify_jwt: false)
       const { data: { session } } = await supabase.auth.getSession()
+      
+      // Use access_token if available, otherwise use anon key
+      const authHeader = session?.access_token 
+        ? `Bearer ${session.access_token}`
+        : `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+      
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analytics`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${session?.access_token}`,
+            Authorization: authHeader,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ date_range: range }),
@@ -62,7 +70,8 @@ export function useAnalytics(range: DateRange = '7d'): AnalyticsData {
       )
 
       if (!response.ok) {
-        throw new Error('Failed to fetch analytics')
+        const errorText = await response.text()
+        throw new Error(`Failed to fetch analytics: ${response.status} ${errorText}`)
       }
 
       const result = await response.json()
@@ -86,12 +95,17 @@ export function useAnalytics(range: DateRange = '7d'): AnalyticsData {
 
   const refresh = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
+    const authHeader = session?.access_token 
+      ? `Bearer ${session.access_token}`
+      : `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+    
     await fetch(
       `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analytics`,
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: authHeader,
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ refresh: true }),
