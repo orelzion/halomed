@@ -1,0 +1,168 @@
+{
+  "title": "לוח בקרה ניהולי",
+  "subtitle": "ניתוח ביצועים ושימוש באפליקציה",
+  "lastUpdated": "עודכן לאחרונה",
+  "refresh": "רענן",
+  "refreshing": "מרענן...",
+  "dateRange": {
+    "label": "טווח תאריכים",
+    "1d": "יום אחרון",
+    "7d": "7 ימים",
+    "30d": "30 ימים",
+    "90d": "3 חודשים",
+    "custom": "טווח מותאם"
+  },
+  "kpi": {
+    "activeUsers": {
+      "label": "משתמשים פעילים (7 ימים)",
+      "description": "משתמשים שהיו פעילים בשבוע האחרון"
+    },
+    "retention": {
+      "label": "שימור",
+      "description": "אחוז המשתמשים שחזרו לאפליקציה"
+    },
+    "onboardingComplete": {
+      "label": "הרשמה הושלמה",
+      "description": "משתמשים שסיימו את ההגדרה הראשונית"
+    },
+    "avgStreak": {
+      "label": "רצף ממוצע",
+      "description": "ממוצע ימי הרצף של משתמשים פעילים"
+    },
+    "completionRate": {
+      "label": "אחוז השלמה",
+      "description": "יחס השלמת משימות לימוד"
+    },
+    "quizPassRate": {
+      "label": "אחוז צלחה בחידונים",
+      "description": "ממוצע הצלחה בשאלות חידון"
+    }
+  },
+  "trends": {
+    "up": "עלייה",
+    "down": "ירידה",
+    "neutral": "ללא שינוי",
+    "vsPrevious": "לעומת התקופה הקודמת",
+    "weekOverWeek": "שינוי שבועי",
+    "monthOverMonth": "שינוי חודשי"
+  },
+  "preferences": {
+    "title": "בחירות משתמשים",
+    "pace": {
+      "label": "קצב לימוד",
+      "twoMishna": "שתי משניות",
+      "oneChapter": "פרק",
+      "sederYear": "סדר בשנה"
+    },
+    "reviewIntensity": {
+      "label": "עוצמת חזרות",
+      "none": "ללא",
+      "light": "קל",
+      "medium": "בינוני",
+      "intensive": "אינטנסיבי"
+    },
+    "actualReviewUse": "שימוש בחזרות בפועל",
+    "completionRate": "אחוז השלמת חזרות"
+  },
+  "sections": {
+    "retention": {
+      "title": "שימור והתמדה",
+      "description": "ניתוח שימור משתמשים לפי קוהורטות"
+    },
+    "onboarding": {
+      "title": "מסע הצטרפות",
+      "description": "Funnel הצטרפות משתמשים חדשים"
+    },
+    "content": {
+      "title": "ביצועי תוכן",
+      "description": "ביצועי חידונים וקושי התוכן"
+    },
+    "velocity": {
+      "title": "מהירות התקדמות",
+      "description": "קצב התקדמות המשתמשים"
+    }
+  },
+  "retention": {
+    "cohortAnalysis": "ניתוח קוהורטות",
+    "cohort": "קוהורטה",
+    "weeks": "שבועות מהצטרפות",
+    "week_1": "שבוע 1",
+    "week_2": "שבוע 2",
+    "week_3": "שבוע 3",
+    "week_4": "שבוע 4",
+    "week_8": "שבוע 8",
+    "week_12": "שבוע 12",
+    "streakDistribution": "התפלגות רצפים",
+    "churnRisk": "משתמשים בסיכון",
+    "winBack": "הזדמנויות להחזרה",
+    "usersAtRisk": "משתמשים בסיכון לנטישה",
+    "returnedAfterBreak": "משתמשים שחזרו אחרי הפסקה"
+  },
+  "onboarding": {
+    "funnel": "Funnel הצטרפות",
+    "steps": {
+      "appOpened": "פתחו את האפליקציה",
+      "paceSelected": "בחרו קצב",
+      "reviewConfigured": "הגדירו חזרות",
+      "firstLessonStarted": "התחילו לימוד ראשון",
+      "firstLessonCompleted": "סיימו לימוד ראשון",
+      "day2Return": "חזרו ביום השני",
+      "week1Active": "פעילים בשבוע הראשון"
+    },
+    "conversion": "אחוז המרה",
+    "dropOff": "נטישה",
+    "biggestDropOff": "נקודת נטישה מרכזית",
+    "timeToFirstLesson": "זמן עד לימוד ראשון",
+    "recommendation": "המלצה"
+  },
+  "content": {
+    "quizPerformance": "ביצועי חידונים",
+    "byTractate": "לפי מסכת",
+    "tractate": "מסכת",
+    "avgScore": "ציון ממוצע",
+    "attempts": "ניסיונות",
+    "passRate": "אחוז צלחה",
+    "difficulty": "רמת קושי",
+    "hardestMishnayot": "משניות הכי קשות",
+    "questionTypes": "סוגי שאלות",
+    "halachaLMaaseh": "הלכה למעשה",
+    "sevaraBeur": "סברא וביאור",
+    "completionByType": "השלמה לפי סוג תוכן",
+    "learningNodes": "יחידות לימוד",
+    "reviewSessions": "סשני חזרה",
+    "weeklyQuizzes": "חידונים שבועיים"
+  },
+  "velocity": {
+    "paceAdherence": "התאמה לקצב",
+    "onTrack": "בקצב",
+    "behindPace": "מאחרים",
+    "daysBehind": "ימים מאחור",
+    "aheadOfPace": "מקדימים",
+    "behindPaceBySetting": "מאחרים לפי הגדרת קצב",
+    "velocityTrend": "מגמת מהירות",
+    "atRiskUsers": "משתמשים בסיכון",
+    "actionNeeded": "נדרשת פעולה"
+  },
+  "alerts": {
+    "retentionDrop": "שיעור השימור ירד",
+    "churnIncreased": "נטישה גבוהה מהרגיל",
+    "contentDifficulty": "קושי גבוה בתוכן",
+    "paceIssue": "משתמשים רבים מאחרים בקצב",
+    "reviewLowUsage": "שימוש נמוך בחזרות"
+  },
+  "empty": {
+    "noData": "אין נתונים זמינים",
+    "noUsers": "אין משתמשים עדיין",
+    "selectDateRange": "בחר טווח תאריכים"
+  },
+  "loading": {
+    "loading": "טוען נתונים...",
+    "calculating": "מחשב נתונים...",
+    "generatingCharts": "יוצר גרפים..."
+  },
+  "errors": {
+    "fetchFailed": "שגיאה בטעינת נתונים",
+    "refreshFailed": "שגיאה ברענון",
+    "permissionDenied": "אין הרשאה לצפייה"
+  }
+}

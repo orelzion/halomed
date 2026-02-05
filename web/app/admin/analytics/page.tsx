@@ -108,6 +108,8 @@ export default function AnalyticsPage() {
       case '30d':
         cutoff = new Date(now.setDate(now.getDate() - 30))
         break
+      default:
+        cutoff = new Date(now.setDate(now.getDate() - 7))
     }
 
     return new Date(d.week_start) >= cutoff
