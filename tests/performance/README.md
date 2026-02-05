@@ -23,7 +23,7 @@ This framework validates performance improvements from migrating from `learning_
 
 ```bash
 # Start local environment
-cd supabase && supabase start
+cd supabase && npx supabase start
 cd ../web && npm run dev
 
 # Run performance tests

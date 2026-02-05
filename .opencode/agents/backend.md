@@ -174,7 +174,7 @@ supabase/
 ### Creating a New Migration
 
 ```bash
-supabase migration new [migration_name]
+npx supabase migration new [migration_name]
 ```
 
 ### Deploying Edge Functions
@@ -182,17 +182,20 @@ supabase migration new [migration_name]
 **IMPORTANT**: Always deploy with `--use-api` flag:
 
 ```bash
-supabase functions deploy [function_name] --use-api
+npx supabase functions deploy [function_name] --use-api
 ```
 
 ### Local Development
 
 ```bash
 # Start local Supabase dev instance
-supabase start
+npx supabase start
 
 # Run Edge Function locally
-supabase functions serve [function_name]
+npx supabase functions serve [function_name]
+
+# Push migrations to local database
+npx supabase db push
 ```
 
 ### Environment Variables

@@ -16,8 +16,9 @@ HaLomeid is an **offline-first, multi-platform Torah learning application** desi
 cd web && npm install && npm run dev
 
 # Supabase local development
-supabase start
-supabase functions serve
+npx supabase start
+npx supabase functions serve
+npx supabase db push
 
 # Run tests
 cd web && npm test
@@ -99,7 +100,7 @@ const subscription = query.subscribe(handleResult);
 
 **Always deploy with `--use-api` flag:**
 ```bash
-supabase functions deploy [function_name] --use-api
+npx supabase functions deploy [function_name] --use-api
 ```
 
 ### Security
@@ -231,20 +232,20 @@ CREATE TABLE user_study_log (
 ```bash
 # Development
 cd web && npm run dev              # Start web dev server
-supabase start                     # Start local Supabase
-supabase functions serve           # Serve Edge Functions locally
+npx supabase start                 # Start local Supabase
+npx supabase functions serve       # Serve Edge Functions locally
 
 # Database
-supabase migration new [name]      # Create new migration
-supabase db push                   # Apply migrations
+npx supabase migration new [name]  # Create new migration
+npx supabase db push               # Apply migrations
 
 # Testing
 cd tests/maestro && maestro test   # Run E2E tests
-cd web && npm test                 # Run unit tests
+cd web && npm test                # Run unit tests
 
 # Deployment
-supabase functions deploy [fn] --use-api  # Deploy Edge Function
-cd web && npm run build            # Build for production
+npx supabase functions deploy [fn] --use-api  # Deploy Edge Function
+cd web && npm run build           # Build for production
 ```
 
 ## Common Patterns

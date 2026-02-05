@@ -27,15 +27,15 @@ npm run report
 ## Prerequisites
 
 1. **Local Development Environment**
-   ```bash
-   # Start Supabase local development
-   cd supabase
-   supabase start
-   
-   # Start web development server
-   cd web
-   npm run dev
-   ```
+    ```bash
+    # Start Supabase local development
+    cd supabase
+    npx supabase start
+    
+    # Start web development server
+    cd web
+    npm run dev
+    ```
 
 2. **Environment Variables**
    ```bash
@@ -132,7 +132,7 @@ export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 **"Supabase connection fails"**
 ```bash
 # Check Supabase status
-supabase status
+npx supabase status
 # Verify environment variables
 echo $SUPABASE_URL
 ```

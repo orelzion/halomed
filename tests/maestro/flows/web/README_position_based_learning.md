@@ -115,13 +115,13 @@ tests/maestro/flows/web/
 ### Prerequisites
 
 1. **Development Environment:**
-   ```bash
-   # Start the web application
-   cd web && npm run dev
-   
-   # Start Supabase (if using local)
-   supabase start
-   ```
+    ```bash
+    # Start the web application
+    cd web && npm run dev
+    
+    # Start Supabase (if using local)
+    npx supabase start
+    ```
 
 2. **Maestro Installation:**
    ```bash
