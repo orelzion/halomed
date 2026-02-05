@@ -1,0 +1,2 @@
+-- Placeholder migration to sync migration history
+-- The actual changes were applied via a different migration mechanism
