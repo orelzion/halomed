@@ -41,33 +41,37 @@ export function RetentionEngagementSection({
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <h4 className="text-md font-medium mb-4">{t('retention.cohortAnalysis')}</h4>
+          <h4 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{t('retention.cohortAnalysis')}</h4>
           <CohortHeatmap data={cohortData} />
         </div>
         <div>
-          <h4 className="text-md font-medium mb-4">{t('velocity.paceAdherence')}</h4>
+          <h4 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{t('velocity.paceAdherence')}</h4>
           <div className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-2">
+            <div
+              className="rounded-xl p-5 transition-all duration-300 hover:shadow-md"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
                 {t('velocity.onTrack')}
               </p>
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-3xl font-bold" style={{ color: 'var(--accent)' }}>
                 {summary.paceAdherence}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
                 {summary.paceTrend}
               </p>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-3">
               {paceData.slice(0, 3).map((pace) => (
                 <div
                   key={pace.user_id}
-                  className="bg-muted/50 rounded-lg p-3 text-center"
+                  className="rounded-xl p-4 text-center transition-all duration-300 hover:shadow-md hover:-translate-y-1"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
                 >
-                  <p className="text-lg font-semibold">
+                  <p className="text-xl font-bold" style={{ color: pace.days_behind > 0 ? 'var(--accent)' : 'var(--text-primary)' }}>
                     {pace.days_behind > 0 ? `+${pace.days_behind}` : pace.days_behind}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                     {pace.pace_status.replace(/_/g, ' ')}
                   </p>
                 </div>

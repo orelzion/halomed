@@ -43,46 +43,52 @@ export function CollapsibleSection({
   }
 
   return (
-    <div className={cn('bg-card rounded-lg border border-muted overflow-hidden', className)}>
+    <div
+      className={cn('rounded-2xl border overflow-hidden transition-all duration-300', className)}
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        borderColor: 'var(--border-color)',
+      }}
+    >
       <button
         onClick={handleToggle}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-muted/50 transition-colors"
+        className="w-full px-6 py-4 flex items-center justify-between transition-colors hover:bg-muted/30"
       >
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            {isOpen ? (
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            )}
-            <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+          <div className="flex items-center gap-3">
+            <svg
+              className="w-5 h-5 transition-transform duration-300"
+              style={{ color: 'var(--text-secondary)', transform: isOpen ? 'rotate(-90deg)' : 'rotate(90deg)' }}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{title}</h3>
           </div>
           {description && (
-            <p className="text-sm text-muted-foreground hidden md:block">
+            <p className="text-sm hidden md:block" style={{ color: 'var(--text-secondary)' }}>
               {description}
             </p>
           )}
         </div>
         {summaryValue && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="font-medium text-foreground">{summaryValue}</span>
+          <div className="flex items-center gap-3">
+            <span className="font-bold text-lg" style={{ color: 'var(--accent)' }}>{summaryValue}</span>
             {summaryTrend && (
-              <span className="text-muted-foreground">{summaryTrend}</span>
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{summaryTrend}</span>
             )}
           </div>
         )}
       </button>
       <div
         className={cn(
-          'transition-all duration-200 ease-in-out overflow-hidden',
+          'transition-all duration-300 ease-in-out overflow-hidden',
           isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className="px-6 pb-6 pt-2">{children}</div>
+        <div className="p-6 pt-2">{children}</div>
       </div>
     </div>
   )

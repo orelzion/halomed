@@ -7,34 +7,34 @@ interface Props {
 export function SummaryCards({ data }: Props) {
   const cards = [
     {
-      label: 'Total Users',
+      label: 'סה"כ משתמשים',
       value: data.total_users.toLocaleString(),
-      subtext: 'All time',
+      subtext: 'מתחילת הדרך',
     },
     {
-      label: 'Active Users (7d)',
+      label: 'משתמשים פעילים (7 ימים)',
       value: data.active_users_7d.toLocaleString(),
-      subtext: 'Last 7 days',
+      subtext: '7 ימים אחרונים',
     },
     {
-      label: 'Active Users (30d)',
+      label: 'משתמשים פעילים (30 יום)',
       value: data.active_users_30d.toLocaleString(),
-      subtext: 'Last 30 days',
+      subtext: '30 ימים אחרונים',
     },
     {
-      label: 'Completion Rate',
-      value: data.completion_rate_30d !== null ? `${data.completion_rate_30d.toFixed(1)}%` : 'N/A',
-      subtext: 'Last 30 days',
+      label: 'שיעור השלמה',
+      value: data.completion_rate_30d !== null ? `${data.completion_rate_30d.toFixed(1)}%` : 'לא זמין',
+      subtext: '30 ימים אחרונים',
     },
     {
-      label: 'Quiz Completion',
-      value: data.quiz_completion_rate_30d !== null ? `${data.quiz_completion_rate_30d.toFixed(1)}%` : 'N/A',
-      subtext: 'Last 30 days',
+      label: 'השלמת חידונים',
+      value: data.quiz_completion_rate_30d !== null ? `${data.quiz_completion_rate_30d.toFixed(1)}%` : 'לא זמין',
+      subtext: '30 ימים אחרונים',
     },
     {
-      label: 'Review Completion',
-      value: data.review_completion_rate_30d !== null ? `${data.review_completion_rate_30d.toFixed(1)}%` : 'N/A',
-      subtext: 'Last 30 days',
+      label: 'השלמת חזרות',
+      value: data.review_completion_rate_30d !== null ? `${data.review_completion_rate_30d.toFixed(1)}%` : 'לא זמין',
+      subtext: '30 ימים אחרונים',
     },
   ]
 
@@ -43,13 +43,17 @@ export function SummaryCards({ data }: Props) {
       {cards.map((card) => (
         <div
           key={card.label}
-          className="bg-card rounded-lg border border-muted p-4"
+          className="rounded-2xl border p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            borderColor: 'var(--border-color)',
+          }}
         >
-          <p className="text-sm text-muted-foreground">{card.label}</p>
-          <p className="text-2xl font-bold text-foreground mt-1">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{card.label}</p>
+          <p className="text-2xl font-bold mt-2" style={{ color: 'var(--text-primary)' }}>
             {card.value}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
             {card.subtext}
           </p>
         </div>

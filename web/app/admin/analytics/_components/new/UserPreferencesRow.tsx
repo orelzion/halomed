@@ -29,14 +29,17 @@ export function UserPreferencesRow({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="lg:col-span-2 bg-card rounded-lg border border-muted p-6">
-        <h3 className="text-lg font-semibold mb-4">{t('preferences.title')}</h3>
-        <div className="grid grid-cols-2 gap-6">
+      <div
+        className="lg:col-span-2 rounded-2xl border p-6 transition-all duration-300 hover:shadow-lg"
+        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+      >
+        <h3 className="text-lg font-bold mb-6" style={{ color: 'var(--text-primary)' }}>{t('preferences.title')}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-2">
+            <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
               {t('preferences.pace.label')}
             </p>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {paceData.map((pace) => {
                 const paceLabel = {
                   TWO_MISHNAYOT: t('preferences.pace.twoMishna'),
@@ -45,18 +48,16 @@ export function UserPreferencesRow({
                 }[pace.pace] || pace.pace
 
                 return (
-                  <div key={pace.pace} className="flex items-center gap-2">
+                  <div key={pace.pace} className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>{paceLabel}</span>
-                        <span className="text-muted-foreground">
-                          {pace.percentage}%
-                        </span>
+                      <div className="flex justify-between text-sm mb-1.5">
+                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{paceLabel}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>{pace.percentage}%</span>
                       </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                         <div
-                          className="h-full bg-primary rounded-full transition-all"
-                          style={{ width: `${pace.percentage}%` }}
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pace.percentage}%`, backgroundColor: 'var(--accent)' }}
                         />
                       </div>
                     </div>
@@ -66,10 +67,10 @@ export function UserPreferencesRow({
             </div>
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-2">
+            <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
               {t('preferences.reviewIntensity.label')}
             </p>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {reviewData.map((review) => {
                 const intensityLabel = {
                   none: t('preferences.reviewIntensity.none'),
@@ -80,18 +81,16 @@ export function UserPreferencesRow({
                 const completionRate = review.overall_completion_rate || 0
 
                 return (
-                  <div key={review.review_intensity} className="flex items-center gap-2">
+                  <div key={review.review_intensity} className="flex items-center gap-3">
                     <div className="flex-1">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>{intensityLabel}</span>
-                        <span className="text-muted-foreground">
-                          {completionRate}%
-                        </span>
+                      <div className="flex justify-between text-sm mb-1.5">
+                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{intensityLabel}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>{completionRate}%</span>
                       </div>
-                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                         <div
-                          className="h-full bg-accent rounded-full transition-all"
-                          style={{ width: `${completionRate}%` }}
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${completionRate}%`, backgroundColor: 'var(--muted-accent)' }}
                         />
                       </div>
                     </div>

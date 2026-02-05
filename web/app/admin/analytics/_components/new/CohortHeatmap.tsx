@@ -43,7 +43,7 @@ export function CohortHeatmap({ data, className }: CohortHeatmapProps) {
     if (value === undefined) return 'bg-muted/30'
     if (value >= 80) return 'bg-green-500/20 text-green-700 dark:text-green-300'
     if (value >= 60) return 'bg-green-500/10 text-green-600 dark:text-green-400'
-    if (value >= 40) return 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+    if (value >= 40) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
     if (value >= 20) return 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
     return 'bg-red-500/10 text-red-600 dark:text-red-400'
   }
@@ -56,8 +56,11 @@ export function CohortHeatmap({ data, className }: CohortHeatmapProps) {
 
   if (data.length === 0) {
     return (
-      <div className={cn('bg-muted/20 rounded-lg p-8 text-center', className)}>
-        <p className="text-muted-foreground">{t('empty.noData')}</p>
+      <div
+        className={cn('rounded-xl p-8 text-center', className)}
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
+      >
+        <p style={{ color: 'var(--text-secondary)' }}>{t('empty.noData')}</p>
       </div>
     )
   }
@@ -67,11 +70,11 @@ export function CohortHeatmap({ data, className }: CohortHeatmapProps) {
       <table className="w-full text-sm">
         <thead>
           <tr>
-            <th className="text-right pr-4 py-2 font-medium text-muted-foreground">
+            <th className="text-right py-3 px-4 font-medium" style={{ color: 'var(--text-secondary)' }}>
               {t('retention.cohort')}
             </th>
             {weeks.map((week) => (
-              <th key={week} className="text-center px-2 py-2 font-medium text-muted-foreground">
+              <th key={week} className="text-center py-3 px-4 font-medium" style={{ color: 'var(--text-secondary)' }}>
                 {t(`retention.week_${week}`)}
               </th>
             ))}
@@ -79,15 +82,15 @@ export function CohortHeatmap({ data, className }: CohortHeatmapProps) {
         </thead>
         <tbody>
           {heatmapData.map((row) => (
-            <tr key={row.cohort} className="border-t border-muted/50">
-              <td className="pr-4 py-2 font-medium">{row.cohort}</td>
+            <tr key={row.cohort} style={{ borderTopColor: 'var(--border-color)', borderTop: '1px solid' }}>
+              <td className="py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>{row.cohort}</td>
               {weeks.map((week) => {
                 const value = row.retentionByWeek[week]
                 return (
-                  <td key={week} className="px-1 py-1">
+                  <td key={week} className="py-2 px-2">
                     <div
                       className={cn(
-                        'rounded px-2 py-1 text-center text-sm font-medium',
+                        'rounded-lg px-3 py-2 text-center text-sm font-semibold transition-all duration-200 hover:scale-105',
                         getCellColor(value),
                         getCellTextColor(value)
                       )}

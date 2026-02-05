@@ -38,42 +38,51 @@ export function LearningVelocitySection({
       defaultOpen={false}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4 border border-green-200 dark:border-green-800">
-          <p className="text-sm text-green-700 dark:text-green-300">
+        <div
+          className="rounded-xl p-5 transition-all duration-300 hover:shadow-md"
+          style={{ backgroundColor: 'var(--bg-secondary)' }}
+        >
+          <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
             {t('velocity.onTrack')}
           </p>
-          <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+          <p className="text-3xl font-bold" style={{ color: '#22c55e' }}>
             {displaySummary.onPace}
           </p>
         </div>
-        <div className="bg-yellow-50 dark:bg-yellow-950 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
-          <p className="text-sm text-yellow-700 dark:text-yellow-300">
-            {t('velocity.behindPace')} (-7)
+        <div
+          className="rounded-xl p-5 transition-all duration-300 hover:shadow-md"
+          style={{ backgroundColor: 'var(--bg-secondary)' }}
+        >
+          <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+            {behindPace} (-7)
           </p>
-          <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-200">
+          <p className="text-3xl font-bold" style={{ color: '#f59e0b' }}>
             {summary?.behind_1_7_count || 0}
           </p>
         </div>
-        <div className="bg-red-50 dark:bg-red-950 rounded-lg p-4 border border-red-200 dark:border-red-800">
-          <p className="text-sm text-red-700 dark:text-red-300">
-            {t('velocity.behindPace')} (-7+)
+        <div
+          className="rounded-xl p-5 transition-all duration-300 hover:shadow-md"
+          style={{ backgroundColor: 'var(--bg-secondary)' }}
+        >
+          <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+            {behindPace} (-7+)
           </p>
-          <p className="text-2xl font-bold text-red-800 dark:text-red-200">
+          <p className="text-3xl font-bold" style={{ color: '#ef4444' }}>
             {summary?.behind_7_plus_count || 0}
           </p>
         </div>
       </div>
 
       <div className="mt-6">
-        <h4 className="text-md font-medium mb-4">{t('velocity.atRiskUsers')}</h4>
-        <div className="overflow-x-auto">
+        <h4 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{t('velocity.atRiskUsers')}</h4>
+        <div className="overflow-x-auto rounded-xl" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', border: '1px solid' }}>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-muted">
-                <th className="text-right py-2 px-3 font-medium">User</th>
-                <th className="text-right py-2 px-3 font-medium">{t('velocity.daysBehind')}</th>
-                <th className="text-right py-2 px-3 font-medium">{t('retention.streakDistribution')}</th>
-                <th className="text-right py-2 px-3 font-medium">{t('velocity.actionNeeded')}</th>
+              <tr style={{ borderBottomColor: 'var(--border-color)', borderBottom: '1px solid' }}>
+                <th className="text-right py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>User</th>
+                <th className="text-right py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>{t('velocity.daysBehind')}</th>
+                <th className="text-right py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>{t('retention.streakDistribution')}</th>
+                <th className="text-right py-3 px-4 font-semibold" style={{ color: 'var(--text-primary)' }}>{t('velocity.actionNeeded')}</th>
               </tr>
             </thead>
             <tbody>
@@ -81,14 +90,17 @@ export function LearningVelocitySection({
                 .filter((p) => p.pace_status === 'behind_7_plus')
                 .slice(0, 5)
                 .map((pace) => (
-                  <tr key={pace.user_id} className="border-b border-muted/50">
-                    <td className="py-2 px-3 font-mono text-xs">
+                  <tr key={pace.user_id} style={{ borderBottomColor: 'var(--border-color)', borderBottom: '1px solid' }}>
+                    <td className="py-3 px-4 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
                       {pace.user_id.slice(0, 8)}...
                     </td>
-                    <td className="py-2 px-3">{pace.days_behind} {t('velocity.daysBehind').toLowerCase()}</td>
-                    <td className="py-2 px-3">{pace.streak_count}</td>
-                    <td className="py-2 px-3">
-                      <button className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90">
+                    <td className="py-3 px-4 font-medium" style={{ color: 'var(--text-primary)' }}>{pace.days_behind} {t('velocity.daysBehind').toLowerCase()}</td>
+                    <td className="py-3 px-4 font-medium" style={{ color: 'var(--text-primary)' }}>{pace.streak_count}</td>
+                    <td className="py-3 px-4">
+                      <button
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 hover:shadow-md"
+                        style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
+                      >
                         {t('onboarding.recommendation')}
                       </button>
                     </td>

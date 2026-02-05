@@ -39,41 +39,48 @@ export function ContentPerformanceSection({
     >
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <h4 className="text-md font-medium mb-4">{t('content.hardestMishnayot')}</h4>
-          <div className="space-y-2">
+          <h4 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{t('content.hardestMishnayot')}</h4>
+          <div className="space-y-3">
             {hardestContent.slice(0, 5).map((content, index) => (
               <div
                 key={content.ref_id}
-                className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+                className="flex items-center gap-4 p-4 rounded-xl transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
               >
-                <span className="w-6 h-6 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-sm font-medium">
+                <span
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold"
+                  style={{ backgroundColor: 'var(--accent)', color: '#FFFFFF' }}
+                >
                   {index + 1}
                 </span>
                 <div className="flex-1">
-                  <p className="font-medium text-sm">{content.tractate}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{content.tractate}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                     {content.attempt_count} {t('content.attempts')}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium">{content.pass_rate}%</p>
-                  <p className="text-xs text-muted-foreground">{t('content.passRate')}</p>
+                <div className="text-left">
+                  <p className="font-bold text-lg" style={{ color: 'var(--accent)' }}>{content.pass_rate}%</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('content.passRate')}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
         <div>
-          <h4 className="text-md font-medium mb-4">{t('content.quizPerformance')}</h4>
-          <div className="bg-muted/50 rounded-lg p-4">
-            <p className="text-sm text-muted-foreground mb-2">
+          <h4 className="text-base font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>{t('content.quizPerformance')}</h4>
+          <div
+            className="rounded-xl p-6 transition-all duration-300 hover:shadow-md"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
               {t('sections.content.title')}
             </p>
-            <p className="text-2xl font-bold text-foreground">
+            <p className="text-4xl font-bold" style={{ color: 'var(--accent)' }}>
               {summary.passRate}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {hardestContent.length} {t('content.hardestMishnayot').toLowerCase()}
+            <p className="text-sm mt-3" style={{ color: 'var(--text-secondary)' }}>
+              {hardestContent.length} {hardestLabel.toLowerCase()}
             </p>
           </div>
         </div>

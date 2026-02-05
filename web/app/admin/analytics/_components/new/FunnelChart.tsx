@@ -32,8 +32,11 @@ export function FunnelChart({ steps, className }: FunnelChartProps) {
 
   if (steps.length === 0) {
     return (
-      <div className={cn('bg-muted/20 rounded-lg p-8 text-center', className)}>
-        <p className="text-muted-foreground">{t('empty.noData')}</p>
+      <div
+        className={cn('rounded-xl p-8 text-center', className)}
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
+      >
+        <p style={{ color: 'var(--text-secondary)' }}>{t('empty.noData')}</p>
       </div>
     )
   }
@@ -45,37 +48,45 @@ export function FunnelChart({ steps, className }: FunnelChartProps) {
           <div className="flex items-center gap-4">
             <div
               className={cn(
-                'bg-card rounded-lg border transition-all',
+                'rounded-xl border transition-all duration-300 hover:shadow-md',
                 step.isBiggestDropOff
                   ? 'border-orange-300 dark:border-orange-700'
                   : 'border-muted'
               )}
-              style={{ width: `${step.width}%`, minWidth: '140px' }}
+              style={{
+                width: `${step.width}%`,
+                minWidth: '140px',
+                backgroundColor: 'var(--bg-card)',
+                borderColor: step.isBiggestDropOff ? 'var(--accent)' : 'var(--border-color)',
+              }}
             >
-              <div className="px-4 py-3">
+              <div className="px-5 py-4">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">{step.name}</span>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{step.name}</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                     {step.count.toLocaleString()}
                   </span>
                 </div>
                 {index > 0 && (
-                  <div className="mt-1 flex items-center gap-2 text-xs">
+                  <div className="mt-2 flex items-center gap-2 text-xs">
                     <span
                       className={cn(
-                        'font-medium',
+                        'font-semibold px-2 py-0.5 rounded-full',
                         step.conversionRate >= 50
-                          ? 'text-green-600 dark:text-green-400'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
                           : step.conversionRate >= 25
-                          ? 'text-yellow-600 dark:text-yellow-400'
-                          : 'text-red-600 dark:text-red-400'
+                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                          : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
                       )}
                     >
                       {step.conversionRate}% {t('onboarding.conversion')}
                     </span>
                     {step.dropOffRate > 0 && (
-                      <span className="text-muted-foreground">
-                        ↓ {step.dropOffRate}% {t('onboarding.dropOff')}
+                      <span className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                        {step.dropOffRate}% {t('onboarding.dropOff')}
                       </span>
                     )}
                   </div>
@@ -85,11 +96,10 @@ export function FunnelChart({ steps, className }: FunnelChartProps) {
             {index > 0 && step.dropOffRate > 0 && (
               <div
                 className={cn(
-                  'absolute -left-12 top-1/2 -translate-y-1/2 hidden md:flex items-center justify-center w-10',
-                  step.isBiggestDropOff
-                    ? 'text-orange-500'
-                    : 'text-muted-foreground'
+                  'hidden md:flex items-center justify-center w-10 absolute',
+                  step.isBiggestDropOff ? 'text-orange-500' : 'text-muted-foreground'
                 )}
+                style={{ right: `calc(-${step.width / 2}% - 20px)` }}
                 title={t('onboarding.biggestDropOff')}
               >
                 <svg
@@ -100,7 +110,7 @@ export function FunnelChart({ steps, className }: FunnelChartProps) {
                   stroke="currentColor"
                   strokeWidth="2"
                 >
-                  <path d="M5 12h14M12 5l7 7-7 7" />
+                  <path d="M9 5l7 7-7 7" />
                 </svg>
               </div>
             )}

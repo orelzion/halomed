@@ -25,24 +25,23 @@ export function KPICard({
   const { t } = useTranslation('admin')
 
   const trendColors = {
-    up: 'text-green-600 dark:text-green-400',
-    down: 'text-red-600 dark:text-red-400',
-    neutral: 'text-gray-500 dark:text-gray-400',
+    up: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', icon: '↑' },
+    down: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', icon: '↓' },
+    neutral: { bg: 'bg-muted/50', text: 'text-muted-foreground', icon: '→' },
   }
 
-  const trendIcons = {
-    up: '↑',
-    down: '↓',
-    neutral: '→',
-  }
+  const currentTrend = trendColors[trend]
 
   if (loading) {
     return (
-      <div className={cn('bg-card rounded-lg border border-muted p-6', className)}>
+      <div
+        className={cn('rounded-2xl border p-6', className)}
+        style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+      >
         <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-muted rounded w-1/2" />
-          <div className="h-8 bg-muted rounded w-3/4" />
-          <div className="h-4 bg-muted rounded w-1/3" />
+          <div className="h-4 rounded" style={{ backgroundColor: 'var(--muted-accent)' }} />
+          <div className="h-8 rounded" style={{ backgroundColor: 'var(--muted-accent)' }} />
+          <div className="h-4 rounded w-1/3" style={{ backgroundColor: 'var(--muted-accent)' }} />
         </div>
       </div>
     )
@@ -51,29 +50,30 @@ export function KPICard({
   return (
     <div
       className={cn(
-        'bg-card rounded-lg border border-muted p-6 transition-all hover:shadow-md',
+        'rounded-2xl border p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer',
         className
       )}
+      style={{
+        backgroundColor: 'var(--bg-card)',
+        borderColor: 'var(--border-color)',
+      }}
     >
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="text-3xl font-bold text-foreground">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+          <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
             {typeof value === 'number' ? value.toLocaleString('he-IL') : value}
           </p>
         </div>
         <div
-          className={cn(
-            'flex items-center gap-1 text-sm font-medium',
-            trendColors[trend]
-          )}
+          className={cn('flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium', currentTrend.bg, currentTrend.text)}
         >
-          <span>{trendIcons[trend]}</span>
+          <span>{currentTrend.icon}</span>
           <span>{Math.abs(trendPercentage)}%</span>
         </div>
       </div>
       {comparisonLabel && (
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="mt-3 text-xs font-medium pt-3 border-t" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
           {comparisonLabel}
         </p>
       )}
