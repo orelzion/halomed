@@ -4,33 +4,42 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthContext } from '@/components/providers/AuthProvider'
 import { supabase } from '@/lib/supabase/client'
-import type {
-  SummaryStats,
-  UserPaceDistribution,
-  StreakDistribution,
-  WeeklyActivity,
-  ReviewIntensityDistribution,
-  DateRange,
-} from '@/types/analytics'
-import { SummaryCards } from './_components/SummaryCards'
-import { UserPaceChart } from './_components/UserPaceChart'
-import { StreakDistributionChart } from './_components/StreakDistributionChart'
-import { WeeklyActivityChart } from './_components/WeeklyActivityChart'
-import { DateRangeFilter } from './_components/DateRangeFilter'
-import { RefreshButton } from './_components/RefreshButton'
+import { useAnalytics } from '@/lib/hooks/useAnalytics'
+import { useTranslation } from 'react-i18next'
+import { DateRangeFilter } from './_components/new/DateRangePicker'
+import { AlertStrip } from './_components/new/AlertStrip'
+import { HealthKPIRow } from './_components/new/HealthKPIRow'
+import { UserPreferencesRow } from './_components/new/UserPreferencesRow'
+import { RetentionEngagementSection } from './_components/new/RetentionEngagementSection'
+import { OnboardingFunnelSection } from './_components/new/OnboardingFunnelSection'
+import { ContentPerformanceSection } from './_components/new/ContentPerformanceSection'
+import { LearningVelocitySection } from './_components/new/LearningVelocitySection'
+import type { DateRange, AnalyticsAlert } from '@/types/analytics'
 
 export default function AnalyticsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuthContext()
+  const { t } = useTranslation('admin')
   const [isAdmin, setIsAdmin] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [summary, setSummary] = useState<SummaryStats | null>(null)
-  const [userPace, setUserPace] = useState<UserPaceDistribution[]>([])
-  const [streaks, setStreaks] = useState<StreakDistribution[]>([])
-  const [weeklyActivity, setWeeklyActivity] = useState<WeeklyActivity[]>([])
   const [range, setRange] = useState<DateRange>('7d')
 
-  // Check if user is admin
+  const {
+    summary,
+    userPace,
+    cohortRetention,
+    paceAdherence,
+    paceAdherenceSummary,
+    contentDifficulty,
+    hardestContent,
+    onboardingFunnel,
+    reviewCompletion,
+    loading,
+    error,
+    refresh,
+  } = useAnalytics(range)
+
+  const [alerts, setAlerts] = useState<AnalyticsAlert[]>([])
+
   useEffect(() => {
     async function checkAdminStatus() {
       if (authLoading) return
@@ -40,7 +49,6 @@ export default function AnalyticsPage() {
         return
       }
 
-      // Check user_roles table
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
@@ -48,7 +56,7 @@ export default function AnalyticsPage() {
         .single()
 
       if (error || data?.role !== 'admin') {
-        router.push('/') // Redirect non-admin users to home
+        router.push('/')
         return
       }
 
@@ -58,108 +66,125 @@ export default function AnalyticsPage() {
     checkAdminStatus()
   }, [user, authLoading, router])
 
-  // Fetch analytics data
   useEffect(() => {
-    async function fetchAnalytics() {
-      if (!isAdmin) return
+    const newAlerts: AnalyticsAlert[] = []
 
-      try {
-        const [summaryResult, paceResult, streakResult, activityResult] = await Promise.all([
-          supabase.rpc('get_summary_stats'),
-          supabase.rpc('get_user_pace_distribution'),
-          supabase.rpc('get_streak_distribution'),
-          supabase.rpc('get_weekly_activity'),
-        ])
+    if (summary) {
+      if ((summary.retention_7d_rate || 0) < 60) {
+        newAlerts.push({
+          id: 'retention-low',
+          type: 'warning',
+          message: t('alerts.retentionDrop'),
+          value: summary.retention_7d_rate || 0,
+          threshold: 60,
+        })
+      }
 
-        if (summaryResult.data) {
-          setSummary((summaryResult.data as SummaryStats[])[0] || null)
-        }
-        if (paceResult.data) {
-          setUserPace(paceResult.data as UserPaceDistribution[])
-        }
-        if (streakResult.data) {
-          setStreaks(streakResult.data as StreakDistribution[])
-        }
-        if (activityResult.data) {
-          setWeeklyActivity(activityResult.data as WeeklyActivity[])
-        }
-      } catch (error) {
-        console.error('Error fetching analytics:', error)
-      } finally {
-        setLoading(false)
+      if ((summary.week_over_week_change || 0) < -10) {
+        newAlerts.push({
+          id: 'activity-drop',
+          type: 'warning',
+          message: t('alerts.churnIncreased'),
+          value: summary.week_over_week_change || 0,
+          threshold: -10,
+        })
       }
     }
 
-    fetchAnalytics()
-  }, [isAdmin])
-
-  // Filter weekly activity by date range
-  const filteredActivity = weeklyActivity.filter((d) => {
-    const now = new Date()
-    let cutoff: Date
-
-    switch (range) {
-      case '1d':
-        cutoff = new Date(now.setDate(now.getDate() - 1))
-        break
-      case '7d':
-        cutoff = new Date(now.setDate(now.getDate() - 7))
-        break
-      case '30d':
-        cutoff = new Date(now.setDate(now.getDate() - 30))
-        break
-      default:
-        cutoff = new Date(now.setDate(now.getDate() - 7))
+    if (paceAdherenceSummary && (paceAdherenceSummary.behind_7_plus_pct || 0) > 10) {
+      newAlerts.push({
+        id: 'pace-behind',
+        type: 'warning',
+        message: t('alerts.paceIssue'),
+        value: paceAdherenceSummary.behind_7_plus_count || 0,
+        threshold: 10,
+      })
     }
 
-    return new Date(d.week_start) >= cutoff
-  })
+    setAlerts(newAlerts)
+  }, [summary, paceAdherenceSummary])
 
   if (authLoading || loading || !isAdmin) {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <p className="text-muted-foreground">{t('loading.loading')}</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-red-600 dark:text-red-400">{t('errors.fetchFailed')}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+          >
+            {t('retry')}
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Analytics Dashboard
-          </h1>
-          {summary?.refreshed_at && (
-            <p className="text-sm text-muted-foreground mt-1">
-              Last updated: {new Date(summary.refreshed_at).toLocaleString()}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <DateRangeFilter value={range} onChange={setRange} />
-          <RefreshButton />
-        </div>
-      </div>
-
-      {summary && <SummaryCards data={summary} />}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card rounded-lg border border-muted p-6">
-          <h2 className="text-lg font-semibold mb-4">User Pace Distribution</h2>
-          <UserPaceChart data={userPace} />
+    <div className="min-h-screen bg-secondary">
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">{t('title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('subtitle')}</p>
+            {summary?.refreshed_at && (
+              <p className="text-sm text-muted-foreground mt-2">
+                {t('lastUpdated')}: {new Date(summary.refreshed_at).toLocaleString('he-IL')}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <DateRangeFilter value={range} onChange={setRange} />
+            <button
+              onClick={refresh}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              {t('refresh')}
+            </button>
+          </div>
         </div>
 
-        <div className="bg-card rounded-lg border border-muted p-6">
-          <h2 className="text-lg font-semibold mb-4">Streak Distribution</h2>
-          <StreakDistributionChart data={streaks} />
-        </div>
+        <AlertStrip alerts={alerts} />
 
-        <div className="bg-card rounded-lg border border-muted p-6 lg:col-span-2">
-          <h2 className="text-lg font-semibold mb-4">
-            Weekly Activity ({range === '1d' ? 'Today' : range === '7d' ? 'Last Week' : 'Last Month'})
-          </h2>
-          <WeeklyActivityChart data={filteredActivity} />
+        <div className="space-y-6 mt-6">
+          <HealthKPIRow data={summary!} loading={loading} />
+
+          <UserPreferencesRow
+            paceData={userPace}
+            reviewData={reviewCompletion}
+            loading={loading}
+          />
+
+          <RetentionEngagementSection
+            cohortData={cohortRetention}
+            paceData={paceAdherence}
+            loading={loading}
+          />
+
+          <OnboardingFunnelSection data={onboardingFunnel!} loading={loading} />
+
+          <ContentPerformanceSection
+            difficultyData={contentDifficulty}
+            hardestContent={hardestContent}
+            loading={loading}
+          />
+
+          <LearningVelocitySection
+            paceAdherence={paceAdherence}
+            summary={paceAdherenceSummary}
+            loading={loading}
+          />
         </div>
       </div>
     </div>

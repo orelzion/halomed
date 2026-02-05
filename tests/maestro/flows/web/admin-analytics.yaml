@@ -1,0 +1,45 @@
+appId: com.halomed.web
+---
+- launch:
+    clearState: true
+- tapOn: "התחבר עם Google"
+- scrollUntilVisible:
+    element: "לוח בקרה ניהולי"
+    direction: DOWN
+- tapOn: "לוח בקרה ניהולי"
+- waitForAnimationToEnd
+- assertVisible: "משתמשים פעילים"
+- assertVisible: "שימור"
+- assertVisible: "רצף ממוצע"
+- scrollUntilVisible:
+    element: "שימור והתמדה"
+    direction: DOWN
+- tapOn: "שימור והתמדה"
+- waitForAnimationToEnd
+- assertVisible: "ניתוח קוהורטות"
+- tapOn: "שימור והתמדה"
+- scrollUntilVisible:
+    element: "מסע הצטרפות"
+    direction: DOWN
+- tapOn: "מסע הצטרפות"
+- waitForAnimationToEnd
+- assertVisible: "Funnel הצטרפות"
+- scrollUntilVisible:
+    element: "ביצועי תוכן"
+    direction: DOWN
+- tapOn: "ביצועי תוכן"
+- waitForAnimationToEnd
+- assertVisible: "ביצועי חידונים"
+- scrollUntilVisible:
+    element: "מהירות התקדמות"
+    direction: DOWN
+- tapOn: "מהירות התקדמות"
+- waitForAnimationToEnd
+- assertVisible: "התאמה לקצב"
+- tapOn: "7 ימים"
+- waitForAnimationToEnd
+- tapOn: "30 ימים"
+- waitForAnimationToEnd
+- tapOn: "רענן"
+- waitForAnimationToEnd
+- assertVisible: "עודכן לאחרונה"
