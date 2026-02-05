@@ -1,201 +1,131 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+Deno.serve(async (req: Request) => {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
 
-serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { date_range = "7d" } = req.method === "POST" ? await req.json() : {};
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const { data: prefsData } = await supabase
+      .from("user_preferences")
+      .select("pace, streak_count, review_intensity");
 
-    const adminClient = (url: string, key: string) => {
-      return {
-        from: (table: string) => ({
-          select: (columns: string) => ({
-            eq: (column: string, value: any) => ({
-              single: async () => {
-                const res = await fetch(`${url}/${table}?${column}=eq.${value}&limit=1`, {
-                  headers: { apikey: key, Authorization: `Bearer ${key}` },
-                });
-                const data = await res.json();
-                return { data: data[0] || null, error: null };
-              },
-              then: async (callback: any) => callback({ data: data[0] || null, error: null }),
-            }),
-            order: () => ({
-              limit: async () => {
-                const res = await fetch(`${url}/${table}?order=${columns}`, {
-                  headers: { apikey: key, Authorization: `Bearer ${key}` },
-                });
-                return { data: await res.json(), error: null };
-              },
-            }),
-          }),
-        }),
-        rpc: async (functionName: string, params?: any) => {
-          const res = await fetch(`${url}/rpc/${functionName}`, {
-            method: "POST",
-            headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-            body: JSON.stringify(params || {}),
-          });
-          return { data: await res.json(), error: res.ok ? null : new Error(await res.text()) };
-        },
-      };
+    const totalUsers = (prefsData || []).length;
+    const paceCounts: Record<string, number> = {};
+    const streakRanges: Record<string, number> = { "0": 0, "1-7": 0, "8-30": 0, "30+": 0 };
+    const reviewCounts: Record<string, number> = {};
+    
+    for (const pref of prefsData || []) {
+      const p = pref.pace || "unknown";
+      paceCounts[p] = (paceCounts[p] || 0) + 1;
+      
+      const streak = pref.streak_count || 0;
+      if (streak === 0) streakRanges["0"]++;
+      else if (streak <= 7) streakRanges["1-7"]++;
+      else if (streak <= 30) streakRanges["8-30"]++;
+      else streakRanges["30+"]++;
+      
+      const r = pref.review_intensity || "none";
+      reviewCounts[r] = (reviewCounts[r] || 0) + 1;
+    }
+
+    const userPace = Object.entries(paceCounts).map(([pace, count]) => ({
+      pace,
+      user_count: count,
+      percentage: totalUsers > 0 ? Math.round((count / totalUsers) * 1000) / 10 : 0,
+    }));
+
+    const streakDistribution = Object.entries(streakRanges).map(([range, count]) => ({
+      streak_range: range,
+      user_count: count,
+      percentage: totalUsers > 0 ? Math.round((count / totalUsers) * 1000) / 10 : 0,
+    }));
+
+    const reviewCompletion = Object.entries(reviewCounts).map(([intensity, count]) => ({
+      review_intensity: intensity,
+      total_users: count,
+      total_reviews_scheduled: 0,
+      total_reviews_completed: 0,
+      overall_completion_rate: 0,
+    }));
+
+    // Calculate active users from study log
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const { data: logData } = await supabase
+      .from("user_study_log")
+      .select("user_id, study_date, is_completed, node_type")
+      .gte("study_date", thirtyDaysAgo);
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const activeUsers7d = new Set(
+      (logData || []).filter((l) => new Date(l.study_date) >= sevenDaysAgo).map((l) => l.user_id)
+    ).size;
+    const activeUsers30d = new Set((logData || []).map((l) => l.user_id)).size;
+
+    const learningComplete = (logData || []).filter((l) => l.node_type === "learning" && l.is_completed).length;
+    const learningTotal = (logData || []).filter((l) => l.node_type === "learning").length;
+    const quizComplete = (logData || []).filter((l) => l.node_type === "quiz" && l.is_completed).length;
+    const quizTotal = (logData || []).filter((l) => l.node_type === "quiz").length;
+    const reviewCompleteCount = (logData || []).filter((l) => l.node_type === "review" && l.is_completed).length;
+    const reviewTotal = (logData || []).filter((l) => l.node_type === "review").length;
+
+    let avgStreak = 0;
+    if (totalUsers > 0) {
+      const sum = (prefsData || []).reduce((s, p) => s + (p.streak_count || 0), 0);
+      avgStreak = Math.round((sum / totalUsers) * 10) / 10;
+    }
+
+    const summary = {
+      total_users: totalUsers,
+      active_users_7d: activeUsers7d,
+      active_users_30d: activeUsers30d,
+      avg_streak: avgStreak,
+      users_with_streak_7plus: (prefsData || []).filter((p) => (p.streak_count || 0) >= 7).length,
+      users_with_streak_30plus: (prefsData || []).filter((p) => (p.streak_count || 0) >= 30).length,
+      retention_7d_rate: activeUsers30d > 0 ? Math.round((activeUsers7d / activeUsers30d) * 1000) / 10 : 0,
+      completion_rate_30d: learningTotal > 0 ? Math.round((learningComplete / learningTotal) * 1000) / 10 : 0,
+      quiz_completion_rate_30d: quizTotal > 0 ? Math.round((quizComplete / quizTotal) * 1000) / 10 : 0,
+      review_completion_rate_30d: reviewTotal > 0 ? Math.round((reviewCompleteCount / reviewTotal) * 1000) / 10 : 0,
+      week_over_week_change: 0,
+      month_over_month_change: 0,
+      users_with_preferences: totalUsers,
+      onboarding_completion_rate: 100,
+      refreshed_at: new Date().toISOString(),
     };
 
-    const client = adminClient(supabaseUrl, supabaseKey);
-
-    // Get summary stats
-    const { data: summaryData } = await getSummaryStats(client);
-    
-    // Get user pace distribution
-    const { data: paceData } = await getUserPaceDistribution(client);
-    
-    // Get streak distribution
-    const { data: streakData } = await getStreakDistribution(client);
-    
-    // Get weekly activity
-    const { data: weeklyData } = await getWeeklyActivity(client, date_range);
-    
-    // Get cohort retention
-    const { data: cohortData } = await getCohortRetention(client);
-    
-    // Get pace adherence
-    const { data: paceAdherenceData } = await getPaceAdherence(client);
-    
-    // Get content difficulty
-    const { data: contentDifficultyData } = await getContentDifficulty(client);
-    
-    // Get onboarding funnel
-    const { data: onboardingData } = await getOnboardingFunnel(client);
-    
-    // Get review completion
-    const { data: reviewCompletionData } = await getReviewCompletion(client);
-
     return new Response(JSON.stringify({
-      summary: summaryData,
-      userPace: paceData,
-      streakDistribution: streakData,
-      weeklyActivity: weeklyData,
-      cohortRetention: cohortData,
-      paceAdherence: paceAdherenceData,
-      contentDifficulty: contentDifficultyData,
-      onboardingFunnel: onboardingData,
-      reviewCompletion: reviewCompletionData,
+      summary: [summary],
+      userPace,
+      streakDistribution,
+      weeklyActivity: [],
+      cohortRetention: [],
+      paceAdherence: [],
+      contentDifficulty: [],
+      onboardingFunnel: null,
+      reviewCompletion,
       refreshed_at: new Date().toISOString(),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Analytics error:', error);
+    return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { 
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+        "Content-Type": "application/json" 
+      },
     });
   }
 });
-
-async function getSummaryStats(client: any) {
-  try {
-    const { data } = await client.rpc("get_summary_stats");
-    return data || [];
-  } catch {
-    // Fallback: calculate from tables
-    return [{
-      total_users: 0,
-      active_users_7d: 0,
-      active_users_30d: 0,
-      avg_streak: 0,
-      users_with_streak_7plus: 0,
-      users_with_streak_30plus: 0,
-      retention_7d_rate: 0,
-      completion_rate_30d: 0,
-      quiz_completion_rate_30d: 0,
-      review_completion_rate_30d: 0,
-      week_over_week_change: 0,
-      month_over_month_change: 0,
-      users_with_preferences: 0,
-      onboarding_completion_rate: 0,
-      refreshed_at: new Date().toISOString(),
-    }];
-  }
-}
-
-async function getUserPaceDistribution(client: any) {
-  try {
-    const { data } = await client.rpc("get_user_pace_distribution");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-async function getStreakDistribution(client: any) {
-  try {
-    const { data } = await client.rpc("get_streak_distribution");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-async function getWeeklyActivity(client: any, dateRange: string) {
-  try {
-    const { data } = await client.rpc("get_weekly_activity");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-async function getCohortRetention(client: any) {
-  try {
-    const { data } = await client.rpc("get_cohort_retention");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-async function getPaceAdherence(client: any) {
-  try {
-    const { data } = await client.rpc("get_pace_adherence");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-async function getContentDifficulty(client: any) {
-  try {
-    const { data } = await client.rpc("get_content_difficulty");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
-
-async function getOnboardingFunnel(client: any) {
-  try {
-    const { data } = await client.rpc("get_onboarding_funnel");
-    return data || null;
-  } catch {
-    return null;
-  }
-}
-
-async function getReviewCompletion(client: any) {
-  try {
-    const { data } = await client.rpc("get_review_completion");
-    return data || [];
-  } catch {
-    return [];
-  }
-}
