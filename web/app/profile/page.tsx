@@ -131,14 +131,6 @@ export default function ProfilePage() {
   const [isAdminOrDev, setIsAdminOrDev] = useState(false);
 
   useEffect(() => {
-    const isLocalhost = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    
-    if (isLocalhost) {
-      setIsAdminOrDev(true);
-      return;
-    }
-    
     if (user) {
       supabase.from('user_roles').select('role').eq('user_id', user.id).single()
         .then(({ data }) => {
