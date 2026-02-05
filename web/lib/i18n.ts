@@ -11,10 +11,23 @@ const translations: Record<string, Record<string, unknown>> = {
   admin,
 };
 
+function getNestedValue(obj: Record<string, unknown>, path: string): string | undefined {
+  const keys = path.split('.');
+  let current: unknown = obj;
+  for (const key of keys) {
+    if (current && typeof current === 'object' && key in current) {
+      current = (current as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  return typeof current === 'string' ? current : undefined;
+}
+
 export function useTranslation(namespace: string = 'common') {
   const t = (key: string, params?: Record<string, string | number>): string => {
     const translationSet = translations[namespace] || {};
-    let translation = (translationSet[key] as string) || key;
+    let translation = getNestedValue(translationSet, key) || key;
     
     if (params) {
       for (const [paramKey, paramValue] of Object.entries(params)) {
@@ -32,7 +45,7 @@ export function useTranslation(namespace: string = 'common') {
 export function getTranslation(namespace: string = 'common') {
   return (key: string, params?: Record<string, string | number>): string => {
     const translationSet = translations[namespace] || {};
-    let translation = (translationSet[key] as string) || key;
+    let translation = getNestedValue(translationSet, key) || key;
     
     if (params) {
       for (const [paramKey, paramValue] of Object.entries(params)) {
