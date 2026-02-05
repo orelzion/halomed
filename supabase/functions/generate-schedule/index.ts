@@ -1,5 +1,8 @@
 // supabase/functions/generate-schedule/index.ts
 // Edge Function to generate scheduled learning units for a user
+// DEPRECATED: This function uses the old tracks/user_study_log model
+// The current implementation uses client-side path computation via path-generator.ts
+// This function is kept for reference and will fail if tracks table doesn't exist
 // Reference: TDD Section 6, scheduling.md
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -27,6 +30,18 @@ interface GenerateScheduleResponse {
 }
 
 Deno.serve(async (req: Request) => {
+  // DEPRECATED: Return error immediately - tracks table was removed
+  // The current implementation uses client-side path computation
+  return new Response(
+    JSON.stringify({ 
+      error: 'DEPRECATED: generate-schedule is no longer supported. Path is computed client-side.',
+      deprecated: true,
+      message: 'This Edge Function used the old tracks/user_study_log model which has been removed.'
+    }),
+    { status: 410, headers: { 'Content-Type': 'application/json' } }
+  );
+
+  // Original code preserved below for reference...
   // Handle CORS preflight
   const corsResponse = handleCorsPreflight(req);
   if (corsResponse) return corsResponse;

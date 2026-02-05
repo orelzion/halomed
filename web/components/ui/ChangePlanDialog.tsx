@@ -8,7 +8,7 @@ import { useSync } from '@/components/providers/SyncProvider';
 import posthog from 'posthog-js';
 import { getDatabase } from '@/lib/database/database';
 
-type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
+type Pace = 'two_mishna' | 'one_chapter' | 'seder_per_year';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
 
 interface ChangePlanDialogProps {
@@ -269,18 +269,18 @@ export function ChangePlanDialog({ isOpen, onClose, onSuccess }: ChangePlanDialo
             </h3>
             <div className="space-y-2">
               <PaceOption
-                pace="one_mishna"
-                selected={selectedPace === 'one_mishna'}
-                onSelect={() => setSelectedPace('one_mishna')}
-                title={t('pace_one_mishna')}
-                description={t('pace_one_mishna_desc')}
-              />
-              <PaceOption
                 pace="two_mishna"
                 selected={selectedPace === 'two_mishna'}
                 onSelect={() => setSelectedPace('two_mishna')}
                 title={t('pace_two_mishna')}
                 description={t('pace_two_mishna_desc')}
+              />
+              <PaceOption
+                pace="seder_per_year"
+                selected={selectedPace === 'seder_per_year'}
+                onSelect={() => setSelectedPace('seder_per_year')}
+                title={t('pace_seder_per_year')}
+                description={t('pace_seder_per_year_desc')}
               />
               <PaceOption
                 pace="one_chapter"

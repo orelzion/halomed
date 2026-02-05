@@ -15,8 +15,61 @@ interface QuizQuestion {
   question_index: number;
   question_text: string;
   options: string[];
-  correct_answer: number;
+  correct_answer_index: number;
+  question_type: 'halacha' | 'sevara';
   explanation: string;
+}
+
+/**
+ * Assemble quiz questions using the new algorithm:
+ * - For each Mishnah (content_ref): pick exactly 1 random halacha question
+ * - Count total halacha questions
+ * - If total halacha < 20: fill remaining slots with sevara questions (randomly selected, distributed across Mishnayot)
+ * - If >20 Mishnayot: show all halacha questions (no cap)
+ * - Group by Mishnah in chronological order
+ * - Within each group: halacha first, then sevara
+ */
+function assembleWeeklyQuiz(allQuestions: QuizQuestion[], contentRefsInOrder: string[]): QuizQuestion[] {
+  // Group questions by content_ref
+  const byContentRef: Record<string, QuizQuestion[]> = {};
+  allQuestions.forEach(q => {
+    if (!byContentRef[q.content_ref]) {
+      byContentRef[q.content_ref] = [];
+    }
+    byContentRef[q.content_ref].push(q);
+  });
+
+  // Step 1: Pick 1 random halacha question per Mishnah
+  const selectedHalacha: QuizQuestion[] = [];
+  contentRefsInOrder.forEach(ref => {
+    const questions = byContentRef[ref] || [];
+    const halachaQuestions = questions.filter(q => q.question_type === 'halacha');
+    if (halachaQuestions.length > 0) {
+      const random = halachaQuestions[Math.floor(Math.random() * halachaQuestions.length)];
+      selectedHalacha.push(random);
+    }
+  });
+
+  // Step 2: Fill with sevara if needed
+  const selectedSevara: QuizQuestion[] = [];
+  if (selectedHalacha.length < 20) {
+    const remaining = 20 - selectedHalacha.length;
+    const allSevara = allQuestions.filter(q => q.question_type === 'sevara');
+    // Shuffle and take needed amount
+    const shuffled = allSevara.sort(() => Math.random() - 0.5);
+    selectedSevara.push(...shuffled.slice(0, remaining));
+  }
+
+  // Step 3: Combine and group by Mishnah (halacha first, then sevara)
+  const result: QuizQuestion[] = [];
+  contentRefsInOrder.forEach(ref => {
+    const halacha = selectedHalacha.find(q => q.content_ref === ref);
+    const sevara = selectedSevara.filter(q => q.content_ref === ref);
+    if (halacha) result.push(halacha);
+    result.push(...sevara);
+  });
+
+  return result;
 }
 
 /**
@@ -201,18 +254,24 @@ export function QuizScreen() {
 
       let quizzes = quizDocs.map((doc: any) => doc.toJSON());
 
+      console.log(`[QuizScreen] Initial query found ${quizzes.length} questions for ${contentRefs.length} content refs`);
+
       // If no questions exist, generate them for each content_ref
       if (quizzes.length === 0) {
         console.log('[QuizScreen] No quiz questions found, generating...');
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (!session) {
+          console.log('[QuizScreen] No session, cannot generate');
+          setLoading(false);
+          return;
+        }
 
         // Generate quizzes for each content_ref (in parallel, max 3 at a time)
         for (let i = 0; i < contentRefs.length; i += 3) {
           const batch = contentRefs.slice(i, i + 3);
           await Promise.all(batch.map(async (ref: string) => {
             try {
-              await fetch('/api/generate-quiz', {
+              const response = await fetch('/api/generate-quiz', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -220,38 +279,83 @@ export function QuizScreen() {
                 },
                 body: JSON.stringify({ content_ref: ref }),
               });
+              const result = await response.json();
+              console.log(`[QuizScreen] Generated for ${ref}:`, result);
             } catch (err) {
               console.error(`[QuizScreen] Failed to generate quiz for ${ref}:`, err);
             }
           }));
         }
 
-        // Wait for sync and retry
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const newQuizDocs = await db.quiz_questions
-          .find({
-            selector: {
-              content_ref: { $in: contentRefs },
-            },
-          })
-          .sort([{ content_ref: 'asc' }, { question_index: 'asc' }])
-          .exec();
-        quizzes = newQuizDocs.map((doc: any) => doc.toJSON());
+        console.log('[QuizScreen] Generation complete, waiting for sync...');
+
+        // Wait for sync and retry with polling
+        let synced = false;
+        let retries = 0;
+        const maxRetries = 15;
+        
+        while (!synced && retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const newQuizDocs = await db.quiz_questions
+            .find({
+              selector: {
+                content_ref: { $in: contentRefs },
+              },
+            })
+            .sort([{ content_ref: 'asc' }, { question_index: 'asc' }])
+            .exec();
+          
+          const newQuizzes = newQuizDocs.map((doc: any) => doc.toJSON());
+          
+          console.log(`[QuizScreen] Poll ${retries + 1}: ${newQuizzes.length} questions found`);
+          
+          // Check if we have at least some questions
+          if (newQuizzes.length > 0) {
+            // Check coverage - allow partial coverage
+            const uniqueRefs = new Set(newQuizzes.map((q: any) => q.content_ref));
+            const coveredCount = contentRefs.filter(ref => uniqueRefs.has(ref)).length;
+            
+            console.log(`[QuizScreen] Covered ${coveredCount}/${contentRefs.length} content refs`);
+            
+            // Accept if we have at least some coverage
+            if (coveredCount >= Math.min(3, contentRefs.length)) {
+              quizzes = newQuizzes;
+              synced = true;
+              console.log(`[QuizScreen] Synced after ${retries + 1} attempts`);
+            }
+          }
+          
+          retries++;
+        }
+        
+        if (!synced) {
+          console.warn(`[QuizScreen] Could not sync all quiz questions after ${maxRetries} attempts, using what we have`);
+        }
       }
 
       // Format questions
+      if (quizzes.length === 0) {
+        console.error('[QuizScreen] No questions available after all attempts');
+        setLoading(false);
+        return;
+      }
       const formatted = quizzes.map((q: any) => ({
         id: q.id,
         content_ref: q.content_ref,
         question_index: q.question_index || 0,
         question_text: q.question_text,
         options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
-        correct_answer: q.correct_answer,
+        correct_answer_index: q.correct_answer_index ?? q.correct_answer ?? 0,
+        question_type: q.question_type || 'halacha',
         explanation: q.explanation || '',
       }));
 
-      console.log(`[QuizScreen] Weekly quiz loaded with ${formatted.length} questions`);
-      setAllQuestions(formatted);
+      // Apply the new quiz assembly algorithm
+      const assembledQuiz = assembleWeeklyQuiz(formatted, contentRefs);
+
+      console.log(`[QuizScreen] Weekly quiz assembled with ${assembledQuiz.length} questions`);
+      setAllQuestions(assembledQuiz);
     };
 
     if (nodeId) {
@@ -263,11 +367,15 @@ export function QuizScreen() {
   useEffect(() => {
     if (allQuestions.length > 0 && !hasTrackedQuizStart.current) {
       hasTrackedQuizStart.current = true;
+      const halachaCount = allQuestions.filter(q => q.question_type === 'halacha').length;
+      const sevaraCount = allQuestions.filter(q => q.question_type === 'sevara').length;
       posthog.capture('quiz_started', {
         node_id: nodeId,
         content_ref: quizContentRef,
         is_weekly_quiz: quizContentRef ? isWeeklyQuiz(quizContentRef) : false,
         total_questions: allQuestions.length,
+        halacha_count: halachaCount,
+        sevara_count: sevaraCount,
       });
     }
   }, [allQuestions.length, nodeId, quizContentRef]);
@@ -279,13 +387,14 @@ export function QuizScreen() {
     // Already answered this question
     if (selectedAnswers.has(currentQuestionIndex)) return;
 
-    const isAnswerCorrect = answerIndex === question.correct_answer;
+    const isAnswerCorrect = answerIndex === question.correct_answer_index;
 
     // Capture answer submission event
     posthog.capture('quiz_answer_submitted', {
       node_id: nodeId,
       content_ref: question.content_ref,
       question_index: currentQuestionIndex,
+      question_type: question.question_type,
       is_correct: isAnswerCorrect,
       total_questions: allQuestions.length,
     });
@@ -307,9 +416,12 @@ export function QuizScreen() {
     } else {
       // All questions answered - capture completion event
       const finalScore = Array.from(selectedAnswers.entries()).filter(
-        ([idx, answer]) => allQuestions[idx]?.correct_answer === answer
+        ([idx, answer]) => allQuestions[idx]?.correct_answer_index === answer
       ).length;
       const percentage = Math.round((finalScore / allQuestions.length) * 100);
+
+      const halachaCount = allQuestions.filter(q => q.question_type === 'halacha').length;
+      const sevaraCount = allQuestions.filter(q => q.question_type === 'sevara').length;
 
       posthog.capture('quiz_completed', {
         node_id: nodeId,
@@ -318,6 +430,8 @@ export function QuizScreen() {
         score: finalScore,
         total_questions: allQuestions.length,
         percentage: percentage,
+        halacha_count: halachaCount,
+        sevara_count: sevaraCount,
       });
 
       setQuizComplete(true);
@@ -413,11 +527,11 @@ export function QuizScreen() {
   const currentQuestion = allQuestions[currentQuestionIndex];
   const selectedAnswer = selectedAnswers.get(currentQuestionIndex) ?? null;
   const showExplanation = showExplanations.has(currentQuestionIndex);
-  const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+  const isCorrect = selectedAnswer === currentQuestion.correct_answer_index;
   
   // Calculate score
   const score = Array.from(selectedAnswers.entries()).filter(
-    ([idx, answer]) => allQuestions[idx]?.correct_answer === answer
+    ([idx, answer]) => allQuestions[idx]?.correct_answer_index === answer
   ).length;
   const totalQuestions = allQuestions.length;
 
@@ -506,6 +620,16 @@ export function QuizScreen() {
           <h2 className="font-explanation text-xl font-semibold mb-4 text-[var(--text-primary)]">
             {t('quiz_question')}
           </h2>
+          {/* Question type badge */}
+          {currentQuestion.question_type === 'halacha' ? (
+            <span className="inline-block mb-3 px-3 py-1 rounded-lg text-sm font-explanation font-semibold bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800">
+              {t('quiz_type_halacha')}
+            </span>
+          ) : (
+            <span className="inline-block mb-3 px-3 py-1 rounded-lg text-sm font-explanation font-semibold bg-[#E9EDC9] text-[#4A5D23] border border-[#CCD5AE] dark:bg-[#2D3A2D]/50 dark:text-[#A8C49A] dark:border-[#4A5D23]">
+                      {t('quiz_type_sevara')}
+                    </span>
+          )}
           <p className="font-source text-lg mb-6 text-[var(--text-primary)]">
             {currentQuestion.question_text}
           </p>
@@ -513,7 +637,7 @@ export function QuizScreen() {
           <div className="space-y-3">
             {currentQuestion.options.map((option, index) => {
               const isSelected = selectedAnswer === index;
-              const isCorrectOption = index === currentQuestion.correct_answer;
+              const isCorrectOption = index === currentQuestion.correct_answer_index;
               
               let bgClass = 'bg-desert-oasis-muted/20 dark:bg-gray-700/30';
               if (isSelected) {

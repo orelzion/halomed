@@ -52,8 +52,9 @@ export interface QuizQuestionsDoc {
   content_ref: string;
   question_index: number;
   question_text: string;
+  question_type: string;
   options: string;
-  correct_answer: number;
+  correct_answer_index: number;
   explanation?: string;
   created_at: string;
   updated_at: string;
@@ -112,7 +113,7 @@ export const userPreferencesSchema: RxJsonSchema<UserPreferencesDoc> = {
 
 // Quiz Questions Schema
 export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -120,15 +121,16 @@ export const quizQuestionsSchema: RxJsonSchema<QuizQuestionsDoc> = {
     content_ref: { type: 'string' },
     question_index: { type: 'number' },
     question_text: { type: 'string' },
+    question_type: { type: 'string' },
     options: { type: 'string' }, // JSONB stored as JSON string
-    correct_answer: { type: 'number' },
+    correct_answer_index: { type: 'number' },
     explanation: { type: 'string' }, // nullable
     created_at: { type: 'string' }, // ISO timestamp
     updated_at: { type: 'string' }, // ISO timestamp
     _deleted: { type: 'boolean' }, // Soft delete flag
   },
-  required: ['id', 'content_ref', 'question_index', 'question_text', 'options', 'correct_answer', 'created_at', 'updated_at', '_deleted'],
-  indexes: ['content_ref', ['content_ref', 'question_index']],
+  required: ['id', 'content_ref', 'question_index', 'question_text', 'question_type', 'options', 'correct_answer_index', 'created_at', 'updated_at', '_deleted'],
+  indexes: ['content_ref', ['content_ref', 'question_index'], ['content_ref', 'question_type']],
 };
 
 // RxDB collection types

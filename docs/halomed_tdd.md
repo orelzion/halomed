@@ -1,11 +1,11 @@
 # Technical Design Document (TDD)
 ## HaLomeid (הלומד)
 
-**Version:** 2.0
-**Status:** Current Implementation
-**Last Updated:** 2026-01-29 (Position-based model update)
+**Version:** 2.1
+**Status:** Current Implementation (Client-Side Path Computation)
+**Last Updated:** 2026-02-04 (Removed learning_path table, client-side computation)
 **Architecture:** Unified Backend, Offline-First Clients
-**Platforms:** Android (Kotlin/Compose), iOS (Swift/SwiftUI), Web (Next.js/React)
+**Platforms:** Web (Next.js/React), Android (future), iOS (future)
 
 ---
 
@@ -154,75 +154,22 @@ CREATE TABLE content_cache (
 
 **Note:** The `ai_explanation_json` field consolidates what was previously separate `ai_explanation_he` (TEXT) and `ai_deep_dive_json` (JSONB) fields into a single structured JSONB column.
 
-### 4.3 Learning Path
+### 4.3 Learning Path (DEPRECATED)
 
-Stores the computed learning path for each user, including learning nodes, reviews, quizzes, and chapter/tractate completion markers.
+The `learning_path` table has been **removed** in favor of client-side path computation.
 
-```sql
-CREATE TABLE learning_path (
-  id TEXT PRIMARY KEY,
-  -- Format: 'computed-{index}' for learning, 'review-session-{date}' for reviews,
-  --         'weekly-quiz-{date}' for quizzes, 'divider-{tractate}-{chapter}' for completions
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  node_index INTEGER NOT NULL,
-  -- Sequential index in the path (-1 for dynamically computed nodes like reviews)
-  node_type TEXT NOT NULL,
-  -- Options: 'learning', 'review_session', 'weekly_quiz', 'divider'
-  content_ref TEXT,
-  -- Mishnah reference (e.g., 'Mishnah_Berakhot.1.1') or special refs
-  tractate TEXT,
-  chapter INTEGER,
-  is_divider INTEGER DEFAULT 0 NOT NULL,
-  -- 1 for chapter/tractate completion markers, 0 otherwise
-  unlock_date DATE NOT NULL,
-  -- YYYY-MM-DD when this node becomes available
-  completed_at TIMESTAMPTZ,
-  -- Timestamp when marked as completed
-  review_of_node_id TEXT,
-  -- For review nodes: reference to original learning node
-  review_items TEXT,
-  -- JSON string of ReviewItem[] for review sessions
-  review_count INTEGER,
-  -- Quick access count of items in review_session
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
+The learning path is now computed entirely on the client using the shared `path-generator.ts` library, which calculates:
+- Learning nodes based on `current_content_index`, `pace`, and `path_start_date`
+- Review sessions based on spaced repetition intervals
+- Weekly quizzes based on calendar dates
+- Chapter/tractate completion markers
 
-CREATE INDEX idx_learning_path_user_unlock ON learning_path(user_id, unlock_date);
-CREATE INDEX idx_learning_path_user_type ON learning_path(user_id, node_type);
-```
+This approach:
+- Eliminates server-side path generation
+- Reduces database writes and sync complexity
+- Provides instant path rendering without waiting for sync
 
-**Key Fields:**
-- `node_type`: Determines the type of node in the learning path
-  - `learning`: Regular Mishnah study node
-  - `review_session`: Spaced repetition review (grouped by date)
-  - `weekly_quiz`: Weekly assessment (Fridays)
-  - `divider`: Visual marker for chapter/tractate completion
-- `completed_at`: Timestamp when marked as completed (used for streak calculation)
-- `unlock_date`: Date when this node becomes available to the user
-
-**Note:** The learning path is generated server-side based on user preferences (pace, review intensity, start date). It provides a deterministic, pre-computed study schedule.
-
-### 4.4 Quiz Questions
-
-Stores generated quiz questions for weekly assessments.
-
-```sql
-CREATE TABLE quiz_questions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  content_ref TEXT NOT NULL,
-  -- Reference to the Mishnah this question is about
-  question_text_he TEXT NOT NULL,
-  -- Question in Hebrew
-  correct_answer_he TEXT NOT NULL,
-  -- Correct answer in Hebrew
-  wrong_answers_he TEXT[] NOT NULL,
-  -- Array of incorrect answers in Hebrew
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
-
-CREATE INDEX idx_quiz_questions_ref ON quiz_questions(content_ref);
-```
+**Synced Data:** Only `user_preferences` is synced. The path is computed locally from the user's position and preferences.
 
 ---
 
@@ -251,46 +198,43 @@ CREATE INDEX idx_quiz_questions_ref ON quiz_questions(content_ref);
 
 ---
 
-## 6. Position-Based Learning Path (Server-Side)
+## 6. Position-Based Learning Path (Client-Side Computation)
 
 ### 6.1 Architecture
 
 HaLomeid uses a **position-based model** where each user has:
 - A **current position** (`current_content_index`) in the global Mishnah sequence (0-4505)
-- A **pre-computed learning path** stored in `learning_path` table
+- **No stored learning path** — the entire path is computed client-side from preferences
 - Progress tracked by advancing the position as content is completed
 
 This differs from traditional track-based systems:
 - No separate "tracks" - all users follow the same Mishnah sequence
+- No `learning_path` table - path is computed locally using `path-generator.ts`
 - Scheduling is deterministic based on position, pace, and start date
-- The entire learning path can be computed upfront
+- The entire learning path can be computed on-demand without database queries
 
-### 6.2 Edge Function: generate-path
+### 6.2 Edge Function: generate-path (Content Pre-generation)
 
-Generates the complete learning path for a user based on their preferences.
+The `generate-path` function now only **pre-generates content** for upcoming learning nodes. It does NOT create learning_path rows.
 
 #### Inputs
 
 - `user_id`: User ID
 - `pace`: Learning speed ('one_chapter', 'two_mishna', 'seder_per_year')
 - `review_intensity`: Review frequency ('none', 'light', 'medium', 'intensive')
-- `force` (optional): Regenerate path even if it exists
+- `force` (optional): Regenerate content even if it exists
 
 #### Process
 
 1. Read user preferences from `user_preferences` table
-2. Calculate unlock dates for all content based on:
+2. Calculate content refs for next 14 days based on:
    - `path_start_date`: When user started
    - `pace`: How many mishnayot per day
    - `skip_friday`: Whether to skip Fridays
    - `yom_tov_dates`: User-specific holiday dates
-3. Generate path nodes:
-   - **Learning nodes**: Sequential Mishnah content
-   - **Divider nodes**: Chapter/tractate completion markers
-   - **Review nodes**: Spaced repetition based on review intensity
-   - **Quiz nodes**: Weekly assessments (Fridays)
-4. Insert all nodes into `learning_path` table
-5. Pre-generate content for next 14 days
+3. Check which content already exists in `content_cache`
+4. Generate missing content using `generate-content` Edge Function
+5. Return count of generated vs cached content
 
 #### Review Intervals
 
@@ -307,12 +251,17 @@ Based on `review_intensity` setting:
 Progress is tracked through `current_content_index` in `user_preferences`:
 
 1. User completes a learning node
-2. Client marks node as completed in `learning_path` (sets `completed_at`)
+2. Client updates local state (optimistic update)
 3. Client increments `current_content_index` in `user_preferences`
-4. All nodes where `index < current_content_index` are considered completed
-5. Streak is calculated based on consecutive daily completions
+4. RxDB sync propagates the change to Supabase
+5. Path is automatically re-computed on next render with new position
+6. Streak is calculated based on consecutive daily completions
 
 **Key Property:** Progress is a simple counter, not date-dependent scheduling.
+
+Completion tracking for reviews and quizzes is stored in:
+- `user_preferences.review_completion_dates`: Array of dates when reviews were completed
+- `user_preferences.quiz_completion_dates`: Array of dates when quizzes were completed
 
 ---
 
@@ -364,13 +313,14 @@ Progress is tracked through `current_content_index` in `user_preferences`:
 All data synced to local device:
 
 - **user_preferences**: User's learning configuration (pace, review intensity, progress)
-- **learning_path**: Path nodes within 14-day window (±14 days from current date)
-- **content_cache**: Content referenced by nodes in the window
+- **content_cache**: Content for Mishnayot within 14-day window
 - **quiz_questions**: Questions for quizzes within the window
 
+**Note:** The learning path is computed locally from `user_preferences`, not synced.
+
 **Rolling Window Strategy:**
-- Applied at query level during replication
-- Includes nodes where `unlock_date` is within ±14 days of current date
+- Applied when querying `content_cache`
+- Includes content where unlock_date is within ±14 days of current date
 - Window moves forward automatically as dates progress
 - Ensures offline access to recent history (for streak) and upcoming content
 
@@ -378,8 +328,8 @@ All data synced to local device:
 
 **Initial Setup:**
 1. User completes onboarding (sets pace, review intensity)
-2. Edge Function `generate-path` is called to create full learning path
-3. Content for next 14 days is pre-generated during path creation
+2. Client locally computes initial learning path from preferences
+3. `generate-path` Edge Function is called to pre-generate content for next 14 days
 
 **Ongoing Sync:**
 - During periodic sync, check for missing content in 14-day window
@@ -402,7 +352,7 @@ All data synced to local device:
 
 ### 8.4 Streak Calculation
 
-Streaks are **derived data**, calculated on-demand from `learning_path`.
+Streaks are **derived data**, calculated on-demand from the computed path.
 
 **Rules:**
 
@@ -410,22 +360,22 @@ Streaks are **derived data**, calculated on-demand from `learning_path`.
 - Days without study (Shabbat, holidays, Fridays if skipped) do not affect the streak
 - Only **learning nodes** (not reviews or quizzes) count toward the streak
 - Retroactive completion (marking past units as done) **does not affect the streak**
-- Only completions on or before the unlock date contribute to the streak
+- Only completions on or before the scheduled date contribute to the streak
 
 **Algorithm:**
 
-1. Query `learning_path` for learning nodes, ordered by `unlock_date` descending
-2. Starting from the most recent unlocked learning node:
-   - If `completed_at` exists and completion date ≤ `unlock_date` → increment streak
-   - If `completed_at` is null or completion date > `unlock_date` → streak ends
+1. Compute learning nodes from path-generator, ordered by unlock_date descending
+2. Starting from the most recent scheduled learning node:
+   - If completed and completion date ≤ unlock_date → increment streak
+   - If not completed or completion date > unlock_date → streak ends
    - Skip non-learning nodes (reviews, quizzes, dividers)
-   - Skip nodes where `unlock_date` > current date (not yet unlocked)
+   - Skip nodes where unlock_date > current date (not yet scheduled)
 3. Return streak count
 
-**Note:** The `completed_at` field is compared to `unlock_date` to ensure completion occurred on time. Late completions (retroactive) do not contribute to the streak.
+**Note:** Completion tracking uses `user_preferences` fields, comparing completion timestamps against scheduled unlock dates from path computation.
 
 **Storage:** The calculated streak is cached in `user_preferences.streak_count` and updated when:
-- User completes a learning node on its unlock date
+- User completes a learning node on its scheduled date
 - User breaks a streak by missing a day
 - Daily background sync recalculates streaks
 
@@ -486,13 +436,6 @@ CREATE POLICY user_preferences_policy ON user_preferences
   FOR ALL USING (auth.uid() = user_id);
 ```
 
-**learning_path:**
-```sql
--- Users can only access their own learning path
-CREATE POLICY learning_path_policy ON learning_path
-  FOR ALL USING (auth.uid() = user_id);
-```
-
 **quiz_questions:**
 ```sql
 -- All authenticated users can read quiz questions
@@ -512,7 +455,6 @@ CREATE POLICY content_cache_read_policy ON content_cache
 All tables are added to Supabase Realtime publication for live sync:
 ```sql
 ALTER PUBLICATION supabase_realtime ADD TABLE user_preferences;
-ALTER PUBLICATION supabase_realtime ADD TABLE learning_path;
 ALTER PUBLICATION supabase_realtime ADD TABLE content_cache;
 ALTER PUBLICATION supabase_realtime ADD TABLE quiz_questions;
 ```
@@ -533,10 +475,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE quiz_questions;
 ## 13. Summary
 
 HaLomeid's technical architecture is:
-- **Deterministic**: Learning path is pre-computed based on user preferences
-- **Offline-first**: All essential data synced locally with 14-day rolling window
-- **Platform-agnostic**: Shared data model and business logic across all platforms
-- **Position-based**: Progress tracked by simple index counter, not date-dependent scheduling
+- **Deterministic**: Learning path is computed client-side from user preferences
+- **Offline-first**: Essential data synced locally with 14-day rolling content window
+- **Platform-agnostic**: Shared `path-generator.ts` library provides identical logic across platforms
+- **Position-based**: Progress tracked by simple index counter, not stored path rows
 - **User-driven**: Each user has independent pace, start date, and review settings
 
 All platforms are equal citizens, with the same capabilities and user experience.

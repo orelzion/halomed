@@ -3,7 +3,7 @@
 import { useTranslation } from '@/lib/i18n';
 import { usePreferences } from '@/lib/hooks/usePreferences';
 
-type Pace = 'one_mishna' | 'two_mishna' | 'one_chapter';
+type Pace = 'two_mishna' | 'one_chapter' | 'seder_per_year';
 type ReviewIntensity = 'none' | 'light' | 'medium' | 'intensive';
 
 interface StudyPlanCardProps {
@@ -42,9 +42,9 @@ function RepeatIcon({ className = '' }: { className?: string }) {
 }
 
 const PACE_LABELS: Record<Pace, string> = {
-  one_mishna: 'pace_one_mishna_short',
   two_mishna: 'pace_two_mishna_short',
   one_chapter: 'pace_one_chapter_short',
+  seder_per_year: 'pace_seder_per_year_short',
 };
 
 const REVIEW_LABELS: Record<ReviewIntensity, string> = {

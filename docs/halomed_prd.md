@@ -57,8 +57,8 @@ HaLomeid guides users through the complete Mishnah (Shas) - all 6 orders, 63 tra
 During onboarding, users configure their learning experience:
 
 **Pace Options:**
-- **Two Mishnayot** (default): ~10 years to complete
-- **One Chapter**: ~2 years to complete
+- **Two Mishnayot** (default): ~6 years to complete
+- **One Chapter**: ~1.5 years to complete
 - **Seder per Year**: Complete one order (seder) every year
 
 **Review Intensity:**
@@ -77,17 +77,17 @@ During onboarding, users configure their learning experience:
 
 ### 4.3 Path Generation
 
-The learning path is generated server-side when a user:
-1. Completes onboarding (sets preferences)
-2. Changes their pace or review intensity
+The learning path is computed **client-side** when a user views their learning journey. The shared `path-generator.ts` library calculates the complete path from user preferences.
 
-The path includes:
+Path computation includes:
 - **Learning nodes**: Sequential Mishnah content
 - **Review sessions**: Spaced repetition based on intensity setting
 - **Weekly quizzes**: Assessments on Fridays covering the week's content
 - **Completion markers**: Visual celebrations for finishing chapters/tractates
 
-Each node has an **unlock date** calculated from the user's start date and pace. Content becomes available on its unlock date, not dependent on completing previous items.
+Each node has a **unlock date** calculated from the user's start date and pace. Content becomes available on its unlock date, not dependent on completing previous items.
+
+**Server-side role:** Edge Functions pre-generate content (Mishnah text + AI explanations) for upcoming nodes, ensuring offline availability.
 
 ---
 
@@ -181,6 +181,57 @@ A calm, warm design inspired by parchment and quiet study spaces.
 - Retroactive completion is allowed (can mark past units as completed)
 - Retroactive marking **does not affect the streak**
 - Completing a learning node advances the user's position (unlocks next content)
+
+---
+
+## 7.4 Quiz System
+
+### 7.4.1 Question Types
+
+The quiz features two distinct question types to assess different aspects of learning:
+
+#### הלכה למעשה (Halacha L'Maaseh) — Scenario Questions
+- **Purpose:** Test practical application of halacha in real-world scenarios
+- **Format:** Present a modern-day scenario with characters and settings
+- **Focus:** What should a person do in this situation?
+- **Example:** "דני שכח להניח תפילין בזמן שהתפלל שחרית. מה הדין?"
+
+#### סברא/ביאור (Sevara/Be'ur) — Concept Questions
+- **Purpose:** Test understanding of the logic and reasoning behind rulings
+- **Format:** Open-ended conceptual questions
+- **Focus:** Why does the halacha work this way? What is the underlying principle?
+- **Example:** "מדוע המשנה פוסלת את העירוב במקרה זה? מה הסברא?"
+
+### 7.4.2 Quiz Assembly Algorithm
+
+**Question Count Rules:**
+1. **Halacha questions:** 1 question per Mishnah studied that week (no cap)
+2. **Sevara questions:** Fill remaining slots to reach 20 total questions
+3. **Cap exception:** If >20 Mishnayot studied in a week, show all halacha questions (exceeds 20)
+
+**Ordering:**
+- Questions grouped by Mishnah in chronological study order
+- Within each Mishnah group: Halacha questions first, then Sevara questions
+
+### 7.4.3 UI Features
+
+**Question Type Badges:**
+- **הלכה למעשה:** Amber badge (bg-amber-100 text-amber-800)
+- **סברא:** Blue badge (bg-blue-100 text-blue-800)
+
+Badges appear above each question to help users understand the question type.
+
+### 7.4.4 Analytics
+
+**PostHog Events:**
+- Track `quiz_question_viewed` with property `question_type` (halacha/sevara)
+- Track `quiz_question_answered` with properties:
+  - `question_type` (halacha/sevara)
+  - `is_correct` (boolean)
+- Track `quiz_completed` with properties:
+  - `total_questions`
+  - `halacha_correct`
+  - `sevara_correct`
 
 ---
 
