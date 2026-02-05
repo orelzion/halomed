@@ -16,16 +16,24 @@ body {
   --bg-primary: #FEFAE0;
   --bg-secondary: #E9EDC9;
   --bg-card: #FAEDCD;
+  --accent: #D4A373;
+  --muted-accent: #CCD5AE;
   --text-primary: #1A1A1A;
   --text-secondary: #4A4A4A;
+  --border-color: #CCD5AE;
+  --input-color: #E9EDC9;
 }
 
 .dark {
   --bg-primary: #121212;
   --bg-secondary: #1E1E1E;
   --bg-card: #2D2D2D;
+  --accent: #D4A373;
+  --muted-accent: #8A9A7A;
   --text-primary: #FEFAE0;
   --text-secondary: #B0B0B0;
+  --border-color: #3D3D3D;
+  --input-color: #2D2D2D;
 }
 
 /*
