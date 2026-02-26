@@ -177,7 +177,7 @@ Deno.test('generate-content: generates new content if not cached', async () => {
     assertExists(response.source_text_he, 'Should have source text');
     assertEquals(response.source_text_he.length > 0, true, 'Source text should not be empty');
     assertExists(response.ai_explanation_json, 'Should have AI explanation JSON');
-    assertExists(response.ai_explanation_json.summary, 'Should have summary in explanation JSON');
+    assertExists(response.ai_explanation_json.mishna_modern, 'Should have mishna_modern in explanation JSON');
     assertExists(response.ai_explanation_json.halakha, 'Should have halakha in explanation JSON');
     
     // Verify it was cached
@@ -266,7 +266,7 @@ Deno.test('generate-content: returns content with correct structure', async () =
   assertExists(response.ref_id, 'Should have ref_id');
   assertExists(response.source_text_he, 'Should have source_text_he');
   assertExists(response.ai_explanation_json, 'Should have ai_explanation_json');
-  assertExists(response.ai_explanation_json.summary, 'Should have summary');
+  assertExists(response.ai_explanation_json.mishna_modern, 'Should have mishna_modern');
   assertExists(response.ai_explanation_json.halakha, 'Should have halakha');
   assertEquals(Array.isArray(response.ai_explanation_json.opinions), true, 'Should have opinions array');
   assertEquals(Array.isArray(response.ai_explanation_json.expansions), true, 'Should have expansions array');
@@ -325,20 +325,20 @@ Deno.test('generate-content: uses Gemini API when key is available', async () =>
     
     // With Gemini, explanation should be structured JSON
     assertExists(response.ai_explanation_json, 'Should have AI explanation JSON');
-    assertExists(response.ai_explanation_json.summary, 'Should have summary');
-    
+    assertExists(response.ai_explanation_json.mishna_modern, 'Should have mishna_modern');
+
     // Verify this is real content from Gemini, not a placeholder
     // Placeholder content would be like "הסבר אוטומטי זמין. טקסט המקור: ..."
-    const isPlaceholder = response.ai_explanation_json.summary.includes('הסבר אוטומטי זמין') ||
-                          response.ai_explanation_json.summary.includes('טקסט המקור:');
+    const isPlaceholder = response.ai_explanation_json.mishna_modern.includes('הסבר אוטומטי זמין') ||
+                          response.ai_explanation_json.mishna_modern.includes('טקסט המקור:');
     if (isPlaceholder) {
       throw new Error(
         'Edge function returned placeholder content. This means GEMINI_API_KEY is not available to the edge function runtime.\n' +
         'Solution: Run ./supabase/sync-env.sh and restart Supabase (supabase stop && supabase start)'
       );
     }
-    
-    assertEquals(response.ai_explanation_json.summary.length > 30, true, 'Summary should be substantial');
+
+    assertEquals(response.ai_explanation_json.mishna_modern.length > 30, true, 'mishna_modern should be substantial');
     assertExists(response.ai_explanation_json.halakha, 'Should have halakha');
     assertEquals(Array.isArray(response.ai_explanation_json.opinions), true, 'Should have opinions array');
     assertEquals(Array.isArray(response.ai_explanation_json.expansions), true, 'Should have expansions array');

@@ -398,14 +398,22 @@ function PathStudyScreen({
           </div>
         )}
 
-        {/* AI Explanation */}
-        {explanationData?.summary && (
+        {/* Mishna in Modern Hebrew */}
+        {explanationData?.mishna_modern && (
           <div
             id="explanation_text"
             data-testid="explanation_text"
             className="text-lg font-explanation text-[var(--text-secondary)] leading-relaxed"
           >
-            {explanationData.summary}
+            <ReactMarkdown
+              components={{
+                p: ({ children }) => (
+                  <p className="mb-4 last:mb-0">{children}</p>
+                ),
+              }}
+            >
+              {explanationData.mishna_modern}
+            </ReactMarkdown>
           </div>
         )}
 

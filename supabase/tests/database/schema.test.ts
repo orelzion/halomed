@@ -176,7 +176,7 @@ Deno.test('schema: content_cache has required columns', async () => {
     ref_id: 'test_content_' + Date.now(),
     source_text_he: 'מאימתי קורין את שמע בערבית',
     ai_explanation_json: {
-      summary: 'זמן קריאת שמע של ערבית...',
+      mishna_modern: 'זמן קריאת שמע של ערבית...',
       halakha: 'Test halakha',
       opinions: [],
       expansions: [],
@@ -195,7 +195,7 @@ Deno.test('schema: content_cache has required columns', async () => {
   assertEquals(data.ref_id, testContent.ref_id, 'content_cache should have ref_id column');
   assertEquals(data.source_text_he, testContent.source_text_he, 'content_cache should have source_text_he column');
   assertExists(data.ai_explanation_json, 'content_cache should have ai_explanation_json column');
-  assertEquals(data.ai_explanation_json.summary, testContent.ai_explanation_json.summary, 'ai_explanation_json should contain summary');
+  assertEquals(data.ai_explanation_json.mishna_modern, testContent.ai_explanation_json.mishna_modern, 'ai_explanation_json should contain mishna_modern');
   assertExists(data.created_at, 'content_cache should have created_at column');
   
   // Cleanup
