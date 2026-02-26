@@ -220,7 +220,6 @@ function PathStudyScreen({
           if (!session) {
             setGenerationError('לא מאומת');
             setIsGenerating(false);
-            hasAttemptedGeneration.current = null; // Allow retry
             return;
           }
 
@@ -236,7 +235,6 @@ function PathStudyScreen({
           if (!response.ok) {
             const errorText = await response.text();
             setGenerationError(errorText || 'שגיאה ביצירת תוכן');
-            hasAttemptedGeneration.current = null; // Allow retry on error
           } else {
             // Content generation triggered successfully
             console.log('[PathStudyScreen] Content generation initiated, polling for content...');
@@ -304,7 +302,6 @@ function PathStudyScreen({
         } catch (error) {
           console.error('Error generating content:', error);
           setGenerationError(error instanceof Error ? error.message : 'שגיאה ביצירת תוכן');
-          hasAttemptedGeneration.current = null; // Allow retry on error
         } finally {
           setIsGenerating(false);
         }
@@ -352,8 +349,8 @@ function PathStudyScreen({
           {generationError && (
             <button
               onClick={() => {
+                hasAttemptedGeneration.current = null;
                 setGenerationError(null);
-                setIsGenerating(false);
               }}
               className="px-6 py-3 bg-desert-oasis-accent text-white rounded-xl font-explanation"
             >

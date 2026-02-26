@@ -7,6 +7,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { createCorsHeaders, handleCorsPreflight } from '../_shared/cors.ts';
 import { formatDate, addDays } from '../_shared/calendar.ts';
 import { isScheduledDay } from '../_shared/calendar.ts';
+import { isPlaceholderContent } from '../_shared/content-validation.ts';
 import { 
   getContentRefForIndex, 
   getMishnayotIndicesForChapter,
@@ -182,16 +183,20 @@ Deno.serve(async (req: Request) => {
 
     for (const contentRef of uniqueContentRefs) {
       try {
-        // Check if content exists in cache
+        // Check if content exists in cache and is not a placeholder
         const { data: existingContent } = await supabase
           .from('content_cache')
-          .select('id')
+          .select('id, ai_explanation_json')
           .eq('ref_id', contentRef)
           .single();
 
-        if (existingContent) {
+        if (existingContent && !isPlaceholderContent(existingContent.ai_explanation_json)) {
           contentCached++;
           continue;
+        }
+
+        if (existingContent) {
+          console.log(`[ensure-content] Found placeholder/old-format content for ${contentRef}, will regenerate`);
         }
 
         // Content doesn't exist - generate it
