@@ -19,11 +19,11 @@ export function isPlaceholderContent(aiExplanationJson: any): boolean {
     return true;
   }
 
-  // Check if summary contains placeholder text
-  if (aiExplanationJson.summary) {
-    const summary = String(aiExplanationJson.summary);
+  // Check if mishna_modern contains placeholder text
+  if (aiExplanationJson.mishna_modern) {
+    const mishnaModern = String(aiExplanationJson.mishna_modern);
     for (const pattern of PLACEHOLDER_PATTERNS) {
-      if (summary.includes(pattern)) {
+      if (mishnaModern.includes(pattern)) {
         return true;
       }
     }
@@ -39,8 +39,8 @@ export function isPlaceholderContent(aiExplanationJson: any): boolean {
     }
   }
 
-  // Content with empty summary is also considered placeholder
-  if (!aiExplanationJson.summary || aiExplanationJson.summary.trim() === '') {
+  // Content with empty mishna_modern is also considered placeholder
+  if (!aiExplanationJson.mishna_modern || aiExplanationJson.mishna_modern.trim() === '') {
     return true;
   }
 

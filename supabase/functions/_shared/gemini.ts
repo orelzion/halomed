@@ -11,7 +11,7 @@ const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const GEMINI_MODEL = 'gemini-3-flash-preview';
 
 export interface MishnahExplanation {
-  summary: string;
+  mishna_modern: string;
   halakha: string;
   opinions: Array<{
     source: string;
@@ -37,9 +37,9 @@ function getMishnahExplanationSchema(): any {
   return {
     type: 'object',
     properties: {
-      summary: {
+      mishna_modern: {
         type: 'string',
-        description: 'תקציר המשנה בעברית מודרנית, תמציתי וברור',
+        description: 'המשנה כתובה מחדש בעברית מודרנית, כאילו נכתבה על ידי רב בישראל המודרנית. מבוסס אך ורק על פירוש הרמב"ם או רע"ב. מחולקת לפסקאות ברורות עם שורה ריקה בין כל פסקה (\n\n). הסגנון ברור, זורם וקל לקריאה.',
       },
       halakha: {
         type: 'string',
@@ -47,7 +47,7 @@ function getMishnahExplanationSchema(): any {
       },
       opinions: {
         type: 'array',
-        description: 'רשימת הדעות השונות של החכמים',
+        description: 'רשימת הדעות השונות של החכמים — מולא רק אם יש מחלוקת בין הפוסקים (שיטות שונות). אם אין מחלוקת, יש להחזיר מערך ריק [].',
         items: {
           type: 'object',
           properties: {
@@ -86,7 +86,7 @@ function getMishnahExplanationSchema(): any {
         },
       },
     },
-    required: ['summary', 'halakha', 'opinions', 'expansions'],
+    required: ['mishna_modern', 'halakha', 'opinions', 'expansions'],
   };
 }
 
@@ -111,10 +111,14 @@ export async function generateMishnahExplanation(
     })),
   };
   
-  // Build prompt matching user's example
-  const prompt = `סכם בתמציתיות בעברית מודרנית, הרחב היכן שהקורא המודרני יצטרך הרחבה נוספת.
-ציין את ההלכה במידה וישנה.
-ציין תמיד את המקור לכל דעה בהרחבה.
+  // Build prompt
+  const prompt = `כתוב את המשנה הבאה מחדש בעברית מודרנית כאילו נכתבה על ידי רב בישראל המודרנית.
+הכתיבה תתבסס אך ורק על פירוש הרמב"ם או רע"ב (ברטנורא) — לא על מקורות אחרים.
+חלק את הטקסט לפסקאות ברורות (סיים כל פסקה בשורה ריקה) כדי שיהיה קל לקריאה.
+הסגנון יהיה ברור, זורם וידידותי לקורא המודרני שרוצה להבין את המשנה בקלות.
+
+ציין את ההלכה המעשית במידה וישנה.
+ציין דעות שונות (opinions) רק אם קיימת מחלוקת ממשית בין הפוסקים (שיטות שונות). אם אין מחלוקת — החזר מערך ריק.
 בכל הרחבה (expansion), ציין תמיד את המקור (שם החכם, המשנה, הגמרא, או המקור הרלוונטי).
 
 ${JSON.stringify(promptData)}`;
@@ -190,7 +194,7 @@ ${JSON.stringify(promptData)}`;
       const explanation = JSON.parse(content) as MishnahExplanation;
       
       // Validate structure
-      if (!explanation.summary || !explanation.halakha || !Array.isArray(explanation.opinions) || !Array.isArray(explanation.expansions)) {
+      if (!explanation.mishna_modern || !explanation.halakha || !Array.isArray(explanation.opinions) || !Array.isArray(explanation.expansions)) {
         throw new Error('Gemini API returned invalid explanation structure');
       }
       
@@ -456,7 +460,7 @@ export async function generateQuizQuestions(
   } else {
     // Build explanation from structured format (excluding halakha)
     const parts: string[] = [];
-    if (explanation.summary) parts.push(explanation.summary);
+    if (explanation.mishna_modern) parts.push(explanation.mishna_modern);
     if (explanation.opinions && Array.isArray(explanation.opinions) && explanation.opinions.length > 0) {
       parts.push('דעות:\n' + explanation.opinions.map(o => `${o.source}: ${o.details}`).join('\n'));
     }

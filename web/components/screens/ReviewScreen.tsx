@@ -342,8 +342,7 @@ export function ReviewScreen() {
   if (content?.ai_explanation_json) {
     try {
       const parsed = JSON.parse(content.ai_explanation_json);
-      // Use summary (like study page) not brief_explanation
-      reviewSummary = parsed.summary || '';
+      reviewSummary = parsed.mishna_modern || '';
       reviewHalakha = parsed.halakha || '';
     } catch {
       // Ignore parse errors
@@ -393,8 +392,7 @@ export function ReviewScreen() {
             if (reviewContent?.ai_explanation_json) {
               try {
                 const parsed = JSON.parse(reviewContent.ai_explanation_json);
-                // Use summary (like study page) not brief_explanation
-                cardSummary = parsed.summary || '';
+                cardSummary = parsed.mishna_modern || '';
                 cardHalakha = parsed.halakha || '';
               } catch {
                 // Ignore

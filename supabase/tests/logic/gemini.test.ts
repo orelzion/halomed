@@ -28,7 +28,7 @@ try {
 const expectedSchema = {
   type: 'object',
   properties: {
-    summary: { type: 'string' },
+    mishna_modern: { type: 'string' },
     halakha: { type: 'string' },
     opinions: {
       type: 'array',
@@ -53,25 +53,25 @@ const expectedSchema = {
       },
     },
   },
-  required: ['summary', 'halakha', 'opinions', 'expansions'],
+  required: ['mishna_modern', 'halakha', 'opinions', 'expansions'],
 };
 
 Deno.test('gemini: JSON Schema structure matches expected format', () => {
   // Verify schema structure
   assertExists(expectedSchema.properties, 'Schema should have properties');
-  assertExists(expectedSchema.properties.summary, 'Should have summary property');
+  assertExists(expectedSchema.properties.mishna_modern, 'Should have mishna_modern property');
   assertExists(expectedSchema.properties.halakha, 'Should have halakha property');
   assertExists(expectedSchema.properties.opinions, 'Should have opinions property');
   assertExists(expectedSchema.properties.expansions, 'Should have expansions property');
-  
+
   assertEquals(expectedSchema.properties.opinions.type, 'array', 'Opinions should be array');
   assertEquals(expectedSchema.properties.expansions.type, 'array', 'Expansions should be array');
 });
 
 Deno.test('gemini: validates structured JSON response format', () => {
-  // Mock response matching user's example
-  const validResponse = {
-    summary: 'המשנה הראשונה במסכת ברכות דנה בזמני קריאת שמע של ערבית',
+  // Mock response - with opinions (Mishna has a machloket)
+  const validResponseWithOpinions = {
+    mishna_modern: 'המשנה הראשונה במסכת ברכות עוסקת בזמן קריאת שמע בלילה.\n\nהכהנים שטבלו מטומאתם יכולים לאכול תרומה רק לאחר צאת הכוכבים — וזהו גם הזמן שממנו ניתן לקרוא קריאת שמע של ערבית.\n\nהמשנה מביאה מחלוקת בין חכמים לגבי סוף הזמן.',
     halakha: 'הלכה כרבן גמליאל: זמן קריאת שמע של ערבית הוא מעת צאת הכוכבים ועד עמוד השחר',
     opinions: [
       {
@@ -90,50 +90,70 @@ Deno.test('gemini: validates structured JSON response format', () => {
       },
     ],
   };
-  
-  // Validate structure
-  assertExists(validResponse.summary, 'Should have summary');
-  assertExists(validResponse.halakha, 'Should have halakha');
-  assertEquals(Array.isArray(validResponse.opinions), true, 'Opinions should be array');
-  assertEquals(Array.isArray(validResponse.expansions), true, 'Expansions should be array');
-  
+
+  // Mock response - without opinions (no machloket)
+  const validResponseNoOpinions = {
+    mishna_modern: 'משנה זו עוסקת בדין אחד ברור.\n\nהכלל פשוט וכולם מסכימים לו.',
+    halakha: 'הלכה פשוטה ואין בה מחלוקת',
+    opinions: [],
+    expansions: [],
+  };
+
+  // Validate structure with opinions
+  assertExists(validResponseWithOpinions.mishna_modern, 'Should have mishna_modern');
+  assertExists(validResponseWithOpinions.halakha, 'Should have halakha');
+  assertEquals(Array.isArray(validResponseWithOpinions.opinions), true, 'Opinions should be array');
+  assertEquals(Array.isArray(validResponseWithOpinions.expansions), true, 'Expansions should be array');
+
   // Validate opinions structure
-  validResponse.opinions.forEach((opinion) => {
+  validResponseWithOpinions.opinions.forEach((opinion) => {
     assertExists(opinion.source, 'Opinion should have source');
     assertExists(opinion.details, 'Opinion should have details');
   });
-  
+
   // Validate expansions structure
-  validResponse.expansions.forEach((expansion) => {
+  validResponseWithOpinions.expansions.forEach((expansion) => {
     assertExists(expansion.topic, 'Expansion should have topic');
     assertExists(expansion.explanation, 'Expansion should have explanation');
   });
+
+  // Validate no-opinions response
+  assertExists(validResponseNoOpinions.mishna_modern, 'Should have mishna_modern');
+  assertEquals(validResponseNoOpinions.opinions.length, 0, 'Opinions should be empty when no machloket');
 });
 
-Deno.test('gemini: prompt format matches user example', () => {
+Deno.test('gemini: prompt format instructs modern Hebrew retelling and conditional opinions', () => {
   const sourceText = 'מאימתי קורין את שמע בערבית';
   const commentaries = [
     { name: 'ברטנורא', text: 'פירוש ברטנורא' },
     { name: 'רמבם', text: 'פירוש רמב"ם' },
   ];
-  
-  // Build prompt matching user's example
+
+  // Build prompt matching implementation
   const promptData = {
     text: sourceText,
     commentary: commentaries.map(c => ({ name: c.name, text: c.text })),
   };
-  
-  const prompt = `סכם בתמציתיות בעברית מודרנית, הרחב היכן שהקורא המודרני יצטרך הרחבה נוספת.
-ציין את ההלכה במידה וישנה.
-ציין תמיד את המקור לכל דעה בהרחבה.
+
+  const prompt = `כתוב את המשנה הבאה מחדש בעברית מודרנית כאילו נכתבה על ידי רב בישראל המודרנית.
+הכתיבה תתבסס אך ורק על פירוש הרמב"ם או רע"ב (ברטנורא) — לא על מקורות אחרים.
+חלק את הטקסט לפסקאות ברורות (סיים כל פסקה בשורה ריקה) כדי שיהיה קל לקריאה.
+הסגנון יהיה ברור, זורם וידידותי לקורא המודרני שרוצה להבין את המשנה בקלות.
+
+ציין את ההלכה המעשית במידה וישנה.
+ציין דעות שונות (opinions) רק אם קיימת מחלוקת ממשית בין הפוסקים (שיטות שונות). אם אין מחלוקת — החזר מערך ריק.
+בכל הרחבה (expansion), ציין תמיד את המקור (שם החכם, המשנה, הגמרא, או המקור הרלוונטי).
 
 ${JSON.stringify(promptData)}`;
-  
+
   assertExists(prompt, 'Prompt should be constructed');
   assertEquals(prompt.includes(sourceText), true, 'Prompt should include source text');
   assertEquals(prompt.includes('הלכה'), true, 'Prompt should mention halakha');
   assertEquals(prompt.includes('מקור'), true, 'Prompt should mention source');
-  
+  assertEquals(prompt.includes('רמב"ם'), true, 'Prompt should mention Rambam');
+  assertEquals(prompt.includes('רע"ב'), true, 'Prompt should mention Rav Bartenura');
+  assertEquals(prompt.includes('מחלוקת'), true, 'Prompt should condition opinions on machloket');
+
   // Verify JSON data is included
   const jsonMatch = prompt.match(/\{[\s\S]*"text"[\s\S]*\}/);
   assertExists(jsonMatch, 'Prompt should include JSON data');
@@ -193,27 +213,28 @@ Deno.test('gemini: JSON Schema can be generated from TypeScript interface', () =
     source: string;
     details: string;
   }
-  
+
   interface Expansion {
     topic: string;
     explanation: string;
   }
-  
+
   interface MishnahExplanation {
-    summary: string;
+    mishna_modern: string;
     halakha: string;
     opinions: Opinion[];
     expansions: Expansion[];
   }
-  
+
   // Manual JSON Schema (would be generated from interface in implementation)
   const schema = {
     type: 'object',
     properties: {
-      summary: { type: 'string', description: 'תקציר המשנה בעברית מודרנית' },
+      mishna_modern: { type: 'string', description: 'המשנה בעברית מודרנית מבוססת על רמב"ם / רע"ב' },
       halakha: { type: 'string', description: 'ההלכה המעשית' },
       opinions: {
         type: 'array',
+        description: 'מולא רק אם יש מחלוקת (שיטות שונות)',
         items: {
           type: 'object',
           properties: {
@@ -235,9 +256,11 @@ Deno.test('gemini: JSON Schema can be generated from TypeScript interface', () =
         },
       },
     },
-    required: ['summary', 'halakha', 'opinions', 'expansions'],
+    required: ['mishna_modern', 'halakha', 'opinions', 'expansions'],
   };
-  
+
   assertExists(schema.properties, 'Schema should have properties');
   assertEquals(schema.required.length, 4, 'Should have 4 required fields');
+  assertEquals(schema.required.includes('mishna_modern'), true, 'mishna_modern should be required');
+  assertEquals(schema.required.includes('summary' as any), false, 'summary should NOT be required');
 });
