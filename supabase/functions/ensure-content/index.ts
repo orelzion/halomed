@@ -183,10 +183,10 @@ Deno.serve(async (req: Request) => {
 
     for (const contentRef of uniqueContentRefs) {
       try {
-        // Check if content exists in cache and is not a placeholder
+        // Check if content exists in cache and is valid (not placeholder/old-format)
         const { data: existingContent } = await supabase
           .from('content_cache')
-          .select('id, ai_explanation_json')
+          .select('ref_id, ai_explanation_json')
           .eq('ref_id', contentRef)
           .single();
 
@@ -196,7 +196,7 @@ Deno.serve(async (req: Request) => {
         }
 
         if (existingContent) {
-          console.log(`[ensure-content] Found placeholder/old-format content for ${contentRef}, will regenerate`);
+          console.log(`[ensure-content] Found placeholder/old-format content for ${contentRef}, will regenerate via generate-content`);
         }
 
         // Content doesn't exist - generate it
