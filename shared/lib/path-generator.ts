@@ -4,6 +4,17 @@
  * Works in both browser and Deno
  */
 
+// Canonical Mishnah structure — single source of truth shared with edge functions
+export type { TractateInfo, SederInfo } from './mishnah-structure';
+export {
+  MISHNAH_STRUCTURE,
+  TOTAL_MISHNAYOT,
+  TOTAL_CHAPTERS,
+  getContentRefForIndex,
+} from './mishnah-structure';
+import { MISHNAH_STRUCTURE, TOTAL_MISHNAYOT, TOTAL_CHAPTERS } from './mishnah-structure';
+import type { TractateInfo, SederInfo } from './mishnah-structure';
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -23,22 +34,6 @@ export interface UserProgress {
   reviewIntensity: ReviewIntensity;
   startDate: Date;
   studyDays?: StudyDaysConfig; // Optional - defaults to skip both
-}
-
-export interface TractateInfo {
-  english: string;
-  hebrew: string;
-  chapters: number;
-  totalMishnayot: number;
-  spiIndex: number; // Seder-Position-Index for quick lookups
-  mishnayotPerChapter: number[]; // Actual mishna counts per chapter
-}
-
-export interface SederInfo {
-  english: string;
-  hebrew: string;
-  totalMishnayot: number;
-  tractates: TractateInfo[];
 }
 
 export interface PathNode {
@@ -82,121 +77,10 @@ export interface CompletionEstimate {
 // MISHNAH STRUCTURE DATA
 // ============================================================================
 
-export const MISHNAH_STRUCTURE: SederInfo[] = [
-  {
-    english: 'Zeraim',
-    hebrew: 'זרעים',
-    totalMishnayot: 654,
-    tractates: [
-      { english: 'Berakhot', hebrew: 'ברכות', chapters: 9, totalMishnayot: 57, spiIndex: 0, mishnayotPerChapter: [5, 8, 6, 7, 5, 8, 5, 8, 5] },
-      { english: 'Peah', hebrew: 'פאה', chapters: 8, totalMishnayot: 69, spiIndex: 57, mishnayotPerChapter: [6, 8, 8, 11, 8, 11, 8, 9] },
-      { english: 'Demai', hebrew: 'דמאי', chapters: 7, totalMishnayot: 53, spiIndex: 126, mishnayotPerChapter: [4, 5, 6, 7, 11, 12, 8] },
-      { english: 'Kilayim', hebrew: 'כלאים', chapters: 9, totalMishnayot: 76, spiIndex: 179, mishnayotPerChapter: [9, 11, 7, 9, 8, 9, 8, 6, 9] },
-      { english: 'Sheviit', hebrew: 'שביעית', chapters: 10, totalMishnayot: 89, spiIndex: 255, mishnayotPerChapter: [8, 10, 10, 10, 9, 6, 7, 11, 9, 9] },
-      { english: 'Terumot', hebrew: 'תרומות', chapters: 11, totalMishnayot: 109, spiIndex: 344, mishnayotPerChapter: [] }, // Will use fallback
-      { english: 'Maasrot', hebrew: 'מעשרות', chapters: 5, totalMishnayot: 44, spiIndex: 453, mishnayotPerChapter: [] }, // Will use fallback
-      { english: 'Maaser_Sheni', hebrew: 'מעשר שני', chapters: 5, totalMishnayot: 51, spiIndex: 497, mishnayotPerChapter: [] }, // Will use fallback
-      { english: 'Challah', hebrew: 'חלה', chapters: 4, totalMishnayot: 38, spiIndex: 548, mishnayotPerChapter: [9, 8, 10, 11] },
-      { english: 'Orlah', hebrew: 'ערלה', chapters: 3, totalMishnayot: 42, spiIndex: 586, mishnayotPerChapter: [] }, // Will use fallback
-      { english: 'Bikkurim', hebrew: 'ביכורים', chapters: 4, totalMishnayot: 26, spiIndex: 628, mishnayotPerChapter: [] }, // Will use fallback
-    ],
-  },
-  {
-    english: 'Moed',
-    hebrew: 'מועד',
-    totalMishnayot: 694,
-    tractates: [
-      { english: 'Shabbat', hebrew: 'שבת', chapters: 24, totalMishnayot: 138, spiIndex: 654, mishnayotPerChapter: [] },
-      { english: 'Eruvin', hebrew: 'עירובין', chapters: 10, totalMishnayot: 96, spiIndex: 792, mishnayotPerChapter: [] },
-      { english: 'Pesachim', hebrew: 'פסחים', chapters: 10, totalMishnayot: 89, spiIndex: 888, mishnayotPerChapter: [] },
-      { english: 'Shekalim', hebrew: 'שקלים', chapters: 8, totalMishnayot: 52, spiIndex: 977, mishnayotPerChapter: [] },
-      { english: 'Yoma', hebrew: 'יומא', chapters: 8, totalMishnayot: 61, spiIndex: 1029, mishnayotPerChapter: [] },
-      { english: 'Sukkah', hebrew: 'סוכה', chapters: 5, totalMishnayot: 56, spiIndex: 1090, mishnayotPerChapter: [] },
-      { english: 'Beitzah', hebrew: 'ביצה', chapters: 5, totalMishnayot: 42, spiIndex: 1146, mishnayotPerChapter: [] },
-      { english: 'Rosh_Hashanah', hebrew: 'ראש השנה', chapters: 4, totalMishnayot: 35, spiIndex: 1188, mishnayotPerChapter: [] },
-      { english: 'Taanit', hebrew: 'תענית', chapters: 4, totalMishnayot: 34, spiIndex: 1223, mishnayotPerChapter: [] },
-      { english: 'Megillah', hebrew: 'מגילה', chapters: 4, totalMishnayot: 35, spiIndex: 1257, mishnayotPerChapter: [] },
-      { english: 'Moed_Katan', hebrew: 'מועד קטן', chapters: 3, totalMishnayot: 29, spiIndex: 1292, mishnayotPerChapter: [] },
-      { english: 'Chagigah', hebrew: 'חגיגה', chapters: 3, totalMishnayot: 27, spiIndex: 1321, mishnayotPerChapter: [] },
-    ],
-  },
-  {
-    english: 'Nashim',
-    hebrew: 'נשים',
-    totalMishnayot: 611,
-    tractates: [
-      { english: 'Yevamot', hebrew: 'יבמות', chapters: 16, totalMishnayot: 122, spiIndex: 1348, mishnayotPerChapter: [] },
-      { english: 'Ketubot', hebrew: 'כתובות', chapters: 13, totalMishnayot: 111, spiIndex: 1470, mishnayotPerChapter: [] },
-      { english: 'Nedarim', hebrew: 'נדרים', chapters: 11, totalMishnayot: 91, spiIndex: 1581, mishnayotPerChapter: [] },
-      { english: 'Nazir', hebrew: 'נזיר', chapters: 9, totalMishnayot: 66, spiIndex: 1672, mishnayotPerChapter: [] },
-      { english: 'Sotah', hebrew: 'סוטה', chapters: 9, totalMishnayot: 49, spiIndex: 1738, mishnayotPerChapter: [] },
-      { english: 'Gittin', hebrew: 'גיטין', chapters: 9, totalMishnayot: 90, spiIndex: 1787, mishnayotPerChapter: [] },
-      { english: 'Kiddushin', hebrew: 'קידושין', chapters: 4, totalMishnayot: 82, spiIndex: 1877, mishnayotPerChapter: [] },
-    ],
-  },
-  {
-    english: 'Nezikin',
-    hebrew: 'נזיקין',
-    totalMishnayot: 851,
-    tractates: [
-      { english: 'Bava_Kamma', hebrew: 'בבא קמא', chapters: 10, totalMishnayot: 119, spiIndex: 1959, mishnayotPerChapter: [] },
-      { english: 'Bava_Metzia', hebrew: 'בבא מציעא', chapters: 10, totalMishnayot: 118, spiIndex: 2078, mishnayotPerChapter: [] },
-      { english: 'Bava_Batra', hebrew: 'בבא בתרא', chapters: 10, totalMishnayot: 176, spiIndex: 2196, mishnayotPerChapter: [] },
-      { english: 'Sanhedrin', hebrew: 'סנהדרין', chapters: 11, totalMishnayot: 71, spiIndex: 2372, mishnayotPerChapter: [] },
-      { english: 'Makkot', hebrew: 'מכות', chapters: 3, totalMishnayot: 24, spiIndex: 2443, mishnayotPerChapter: [] },
-      { english: 'Shevuot', hebrew: 'שבועות', chapters: 8, totalMishnayot: 49, spiIndex: 2467, mishnayotPerChapter: [] },
-      { english: 'Eduyot', hebrew: 'עדויות', chapters: 8, totalMishnayot: 96, spiIndex: 2516, mishnayotPerChapter: [] },
-      { english: 'Avodah_Zarah', hebrew: 'עבודה זרה', chapters: 5, totalMishnayot: 76, spiIndex: 2612, mishnayotPerChapter: [] },
-      { english: 'Avot', hebrew: 'אבות', chapters: 6, totalMishnayot: 108, spiIndex: 2688, mishnayotPerChapter: [] },
-      { english: 'Horayot', hebrew: 'הוריות', chapters: 3, totalMishnayot: 14, spiIndex: 2796, mishnayotPerChapter: [] },
-    ],
-  },
-  {
-    english: 'Kodashim',
-    hebrew: 'קדשים',
-    totalMishnayot: 624,
-    tractates: [
-      { english: 'Zevachim', hebrew: 'זבחים', chapters: 14, totalMishnayot: 120, spiIndex: 2810, mishnayotPerChapter: [] },
-      { english: 'Menachot', hebrew: 'מנחות', chapters: 13, totalMishnayot: 110, spiIndex: 2930, mishnayotPerChapter: [] },
-      { english: 'Chullin', hebrew: 'חולין', chapters: 12, totalMishnayot: 142, spiIndex: 3040, mishnayotPerChapter: [] },
-      { english: 'Bekhorot', hebrew: 'בכורות', chapters: 9, totalMishnayot: 61, spiIndex: 3182, mishnayotPerChapter: [] },
-      { english: 'Arakhin', hebrew: 'ערכין', chapters: 9, totalMishnayot: 34, spiIndex: 3243, mishnayotPerChapter: [] },
-      { english: 'Temurah', hebrew: 'תמורה', chapters: 7, totalMishnayot: 34, spiIndex: 3277, mishnayotPerChapter: [] },
-      { english: 'Keritot', hebrew: 'כריתות', chapters: 6, totalMishnayot: 28, spiIndex: 3311, mishnayotPerChapter: [] },
-      { english: 'Meilah', hebrew: 'מעילה', chapters: 6, totalMishnayot: 22, spiIndex: 3339, mishnayotPerChapter: [] },
-      { english: 'Tamid', hebrew: 'תמיד', chapters: 7, totalMishnayot: 31, spiIndex: 3361, mishnayotPerChapter: [] },
-      { english: 'Middot', hebrew: 'מידות', chapters: 5, totalMishnayot: 30, spiIndex: 3392, mishnayotPerChapter: [] },
-      { english: 'Kinnim', hebrew: 'קינים', chapters: 3, totalMishnayot: 12, spiIndex: 3422, mishnayotPerChapter: [] },
-    ],
-  },
-  {
-    english: 'Taharot',
-    hebrew: 'טהרות',
-    totalMishnayot: 1072,
-    tractates: [
-      { english: 'Kelim', hebrew: 'כלים', chapters: 30, totalMishnayot: 300, spiIndex: 3434, mishnayotPerChapter: [] },
-      { english: 'Oholot', hebrew: 'אהלות', chapters: 18, totalMishnayot: 181, spiIndex: 3734, mishnayotPerChapter: [] },
-      { english: 'Negaim', hebrew: 'נגעים', chapters: 14, totalMishnayot: 126, spiIndex: 3915, mishnayotPerChapter: [] },
-      { english: 'Parah', hebrew: 'פרה', chapters: 12, totalMishnayot: 72, spiIndex: 4041, mishnayotPerChapter: [] },
-      { english: 'Tohorot', hebrew: 'טהרות', chapters: 10, totalMishnayot: 100, spiIndex: 4113, mishnayotPerChapter: [] },
-      { english: 'Mikvaot', hebrew: 'מקואות', chapters: 10, totalMishnayot: 60, spiIndex: 4213, mishnayotPerChapter: [] },
-      { english: 'Niddah', hebrew: 'נדה', chapters: 10, totalMishnayot: 79, spiIndex: 4273, mishnayotPerChapter: [] },
-      { english: 'Machshirin', hebrew: 'מכשירין', chapters: 6, totalMishnayot: 60, spiIndex: 4352, mishnayotPerChapter: [] },
-      { english: 'Zavim', hebrew: 'זבים', chapters: 5, totalMishnayot: 40, spiIndex: 4412, mishnayotPerChapter: [] },
-      { english: 'Tevul_Yom', hebrew: 'טבול יום', chapters: 4, totalMishnayot: 20, spiIndex: 4452, mishnayotPerChapter: [] },
-      { english: 'Yadayim', hebrew: 'ידים', chapters: 4, totalMishnayot: 22, spiIndex: 4472, mishnayotPerChapter: [] },
-      { english: 'Uktzin', hebrew: 'עוקצין', chapters: 3, totalMishnayot: 12, spiIndex: 4494, mishnayotPerChapter: [] },
-    ],
-  },
-];
-
-// Flatten tractates with seder info
-export const ALL_TRACTATES = MISHNAH_STRUCTURE.flatMap(seder => 
+// Flatten tractates and add seder info (used throughout path generation logic)
+export const ALL_TRACTATES = MISHNAH_STRUCTURE.flatMap(seder =>
   seder.tractates.map(t => ({ ...t, seder: seder.english, sederHebrew: seder.hebrew }))
 );
-
-export const TOTAL_MISHNAYOT = MISHNAH_STRUCTURE.reduce((sum, s) => sum + s.totalMishnayot, 0); // 4506
-export const TOTAL_CHAPTERS = ALL_TRACTATES.reduce((sum, t) => sum + t.chapters, 0); // 526
 
 // Review intervals by intensity (in DAYS since learning)
 // Reviews are due X days after the item was learned
@@ -397,47 +281,42 @@ export function getInfoForIndex(index: number): {
   index = Math.floor(index);
   
   if (index < 0 || index >= TOTAL_MISHNAYOT) return null;
-  
-  // Find tractate using spiIndex
-  let tractateIdx = ALL_TRACTATES.length - 1;
-  for (let i = 0; i < ALL_TRACTATES.length; i++) {
-    if (ALL_TRACTATES[i].spiIndex > index) {
-      tractateIdx = i - 1;
+
+  // Find tractate using cumulative sum
+  let cumulative = 0;
+  let tractate = ALL_TRACTATES[ALL_TRACTATES.length - 1];
+  let localIndex = 0;
+
+  for (const t of ALL_TRACTATES) {
+    if (index < cumulative + t.totalMishnayot) {
+      tractate = t;
+      localIndex = index - cumulative;
       break;
     }
+    cumulative += t.totalMishnayot;
   }
-  
-  const tractate = ALL_TRACTATES[tractateIdx];
-  const localIndex = index - tractate.spiIndex;
-  
+
   // Find chapter and mishna within tractate
-  let chapter = 1;
+  let chapter = tractate.chapters;
   let mishna = 1;
-  
+
   if (tractate.mishnayotPerChapter && tractate.mishnayotPerChapter.length === tractate.chapters) {
     // Use actual chapter data when available
-    let cumulative = 0;
+    let cum2 = 0;
     for (let c = 0; c < tractate.mishnayotPerChapter.length; c++) {
-      if (localIndex < cumulative + tractate.mishnayotPerChapter[c]) {
+      if (localIndex < cum2 + tractate.mishnayotPerChapter[c]) {
         chapter = c + 1;
-        mishna = Math.floor(localIndex - cumulative + 1);
+        mishna = Math.floor(localIndex - cum2 + 1);
         break;
       }
-      cumulative += tractate.mishnayotPerChapter[c];
+      cum2 += tractate.mishnayotPerChapter[c];
     }
   } else {
-    // Fallback: use average distribution but with safe bounds
+    // Fallback: float-average distribution (matches canonical getContentRefForIndex)
     const avgPerChapter = tractate.totalMishnayot / tractate.chapters;
     chapter = Math.min(Math.floor(localIndex / avgPerChapter) + 1, tractate.chapters);
-    
-    // Calculate mishna based on remaining index after accounting for previous chapters
     const mishnayotBeforeThisChapter = Math.floor((chapter - 1) * avgPerChapter);
-    mishna = Math.floor(localIndex - mishnayotBeforeThisChapter + 1);
-    
-    // Ensure mishna is within reasonable bounds (max ~15 per chapter typically)
-    const maxMishnaPerChapter = Math.ceil(avgPerChapter * 1.5);
-    mishna = Math.min(mishna, maxMishnaPerChapter);
-    mishna = Math.max(mishna, 1);
+    mishna = Math.max(Math.floor(localIndex - mishnayotBeforeThisChapter + 1), 1);
   }
   
   // Ensure integers (prevent floating point issues)
@@ -447,14 +326,6 @@ export function getInfoForIndex(index: number): {
   const contentRef = `Mishnah_${tractate.english}.${chapter}.${mishna}`;
   
   return { tractate, chapter, mishna, contentRef };
-}
-
-/**
- * Get content reference string for index
- */
-export function getContentRefForIndex(index: number): string {
-  const info = getInfoForIndex(index);
-  return info?.contentRef ?? `Mishnah_Unknown.${index}`;
 }
 
 /**
@@ -482,10 +353,11 @@ export function getContentRefsForRange(startIndex: number, endIndex: number): st
 export function getSederForIndex(index: number): SederInfo | null {
   let cumulative = 0;
   for (const seder of MISHNAH_STRUCTURE) {
-    if (index < cumulative + seder.totalMishnayot) {
+    const sederTotal = seder.tractates.reduce((sum, t) => sum + t.totalMishnayot, 0);
+    if (index < cumulative + sederTotal) {
       return seder;
     }
-    cumulative += seder.totalMishnayot;
+    cumulative += sederTotal;
   }
   return null;
 }
@@ -587,7 +459,8 @@ export function getItemsPerDay(pace: Pace, currentIndex?: number): number {
         const seder = getSederForIndex(currentIndex);
         if (seder) {
           // Calculate to complete seder in ~250 study days
-          return seder.totalMishnayot / STUDY_DAYS_PER_YEAR;
+          const sederTotal = seder.tractates.reduce((sum, t) => sum + t.totalMishnayot, 0);
+          return sederTotal / STUDY_DAYS_PER_YEAR;
         }
       }
       // Default average across all sedarim
@@ -608,8 +481,9 @@ export function getItemsForToday(pace: Pace, currentIndex: number, dayNumber: nu
   
   const seder = getSederForIndex(currentIndex);
   if (!seder) return 3;
-  
-  const dailyAvg = seder.totalMishnayot / STUDY_DAYS_PER_YEAR;
+
+  const sederTotal = seder.tractates.reduce((sum, t) => sum + t.totalMishnayot, 0);
+  const dailyAvg = sederTotal / STUDY_DAYS_PER_YEAR;
   const floor = Math.floor(dailyAvg);
   const ceil = Math.ceil(dailyAvg);
   
