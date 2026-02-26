@@ -27,14 +27,14 @@ export const MISHNAH_STRUCTURE: SederInfo[] = [
     hebrew: 'זרעים',
     tractates: [
       { english: 'Berakhot', hebrew: 'ברכות', chapters: 9, totalMishnayot: 57, mishnayotPerChapter: { 1: 5, 2: 8, 3: 6, 4: 7, 5: 5, 6: 8, 7: 5, 8: 8, 9: 5 } },
-      { english: 'Peah', hebrew: 'פאה', chapters: 8, totalMishnayot: 69 },
-      { english: 'Demai', hebrew: 'דמאי', chapters: 7, totalMishnayot: 53 },
-      { english: 'Kilayim', hebrew: 'כלאים', chapters: 9, totalMishnayot: 76 },
-      { english: 'Sheviit', hebrew: 'שביעית', chapters: 10, totalMishnayot: 89 },
+      { english: 'Peah', hebrew: 'פאה', chapters: 8, totalMishnayot: 69, mishnayotPerChapter: { 1: 6, 2: 8, 3: 8, 4: 11, 5: 8, 6: 11, 7: 8, 8: 9 } },
+      { english: 'Demai', hebrew: 'דמאי', chapters: 7, totalMishnayot: 53, mishnayotPerChapter: { 1: 4, 2: 5, 3: 6, 4: 7, 5: 11, 6: 12, 7: 8 } },
+      { english: 'Kilayim', hebrew: 'כלאים', chapters: 9, totalMishnayot: 76, mishnayotPerChapter: { 1: 9, 2: 11, 3: 7, 4: 9, 5: 8, 6: 9, 7: 8, 8: 6, 9: 9 } },
+      { english: 'Sheviit', hebrew: 'שביעית', chapters: 10, totalMishnayot: 89, mishnayotPerChapter: { 1: 8, 2: 10, 3: 10, 4: 10, 5: 9, 6: 6, 7: 7, 8: 11, 9: 9, 10: 9 } },
       { english: 'Terumot', hebrew: 'תרומות', chapters: 11, totalMishnayot: 109 },
       { english: 'Maasrot', hebrew: 'מעשרות', chapters: 5, totalMishnayot: 44 },
-      { english: 'Maaser Sheni', hebrew: 'מעשר שני', chapters: 5, totalMishnayot: 51 },
-      { english: 'Challah', hebrew: 'חלה', chapters: 4, totalMishnayot: 38 },
+      { english: 'Maaser_Sheni', hebrew: 'מעשר שני', chapters: 5, totalMishnayot: 51 },
+      { english: 'Challah', hebrew: 'חלה', chapters: 4, totalMishnayot: 38, mishnayotPerChapter: { 1: 9, 2: 8, 3: 10, 4: 11 } },
       { english: 'Orlah', hebrew: 'ערלה', chapters: 3, totalMishnayot: 42 },
       { english: 'Bikkurim', hebrew: 'ביכורים', chapters: 4, totalMishnayot: 26 },
     ],
@@ -50,10 +50,10 @@ export const MISHNAH_STRUCTURE: SederInfo[] = [
       { english: 'Yoma', hebrew: 'יומא', chapters: 8, totalMishnayot: 61 },
       { english: 'Sukkah', hebrew: 'סוכה', chapters: 5, totalMishnayot: 56 },
       { english: 'Beitzah', hebrew: 'ביצה', chapters: 5, totalMishnayot: 42 },
-      { english: 'Rosh Hashanah', hebrew: 'ראש השנה', chapters: 4, totalMishnayot: 35 },
+      { english: 'Rosh_Hashanah', hebrew: 'ראש השנה', chapters: 4, totalMishnayot: 35 },
       { english: 'Taanit', hebrew: 'תענית', chapters: 4, totalMishnayot: 34 },
       { english: 'Megillah', hebrew: 'מגילה', chapters: 4, totalMishnayot: 35 },
-      { english: 'Moed Katan', hebrew: 'מועד קטן', chapters: 3, totalMishnayot: 29 },
+      { english: 'Moed_Katan', hebrew: 'מועד קטן', chapters: 3, totalMishnayot: 29 },
       { english: 'Chagigah', hebrew: 'חגיגה', chapters: 3, totalMishnayot: 27 },
     ],
   },
@@ -74,14 +74,14 @@ export const MISHNAH_STRUCTURE: SederInfo[] = [
     english: 'Nezikin',
     hebrew: 'נזיקין',
     tractates: [
-      { english: 'Bava Kamma', hebrew: 'בבא קמא', chapters: 10, totalMishnayot: 119 },
-      { english: 'Bava Metzia', hebrew: 'בבא מציעא', chapters: 10, totalMishnayot: 118 },
-      { english: 'Bava Batra', hebrew: 'בבא בתרא', chapters: 10, totalMishnayot: 176 },
+      { english: 'Bava_Kamma', hebrew: 'בבא קמא', chapters: 10, totalMishnayot: 119 },
+      { english: 'Bava_Metzia', hebrew: 'בבא מציעא', chapters: 10, totalMishnayot: 118 },
+      { english: 'Bava_Batra', hebrew: 'בבא בתרא', chapters: 10, totalMishnayot: 176 },
       { english: 'Sanhedrin', hebrew: 'סנהדרין', chapters: 11, totalMishnayot: 71 },
       { english: 'Makkot', hebrew: 'מכות', chapters: 3, totalMishnayot: 24 },
       { english: 'Shevuot', hebrew: 'שבועות', chapters: 8, totalMishnayot: 49 },
       { english: 'Eduyot', hebrew: 'עדויות', chapters: 8, totalMishnayot: 96 },
-      { english: 'Avodah Zarah', hebrew: 'עבודה זרה', chapters: 5, totalMishnayot: 76 },
+      { english: 'Avodah_Zarah', hebrew: 'עבודה זרה', chapters: 5, totalMishnayot: 76 },
       { english: 'Avot', hebrew: 'אבות', chapters: 6, totalMishnayot: 108 },
       { english: 'Horayot', hebrew: 'הוריות', chapters: 3, totalMishnayot: 14 },
     ],
@@ -116,7 +116,7 @@ export const MISHNAH_STRUCTURE: SederInfo[] = [
       { english: 'Niddah', hebrew: 'נדה', chapters: 10, totalMishnayot: 79 },
       { english: 'Machshirin', hebrew: 'מכשירין', chapters: 6, totalMishnayot: 60 },
       { english: 'Zavim', hebrew: 'זבים', chapters: 5, totalMishnayot: 40 },
-      { english: 'Tevul Yom', hebrew: 'טבול יום', chapters: 4, totalMishnayot: 20 },
+      { english: 'Tevul_Yom', hebrew: 'טבול יום', chapters: 4, totalMishnayot: 20 },
       { english: 'Yadayim', hebrew: 'ידים', chapters: 4, totalMishnayot: 22 },
       { english: 'Uktzin', hebrew: 'עוקצין', chapters: 3, totalMishnayot: 12 },
     ],
@@ -209,25 +209,13 @@ export function getTractateAndChapterForMishnahIndex(globalMishnahIndex: number)
           globalIndex: globalMishnahIndex,
         };
       } else {
-        // Estimate: divide mishnayot evenly across chapters
-        const mishnayotPerChapter = Math.ceil(tractate.totalMishnayot / tractate.chapters);
-        chapter = Math.floor(remainingIndex / mishnayotPerChapter) + 1;
-        const mishnah = (remainingIndex % mishnayotPerChapter) + 1;
-        
-        // Cap at last chapter
-        if (chapter > tractate.chapters) {
-          chapter = tractate.chapters;
-          const lastChapterMishnayot = tractate.totalMishnayot - (tractate.chapters - 1) * mishnayotPerChapter;
-          const finalMishnah = Math.min((remainingIndex % mishnayotPerChapter) + 1, lastChapterMishnayot);
-          return {
-            tractateIndex,
-            tractate,
-            chapter,
-            mishnah: finalMishnah,
-            globalIndex: globalMishnahIndex,
-          };
-        }
-        
+        // Fallback: same float-division algorithm as shared/lib/path-generator.ts
+        // (must match exactly to produce identical ref_id strings)
+        const avgPerChapter = tractate.totalMishnayot / tractate.chapters;
+        chapter = Math.min(Math.floor(remainingIndex / avgPerChapter) + 1, tractate.chapters);
+        const mishnayotBeforeThisChapter = Math.floor((chapter - 1) * avgPerChapter);
+        const mishnah = Math.max(Math.floor(remainingIndex - mishnayotBeforeThisChapter + 1), 1);
+
         return {
           tractateIndex,
           tractate,
