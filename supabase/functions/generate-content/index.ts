@@ -20,7 +20,7 @@ interface ContentGenerationResponse {
   ref_id: string;
   source_text_he: string;
   ai_explanation_json: {
-    summary: string;
+    mishna_modern: string;
     halakha: string;
     opinions: Array<{
       source: string;
@@ -280,7 +280,7 @@ Deno.serve(async (req: Request) => {
     }
     
     let aiExplanationJson = {
-      summary: '',
+      mishna_modern: '',
       halakha: '',
       opinions: [] as Array<{ source: string; details: string }>,
       expansions: [] as Array<{ topic: string; explanation: string }>,
@@ -343,6 +343,7 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (insertError || !newContent) {
+      console.error(`[generate-content] Failed to insert content for ${ref_id}:`, insertError?.message || 'No data returned');
       return new Response(
         JSON.stringify({ error: `Failed to cache content: ${insertError?.message || 'Unknown error'}` }),
         { status: 500, headers: corsHeaders }

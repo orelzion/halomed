@@ -1,0 +1,28 @@
+name: Deploy Supabase Edge Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/config.toml'
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Deploy all edge functions.
+      # JWT settings (verify_jwt = false) are read from supabase/config.toml
+      # automatically — no --no-verify-jwt flag needed.
+      - name: Deploy all edge functions
+        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --use-api
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
