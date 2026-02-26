@@ -19,10 +19,14 @@ jobs:
         with:
           version: latest
 
-      # Deploy all edge functions.
+      # Deploy each edge function individually to avoid bundler timeouts.
       # JWT settings (verify_jwt = false) are read from supabase/config.toml
       # automatically — no --no-verify-jwt flag needed.
-      - name: Deploy all edge functions
-        run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --use-api
+      - name: Deploy edge functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          for fn in delete-account ensure-content export-user-data generate-content generate-path generate-quiz generate-schedule get-consent query-schedule schedule-review set-consent update-preferences; do
+            echo "Deploying $fn..."
+            supabase functions deploy "$fn" --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --use-api
+          done
