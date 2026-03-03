@@ -93,6 +93,25 @@ export async function POST(request: NextRequest) {
   }
 
   const generatedContent = JSON.parse(responseBody);
+
+  // Return the full content_cache row (includes created_at/updated_at) so
+  // client-side local persistence has all required fields.
+  const generatedRefId = generatedContent?.ref_id as string | undefined;
+  if (generatedRefId) {
+    const { data: storedContent, error: storedContentError } = await serviceClient
+      .from('content_cache')
+      .select('*')
+      .eq('ref_id', generatedRefId)
+      .maybeSingle();
+
+    if (!storedContentError && storedContent) {
+      return NextResponse.json({
+        ...storedContent,
+        cache_status: 'generated',
+      } satisfies GenerateContentApiResponse);
+    }
+  }
+
   return NextResponse.json({
     ...generatedContent,
     cache_status: 'generated',

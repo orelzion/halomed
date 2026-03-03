@@ -203,6 +203,7 @@ export function ReviewScreen() {
   const handleComplete = async () => {
     // Mark review completion in user_preferences
     const reviewDate = searchParams.get('date');
+    const reviewInterval = searchParams.get('interval');
     if (reviewDate) {
       try {
         const db = await getDatabase();
@@ -217,20 +218,21 @@ export function ReviewScreen() {
           if (userPrefs.length > 0) {
             const pref = userPrefs[0];
             const existingDates = pref.review_completion_dates || [];
-            
-            // Add review date if not already present
-            if (!existingDates.includes(reviewDate)) {
-              const newReviewDates = [...existingDates, reviewDate];
-              console.log(`[ReviewScreen] Adding review completion date: ${reviewDate}`);
-              
+            const completionKey = reviewInterval ? `${reviewDate}:${reviewInterval}` : reviewDate;
+
+            // Add review completion key if not already present
+            if (!existingDates.includes(completionKey)) {
+              const newReviewDates = [...existingDates, completionKey];
+              console.log(`[ReviewScreen] Adding review completion key: ${completionKey}`);
+
               await pref.patch({
                 review_completion_dates: newReviewDates,
                 updated_at: new Date().toISOString(),
               });
-              
-              console.log(`[ReviewScreen] Updated review_completion_dates:`, newReviewDates);
+
+              console.log('[ReviewScreen] Updated review_completion_dates:', newReviewDates);
             } else {
-              console.log(`[ReviewScreen] Review completion already recorded for: ${reviewDate}`);
+              console.log(`[ReviewScreen] Review completion already recorded for: ${completionKey}`);
             }
           } else {
             console.warn('[ReviewScreen] No user_preferences found');

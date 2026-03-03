@@ -125,11 +125,16 @@ export function usePath() {
             return new Date().toISOString();
           }
           if ((isReviewSession || isWeeklyQuiz) && preferences && node.unlockDate) {
-            const completedDates = isReviewSession 
+            const completedDates = isReviewSession
               ? (preferences.review_completion_dates || [])
               : (preferences.quiz_completion_dates || []);
-            
-            if (completedDates.includes(node.unlockDate)) {
+
+            if (isReviewSession) {
+              const completionKey = `${node.unlockDate}:${node.reviewInterval ?? 'unknown'}`;
+              if (completedDates.includes(completionKey) || completedDates.includes(node.unlockDate)) {
+                return node.unlockDate + 'T00:00:00.000Z';
+              }
+            } else if (completedDates.includes(node.unlockDate)) {
               return node.unlockDate + 'T00:00:00.000Z';
             }
           }

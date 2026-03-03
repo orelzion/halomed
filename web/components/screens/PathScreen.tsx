@@ -416,7 +416,14 @@ export function PathScreen() {
     } else if (node.node_type === 'review_session') {
       // Pass the content indexes directly so ReviewScreen doesn't need to re-compute
       const indexes = node.review_item_indexes?.join(',') || '';
-      router.push(`/review?indexes=${indexes}`);
+      const params = new URLSearchParams({ indexes });
+      if (node.unlock_date) {
+        params.set('date', node.unlock_date);
+      }
+      if (node.review_interval != null) {
+        params.set('interval', String(node.review_interval));
+      }
+      router.push(`/review?${params.toString()}`);
     } else if (node.content_ref) {
       router.push(`/study/path/${node.id}`);
     }
