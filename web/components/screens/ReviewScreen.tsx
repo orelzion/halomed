@@ -220,10 +220,25 @@ export function ReviewScreen() {
             const existingDates = pref.review_completion_dates || [];
             const completionKey = reviewInterval ? `${reviewDate}:${reviewInterval}` : reviewDate;
 
-            // Add review completion key if not already present
-            if (!existingDates.includes(completionKey)) {
-              const newReviewDates = [...existingDates, completionKey];
-              console.log(`[ReviewScreen] Adding review completion key: ${completionKey}`);
+            // Track interval-specific completion locally (must not sync to review_completion_dates,
+            // which is consumed as strict YYYY-MM-DD in backend analytics/functions).
+            if (reviewInterval && typeof window !== 'undefined') {
+              try {
+                const raw = window.localStorage.getItem('review_completion_keys') || '[]';
+                const parsed = JSON.parse(raw);
+                const localKeys = Array.isArray(parsed) ? parsed.filter((k): k is string => typeof k === 'string') : [];
+                if (!localKeys.includes(completionKey)) {
+                  window.localStorage.setItem('review_completion_keys', JSON.stringify([...localKeys, completionKey]));
+                }
+              } catch (storageError) {
+                console.warn('[ReviewScreen] Failed to persist local review completion key:', storageError);
+              }
+            }
+
+            // Keep synced completion dates in strict YYYY-MM-DD format only
+            if (!existingDates.includes(reviewDate)) {
+              const newReviewDates = [...existingDates, reviewDate];
+              console.log(`[ReviewScreen] Adding review completion date: ${reviewDate}`);
 
               await pref.patch({
                 review_completion_dates: newReviewDates,
@@ -232,7 +247,7 @@ export function ReviewScreen() {
 
               console.log('[ReviewScreen] Updated review_completion_dates:', newReviewDates);
             } else {
-              console.log(`[ReviewScreen] Review completion already recorded for: ${completionKey}`);
+              console.log(`[ReviewScreen] Review completion already recorded for: ${reviewDate}`);
             }
           } else {
             console.warn('[ReviewScreen] No user_preferences found');

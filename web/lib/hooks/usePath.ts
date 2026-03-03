@@ -80,6 +80,26 @@ export function usePath() {
 
   // Convert computed nodes to PathNode format (simplified - uses preferences from hook)
   const convertNodes = useCallback((computedNodes: ComputedPathNode[]): PathNode[] => {
+    const reviewSessionCountByDate = new Map<string, number>();
+    computedNodes.forEach((n) => {
+      if (n.nodeType === 'review_session') {
+        reviewSessionCountByDate.set(n.unlockDate, (reviewSessionCountByDate.get(n.unlockDate) || 0) + 1);
+      }
+    });
+
+    let localReviewCompletionKeys: string[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('review_completion_keys') || '[]';
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          localReviewCompletionKeys = parsed.filter((k): k is string => typeof k === 'string');
+        }
+      } catch {
+        localReviewCompletionKeys = [];
+      }
+    }
+
     return computedNodes.map((node) => {
       // Generate unique node IDs based on type
       let nodeId: string;
@@ -131,7 +151,11 @@ export function usePath() {
 
             if (isReviewSession) {
               const completionKey = `${node.unlockDate}:${node.reviewInterval ?? 'unknown'}`;
-              if (completedDates.includes(completionKey) || completedDates.includes(node.unlockDate)) {
+              const completedByIntervalKey = localReviewCompletionKeys.includes(completionKey);
+              const hasMultipleSessionsOnDate = (reviewSessionCountByDate.get(node.unlockDate) || 0) > 1;
+              const completedByDate = completedDates.includes(node.unlockDate);
+
+              if (completedByIntervalKey || (completedByDate && !hasMultipleSessionsOnDate)) {
                 return node.unlockDate + 'T00:00:00.000Z';
               }
             } else if (completedDates.includes(node.unlockDate)) {
