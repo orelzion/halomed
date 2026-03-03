@@ -8,7 +8,6 @@ import {
   type Pace,
   type ReviewIntensity,
 } from '@shared/lib/path-generator';
-import { type UserPreferencesDoc } from '@/lib/database/schemas';
 
 export interface PathNode {
   id: string;
@@ -81,11 +80,31 @@ export function usePath() {
 
   // Convert computed nodes to PathNode format (simplified - uses preferences from hook)
   const convertNodes = useCallback((computedNodes: ComputedPathNode[]): PathNode[] => {
+    const reviewSessionCountByDate = new Map<string, number>();
+    computedNodes.forEach((n) => {
+      if (n.nodeType === 'review_session') {
+        reviewSessionCountByDate.set(n.unlockDate, (reviewSessionCountByDate.get(n.unlockDate) || 0) + 1);
+      }
+    });
+
+    let localReviewCompletionKeys: string[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('review_completion_keys') || '[]';
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          localReviewCompletionKeys = parsed.filter((k): k is string => typeof k === 'string');
+        }
+      } catch {
+        localReviewCompletionKeys = [];
+      }
+    }
+
     return computedNodes.map((node) => {
       // Generate unique node IDs based on type
       let nodeId: string;
       if (node.nodeType === 'review_session') {
-        nodeId = `review-session-${node.unlockDate}`;
+        nodeId = `review-session-${node.unlockDate}-${node.reviewInterval ?? 'unknown'}`;
       } else if (node.nodeType === 'divider') {
         nodeId = `divider-${node.tractate}-${node.chapter}`;
       } else if (node.nodeType === 'weekly_quiz') {
@@ -126,11 +145,20 @@ export function usePath() {
             return new Date().toISOString();
           }
           if ((isReviewSession || isWeeklyQuiz) && preferences && node.unlockDate) {
-            const completedDates = isReviewSession 
+            const completedDates = isReviewSession
               ? (preferences.review_completion_dates || [])
               : (preferences.quiz_completion_dates || []);
-            
-            if (completedDates.includes(node.unlockDate)) {
+
+            if (isReviewSession) {
+              const completionKey = `${node.unlockDate}:${node.reviewInterval ?? 'unknown'}`;
+              const completedByIntervalKey = localReviewCompletionKeys.includes(completionKey);
+              const hasMultipleSessionsOnDate = (reviewSessionCountByDate.get(node.unlockDate) || 0) > 1;
+              const completedByDate = completedDates.includes(node.unlockDate);
+
+              if (completedByIntervalKey || (completedByDate && !hasMultipleSessionsOnDate)) {
+                return node.unlockDate + 'T00:00:00.000Z';
+              }
+            } else if (completedDates.includes(node.unlockDate)) {
               return node.unlockDate + 'T00:00:00.000Z';
             }
           }
@@ -147,7 +175,7 @@ export function usePath() {
         review_item_indexes: node.reviewItemIndexes,
       };
     });
-  }, []);
+  }, [preferences]);
 
   // Load initial page
   useEffect(() => {
@@ -162,7 +190,7 @@ export function usePath() {
     };
 
     loadInitialPage();
-  }, [progress, prefsLoading]);
+  }, [progress, prefsLoading, convertNodes]);
 
   // Load more pages
   const loadMore = useCallback(async () => {
@@ -195,5 +223,4 @@ export function usePath() {
     hasMore,
   };
 }
-
 

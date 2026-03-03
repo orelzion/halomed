@@ -330,22 +330,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Store in content_cache
-    const { data: newContent, error: insertError } = await supabase
+    // Store in content_cache (upsert by ref_id to handle concurrent generation races)
+    const { data: newContent, error: upsertError } = await supabase
       .from('content_cache')
-      .insert({
+      .upsert({
         ref_id: ref_id,
         source_text_he: sourceText,
         ai_explanation_json: aiExplanationJson,
         he_ref: heRef,
+      }, {
+        onConflict: 'ref_id',
+        ignoreDuplicates: false,
       })
       .select()
       .single();
 
-    if (insertError || !newContent) {
-      console.error(`[generate-content] Failed to insert content for ${ref_id}:`, insertError?.message || 'No data returned');
+    if (upsertError || !newContent) {
+      console.error(`[generate-content] Failed to upsert content for ${ref_id}:`, upsertError?.message || 'No data returned');
       return new Response(
-        JSON.stringify({ error: `Failed to cache content: ${insertError?.message || 'Unknown error'}` }),
+        JSON.stringify({ error: `Failed to cache content: ${upsertError?.message || 'Unknown error'}` }),
         { status: 500, headers: corsHeaders }
       );
     }
