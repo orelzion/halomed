@@ -74,7 +74,6 @@ export function ReviewScreen() {
   const [contentCache, setContentCache] = useState<Map<string, ContentCacheDoc>>(new Map());
   const [isComplete, setIsComplete] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [generatingCount, setGeneratingCount] = useState(0);
   // Load content for review items (same strategy as study page)
   useEffect(() => {
     if (reviews.length === 0) {
@@ -112,22 +111,19 @@ export function ReviewScreen() {
         const missingRefs = contentRefs.filter(ref => !cache.has(ref));
 
         if (missingRefs.length > 0) {
-          console.log('[ReviewScreen] Need to generate', missingRefs.length, 'missing items');
-          setGeneratingCount(missingRefs.length);
+          console.log('[ReviewScreen] Loading', missingRefs.length, 'items via backend cache/generation');
 
           // Get auth session for API calls
-          const { data: { session } } = await supabase.auth.getSession();
+          const sessionResult = await supabase.auth.getSession();
+          const session = sessionResult.data.session;
           if (!session) {
-            console.error('[ReviewScreen] No session, cannot generate content');
+            console.error('[ReviewScreen] No session, cannot fetch content');
             setLoading(false);
             return;
           }
 
-          // Generate missing content (same as study page)
           for (const refId of missingRefs) {
             try {
-              console.log('[ReviewScreen] Generating content for:', refId);
-
               const response = await fetch('/api/generate-content', {
                 method: 'POST',
                 headers: {
@@ -138,63 +134,41 @@ export function ReviewScreen() {
               });
 
               if (!response.ok) {
-                console.warn('[ReviewScreen] Failed to generate content for', refId, ':', response.status);
+                console.warn('[ReviewScreen] Failed to load content for', refId, ':', response.status);
                 continue;
               }
 
-              // Poll Supabase for the newly generated content
-              const maxAttempts = 20;
-              const pollInterval = 1000;
-
-              for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                const { data: newContent, error: fetchError } = await supabase
-                  .from('content_cache')
-                  .select('*')
-                  .eq('ref_id', refId)
-                  .single();
-
-                if (!fetchError && newContent) {
-                  const isPlaceholder = isPlaceholderContent(newContent.ai_explanation_json);
-
-                  if (!isPlaceholder) {
-                    // Real content is ready - add to cache and RxDB
-                    const contentDoc: ContentCacheDoc = {
-                      id: newContent.id,
-                      ref_id: newContent.ref_id,
-                      source_text_he: newContent.source_text_he,
-                      ai_explanation_json: typeof newContent.ai_explanation_json === 'string'
-                        ? newContent.ai_explanation_json
-                        : JSON.stringify(newContent.ai_explanation_json || {}),
-                      he_ref: newContent.he_ref,
-                      created_at: newContent.created_at,
-                      updated_at: newContent.updated_at,
-                      _deleted: false,
-                    };
-
-                    cache.set(refId, contentDoc);
-
-                    // Save to local RxDB
-                    try {
-                      await db.content_cache.upsert(contentDoc);
-                    } catch (upsertError) {
-                      console.warn('[ReviewScreen] Failed to cache locally:', refId, upsertError);
-                    }
-
-                    console.log('[ReviewScreen] Content ready for:', refId);
-                    break;
-                  }
-                }
-
-                if (attempt < maxAttempts - 1) {
-                  await new Promise(resolve => setTimeout(resolve, pollInterval));
-                }
+              const payload = await response.json();
+              if (isPlaceholderContent(payload.ai_explanation_json)) {
+                console.warn('[ReviewScreen] Placeholder content returned for', refId);
+                continue;
               }
-            } catch (genError) {
-              console.error('[ReviewScreen] Error generating content for', refId, ':', genError);
+
+              const contentDoc: ContentCacheDoc = {
+                id: payload.id,
+                ref_id: payload.ref_id,
+                source_text_he: payload.source_text_he,
+                ai_explanation_json: typeof payload.ai_explanation_json === 'string'
+                  ? payload.ai_explanation_json
+                  : JSON.stringify(payload.ai_explanation_json || {}),
+                he_ref: payload.he_ref,
+                created_at: payload.created_at,
+                updated_at: payload.updated_at,
+                _deleted: false,
+              };
+
+              cache.set(refId, contentDoc);
+
+              // Save to local RxDB
+              try {
+                await db.content_cache.upsert(contentDoc);
+              } catch (upsertError) {
+                console.warn('[ReviewScreen] Failed to cache locally:', refId, upsertError);
+              }
+            } catch (loadError) {
+              console.error('[ReviewScreen] Error loading content for', refId, ':', loadError);
             }
           }
-
-          setGeneratingCount(0);
         }
 
         setContentCache(cache);
@@ -271,12 +245,12 @@ export function ReviewScreen() {
 
   const hasReviews = reviews.length > 0;
 
-  if (loading || generatingCount > 0) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-desert-oasis-secondary dark:bg-desert-oasis-dark-secondary">
         <div className="text-center">
           <p className="text-desert-oasis-accent">
-            {generatingCount > 0 ? `יוצר תוכן... (${generatingCount} פריטים)` : t('review_session_loading')}
+            {t('review_session_loading')}
           </p>
         </div>
       </div>
@@ -331,22 +305,6 @@ export function ReviewScreen() {
         </motion.div>
       </div>
     );
-  }
-
-  const currentReview = reviews[currentIndex];
-  const content = currentReview ? contentCache.get(currentReview.contentRef) : null;
-
-  // Parse AI explanation JSON if available
-  let reviewSummary = '';
-  let reviewHalakha = '';
-  if (content?.ai_explanation_json) {
-    try {
-      const parsed = JSON.parse(content.ai_explanation_json);
-      reviewSummary = parsed.mishna_modern || '';
-      reviewHalakha = parsed.halakha || '';
-    } catch {
-      // Ignore parse errors
-    }
   }
 
   return (

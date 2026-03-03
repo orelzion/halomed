@@ -8,7 +8,6 @@ import {
   type Pace,
   type ReviewIntensity,
 } from '@shared/lib/path-generator';
-import { type UserPreferencesDoc } from '@/lib/database/schemas';
 
 export interface PathNode {
   id: string;
@@ -85,7 +84,7 @@ export function usePath() {
       // Generate unique node IDs based on type
       let nodeId: string;
       if (node.nodeType === 'review_session') {
-        nodeId = `review-session-${node.unlockDate}`;
+        nodeId = `review-session-${node.unlockDate}-${node.reviewInterval ?? 'unknown'}`;
       } else if (node.nodeType === 'divider') {
         nodeId = `divider-${node.tractate}-${node.chapter}`;
       } else if (node.nodeType === 'weekly_quiz') {
@@ -147,7 +146,7 @@ export function usePath() {
         review_item_indexes: node.reviewItemIndexes,
       };
     });
-  }, []);
+  }, [preferences]);
 
   // Load initial page
   useEffect(() => {
@@ -162,7 +161,7 @@ export function usePath() {
     };
 
     loadInitialPage();
-  }, [progress, prefsLoading]);
+  }, [progress, prefsLoading, convertNodes]);
 
   // Load more pages
   const loadMore = useCallback(async () => {
@@ -195,5 +194,4 @@ export function usePath() {
     hasMore,
   };
 }
-
 

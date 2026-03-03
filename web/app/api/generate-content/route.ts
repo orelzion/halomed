@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isPlaceholderContent } from '@/lib/utils/content-validation';
+
+type CacheStatus = 'cached' | 'generated';
+
+interface GenerateContentApiResponse {
+  id: string;
+  ref_id: string;
+  source_text_he: string;
+  ai_explanation_json: unknown;
+  he_ref?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  cache_status: CacheStatus;
+}
 
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,20 +50,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing ref_id' }, { status: 400 });
   }
 
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: existingContent, error: existingError } = await serviceClient
+    .from('content_cache')
+    .select('*')
+    .eq('ref_id', ref_id)
+    .maybeSingle();
+
+  if (!existingError && existingContent && !isPlaceholderContent(existingContent.ai_explanation_json)) {
+    return NextResponse.json({
+      ...existingContent,
+      cache_status: 'cached',
+    } satisfies GenerateContentApiResponse);
+  }
+
   // Security: Service role key is only used server-side
   // User authentication is validated above before calling the Edge Function
   const response = await fetch(`${supabaseUrl}/functions/v1/generate-content`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'apikey': serviceRoleKey,
+      apikey: serviceRoleKey,
     },
     body: JSON.stringify({ ref_id }),
   });
 
   const responseBody = await response.text();
   if (!response.ok) {
-    let errorDetails: any = {};
+    let errorDetails: { error?: string; details?: string } = {};
     try {
       errorDetails = JSON.parse(responseBody);
     } catch {
@@ -61,5 +92,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(JSON.parse(responseBody));
+  const generatedContent = JSON.parse(responseBody);
+  return NextResponse.json({
+    ...generatedContent,
+    cache_status: 'generated',
+  } satisfies GenerateContentApiResponse);
 }

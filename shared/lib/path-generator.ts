@@ -632,41 +632,49 @@ export function computePath(
     const reviewsForDate = reviewsByDate.get(unlockDate);
     if (reviewsForDate && reviewsForDate.length > 0 && !reviewDatesAdded.has(unlockDate)) {
       reviewDatesAdded.add(unlockDate);
-      
-      // Get the interval (days since learned) - use the first item's interval
-      // All items in this review session should have the same interval
-      const reviewInterval = reviewsForDate[0].interval;
-      
-      // Get the range of items being reviewed (sorted by content index)
-      const sortedReviews = [...reviewsForDate].sort((a, b) => a.contentIndex - b.contentIndex);
-      const firstItem = sortedReviews[0];
-      const lastItem = sortedReviews[sortedReviews.length - 1];
-      
+
+      // Split review sessions by interval so different review units on the same
+      // date remain separate (e.g., day-3 and day-7 reviews).
+      const reviewsByInterval = new Map<number, ReviewItem[]>();
+      for (const review of reviewsForDate) {
+        const intervalGroup = reviewsByInterval.get(review.interval) || [];
+        intervalGroup.push(review);
+        reviewsByInterval.set(review.interval, intervalGroup);
+      }
+
       // Format Hebrew range strings (e.g., "ברכות א:ג")
-      const formatHebrewRef = (item: ReviewItem) => 
+      const formatHebrewRef = (item: ReviewItem) =>
         `${item.tractateHebrew} ${toHebrewChapter(item.chapter)}:${toHebrewMishna(item.mishna)}`;
-      
-      const reviewRangeStart = formatHebrewRef(firstItem);
-      const reviewRangeEnd = sortedReviews.length > 1 ? formatHebrewRef(lastItem) : undefined;
-      
-      path.push({
-        index: -1, // Special index for review session
-        contentRef: 'review_session',
-        tractate: '',
-        tractateHebrew: '',
-        chapter: 0,
-        mishna: 0,
-        isCompleted: false,
-        isCurrent: false, // Will be set at the end if this is the first unlocked node
-        seder: '',
-        unlockDate: unlockDate,
-        nodeType: 'review_session',
-        reviewCount: reviewsForDate.length,
-        reviewInterval: reviewInterval,
-        reviewRangeStart: reviewRangeStart,
-        reviewRangeEnd: reviewRangeEnd,
-        reviewItemIndexes: sortedReviews.map(r => r.contentIndex), // Pass content indexes directly
-      });
+
+      const sortedIntervals = Array.from(reviewsByInterval.keys()).sort((a, b) => a - b);
+      for (const interval of sortedIntervals) {
+        const intervalReviews = reviewsByInterval.get(interval) || [];
+        const sortedReviews = [...intervalReviews].sort((a, b) => a.contentIndex - b.contentIndex);
+        const firstItem = sortedReviews[0];
+        const lastItem = sortedReviews[sortedReviews.length - 1];
+
+        const reviewRangeStart = formatHebrewRef(firstItem);
+        const reviewRangeEnd = sortedReviews.length > 1 ? formatHebrewRef(lastItem) : undefined;
+
+        path.push({
+          index: -1, // Special index for review session
+          contentRef: 'review_session',
+          tractate: '',
+          tractateHebrew: '',
+          chapter: 0,
+          mishna: 0,
+          isCompleted: false,
+          isCurrent: false, // Will be set at the end if this is the first unlocked node
+          seder: '',
+          unlockDate: unlockDate,
+          nodeType: 'review_session',
+          reviewCount: intervalReviews.length,
+          reviewInterval: interval,
+          reviewRangeStart: reviewRangeStart,
+          reviewRangeEnd: reviewRangeEnd,
+          reviewItemIndexes: sortedReviews.map(r => r.contentIndex), // Pass content indexes directly
+        });
+      }
     }
     
     // Add the learning node
