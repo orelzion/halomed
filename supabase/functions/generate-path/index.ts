@@ -10,6 +10,7 @@ import { isScheduledDay, addDays, formatDate } from '../_shared/calendar.ts';
 import { 
   getContentRefForIndex, 
   getMishnayotIndicesForChapter,
+  getGlobalChapterForMishnahIndex,
   TOTAL_MISHNAYOT,
   TOTAL_CHAPTERS,
 } from '../_shared/content-order.ts';
@@ -145,6 +146,9 @@ Deno.serve(async (req: Request) => {
     const contentRefsForNext14Days: string[] = [];
     let scheduledDaysCount = 0;
     let contentIndex = currentPrefs.current_content_index || 0;
+    let chapterIndex = pace === 'one_chapter'
+      ? getGlobalChapterForMishnahIndex(contentIndex)
+      : 0;
     let pathStartDate = currentPrefs.path_start_date ? new Date(currentPrefs.path_start_date) : today;
     
     // Generate content for each scheduled day in the 14-day window
@@ -169,9 +173,9 @@ Deno.serve(async (req: Request) => {
       
       if (pace === 'one_chapter') {
         // Chapter-per-day: get all mishnayot in the current chapter
-        if (contentIndex < TOTAL_CHAPTERS) {
-          dayContentIndices = getMishnayotIndicesForChapter(contentIndex);
-          contentIndex += 1; // Move to next chapter
+        if (chapterIndex < TOTAL_CHAPTERS) {
+          dayContentIndices = getMishnayotIndicesForChapter(chapterIndex);
+          chapterIndex += 1; // Move to next chapter
         }
       } else if (pace === 'seder_per_year') {
         // Seder per year: calculate based on current position in the Mishnah
