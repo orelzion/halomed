@@ -169,6 +169,30 @@ export function getMishnayotIndicesForChapter(chapterIndex: number): number[] {
 }
 
 /**
+ * Convert a global mishnah index to a global chapter index (0-based)
+ *
+ * This is needed for one_chapter pace flows where current_content_index is
+ * stored as a mishnah index but generation logic works in chapter units.
+ */
+export function getGlobalChapterForMishnahIndex(mishnahIndex: number): number {
+  if (mishnahIndex <= 0) return 0;
+  if (mishnahIndex >= TOTAL_MISHNAYOT) return TOTAL_CHAPTERS - 1;
+
+  const info = getTractateAndChapterForMishnahIndex(mishnahIndex);
+  if (!info) return 0;
+
+  let chaptersBeforeTractate = 0;
+  for (const tractate of ALL_TRACTATES) {
+    if (tractate.english === info.tractate.english) {
+      break;
+    }
+    chaptersBeforeTractate += tractate.chapters;
+  }
+
+  return chaptersBeforeTractate + (info.chapter - 1);
+}
+
+/**
  * Gets the number of mishnayot in a specific chapter of a tractate
  */
 function getMishnayotCountForChapter(tractate: TractateInfo, chapter: number): number {

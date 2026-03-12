@@ -21,6 +21,7 @@ const {
   isChapterEndIndex,
   isTractateEndIndex,
   getContentRefId,
+  getGlobalChapterForMishnahIndex,
 } = await import(CONTENT_ORDER_MODULE);
 
 // ============================================================================
@@ -210,4 +211,20 @@ Deno.test('content-order: chapter-per-day covers all chapters', () => {
     assertStringIncludes(ref, 'Mishnah_', 'Should return valid reference');
     assert(ref.includes('.'), 'Should contain chapter number');
   }
+});
+
+Deno.test('content-order: getGlobalChapterForMishnahIndex maps first Sheviit mishnah to Sheviit chapter 1', () => {
+  // Start of Sheviit in canonical order:
+  // Berakhot (57) + Peah (69) + Demai (53) + Kilayim (76) = 255
+  const sheviitStartMishnahIndex = 255;
+
+  // Chapters before Sheviit in Zeraim:
+  // Berakhot (9) + Peah (8) + Demai (7) + Kilayim (9) = 33
+  const sheviitStartChapterIndex = 33;
+
+  assertEquals(
+    getGlobalChapterForMishnahIndex(sheviitStartMishnahIndex),
+    sheviitStartChapterIndex,
+    'First mishnah of Sheviit should map to global chapter index 33 (Sheviit chapter 1)'
+  );
 });
