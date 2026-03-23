@@ -60,9 +60,7 @@ export function getTractateAtIndex(tractateIndex: number): TractateInfo | undefi
 
 /**
  * Get tractate and chapter for a given global mishnah index.
- * Uses mishnayotPerChapter (number[], index 0 = chapter 1) when available,
- * otherwise falls back to the same float-division algorithm as canonical
- * getContentRefForIndex to guarantee identical ref_id strings.
+ * Uses exact mishnayotPerChapter data (number[], index 0 = chapter 1).
  *
  * Returns: { tractateIndex, tractate, chapter, mishnah, globalIndex }
  */
@@ -84,39 +82,28 @@ export function getTractateAndChapterForMishnahIndex(globalMishnahIndex: number)
     const tractate = ALL_TRACTATES[tractateIndex];
 
     if (remainingIndex < tractate.totalMishnayot) {
-      // Use exact per-chapter data when available.
-      // mishnayotPerChapter is a number[] where index 0 = chapter 1.
-      if (tractate.mishnayotPerChapter.length === tractate.chapters) {
-        let chapter = 1;
-        let chapterRemaining = remainingIndex;
-        while (
-          chapter <= tractate.chapters &&
-          chapterRemaining >= tractate.mishnayotPerChapter[chapter - 1]
-        ) {
-          chapterRemaining -= tractate.mishnayotPerChapter[chapter - 1];
-          chapter++;
-        }
-        return {
-          tractateIndex,
-          tractate,
-          chapter,
-          mishnah: chapterRemaining + 1,
-          globalIndex: globalMishnahIndex,
-        };
-      } else {
-        // Fallback: same float-division algorithm as canonical getContentRefForIndex.
-        const avgPerChapter = tractate.totalMishnayot / tractate.chapters;
-        const chapter = Math.min(
-          Math.floor(remainingIndex / avgPerChapter) + 1,
-          tractate.chapters
+      if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+        throw new Error(
+          `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
         );
-        const mishnayotBeforeThisChapter = Math.floor((chapter - 1) * avgPerChapter);
-        const mishnah = Math.max(
-          Math.floor(remainingIndex - mishnayotBeforeThisChapter + 1),
-          1
-        );
-        return { tractateIndex, tractate, chapter, mishnah, globalIndex: globalMishnahIndex };
       }
+
+      let chapter = 1;
+      let chapterRemaining = remainingIndex;
+      while (
+        chapter <= tractate.chapters &&
+        chapterRemaining >= tractate.mishnayotPerChapter[chapter - 1]
+      ) {
+        chapterRemaining -= tractate.mishnayotPerChapter[chapter - 1];
+        chapter++;
+      }
+      return {
+        tractateIndex,
+        tractate,
+        chapter,
+        mishnah: chapterRemaining + 1,
+        globalIndex: globalMishnahIndex,
+      };
     }
 
     remainingIndex -= tractate.totalMishnayot;
@@ -126,10 +113,12 @@ export function getTractateAndChapterForMishnahIndex(globalMishnahIndex: number)
   // Index exceeds all mishnayot — return last mishnah
   const lastTractate = ALL_TRACTATES[ALL_TRACTATES.length - 1];
   const lastChapter = lastTractate.chapters;
-  const lastMishnah =
-    lastTractate.mishnayotPerChapter.length === lastTractate.chapters
-      ? lastTractate.mishnayotPerChapter[lastChapter - 1]
-      : Math.ceil(lastTractate.totalMishnayot / lastTractate.chapters);
+  if (lastTractate.mishnayotPerChapter.length !== lastTractate.chapters) {
+    throw new Error(
+      `Invalid mishnayotPerChapter for ${lastTractate.english}: expected ${lastTractate.chapters}, got ${lastTractate.mishnayotPerChapter.length}`
+    );
+  }
+  const lastMishnah = lastTractate.mishnayotPerChapter[lastChapter - 1];
 
   return {
     tractateIndex: ALL_TRACTATES.length - 1,
@@ -149,22 +138,12 @@ export function isChapterEnd(globalMishnahIndex: number): boolean {
 
   const { tractate, chapter, mishnah } = info;
 
-  if (tractate.mishnayotPerChapter.length === tractate.chapters) {
-    return mishnah === tractate.mishnayotPerChapter[chapter - 1];
+  if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+    throw new Error(
+      `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+    );
   }
-
-  // Fallback: determine chapter boundary via float-division (matches canonical algorithm)
-  let tractateStart = 0;
-  for (let i = 0; i < info.tractateIndex; i++) {
-    tractateStart += ALL_TRACTATES[i].totalMishnayot;
-  }
-  const avg = tractate.totalMishnayot / tractate.chapters;
-  const chapterEndLocal =
-    chapter === tractate.chapters
-      ? tractate.totalMishnayot - 1
-      : Math.floor(chapter * avg) - 1;
-
-  return globalMishnahIndex === tractateStart + chapterEndLocal;
+  return mishnah === tractate.mishnayotPerChapter[chapter - 1];
 }
 
 /**
@@ -174,19 +153,16 @@ export function isTractateEnd(globalMishnahIndex: number): boolean {
   const info = getTractateAndChapterForMishnahIndex(globalMishnahIndex);
   if (!info) return false;
 
-  const { tractateIndex, tractate, chapter, mishnah } = info;
+  const { tractate, chapter, mishnah } = info;
 
   if (chapter !== tractate.chapters) return false;
 
-  if (tractate.mishnayotPerChapter.length === tractate.chapters) {
-    return mishnah === tractate.mishnayotPerChapter[chapter - 1];
+  if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+    throw new Error(
+      `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+    );
   }
-
-  let tractateStartIndex = 0;
-  for (let i = 0; i < tractateIndex; i++) {
-    tractateStartIndex += ALL_TRACTATES[i].totalMishnayot;
-  }
-  return globalMishnahIndex === tractateStartIndex + tractate.totalMishnayot - 1;
+  return mishnah === tractate.mishnayotPerChapter[chapter - 1];
 }
 
 /**

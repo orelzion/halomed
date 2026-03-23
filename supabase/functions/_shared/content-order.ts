@@ -63,8 +63,8 @@ export function getContentRefForIndex(index: number, scheduleType?: string): str
     if (lastTractate) {
       return `Mishnah_${lastTractate.english}.${lastTractate.chapters}`;
     }
-    
-    return `Mishnah_Berakhot.9`; // Fallback
+
+    throw new Error('Unable to resolve chapter reference: invalid chapter index mapping');
   }
   
   // For mishnah-by-mishnah: use global index
@@ -196,11 +196,12 @@ export function getGlobalChapterForMishnahIndex(mishnahIndex: number): number {
  * Gets the number of mishnayot in a specific chapter of a tractate
  */
 function getMishnayotCountForChapter(tractate: TractateInfo, chapter: number): number {
-  if (tractate.mishnayotPerChapter && tractate.mishnayotPerChapter[chapter]) {
-    return tractate.mishnayotPerChapter[chapter];
+  if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+    throw new Error(
+      `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+    );
   }
-  // Estimate: divide mishnayot evenly across chapters
-  return Math.ceil(tractate.totalMishnayot / tractate.chapters);
+  return tractate.mishnayotPerChapter[chapter - 1];
 }
 
 /**
@@ -241,14 +242,13 @@ export function getContentIndexForRef(contentRef: string): number | null {
 
   // Add mishnayot from previous chapters in this tractate
   const tractate = ALL_TRACTATES[tractateIndex];
-  if (tractate.mishnayotPerChapter) {
-    for (let c = 1; c < chapter; c++) {
-      globalIndex += tractate.mishnayotPerChapter[c] || 0;
-    }
-  } else {
-    // Estimate: divide mishnayot evenly across chapters
-    const mishnayotPerChapter = Math.ceil(tractate.totalMishnayot / tractate.chapters);
-    globalIndex += (chapter - 1) * mishnayotPerChapter;
+  if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+    throw new Error(
+      `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+    );
+  }
+  for (let c = 1; c < chapter; c++) {
+    globalIndex += tractate.mishnayotPerChapter[c - 1];
   }
 
   // Add the mishnah number within the chapter (1-based to 0-based)

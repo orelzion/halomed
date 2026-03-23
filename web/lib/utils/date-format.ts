@@ -66,15 +66,15 @@ const tractateData: Record<string, { hebrew: string; chapters: number }> = {
   'Oholot': { hebrew: 'אהלות', chapters: 18 },
   'Negaim': { hebrew: 'נגעים', chapters: 14 },
   'Parah': { hebrew: 'פרה', chapters: 12 },
-  'Tohorot': { hebrew: 'טהרות', chapters: 10 },
+  'Tahorot': { hebrew: 'טהרות', chapters: 10 },
   'Mikvaot': { hebrew: 'מקואות', chapters: 10 },
   'Niddah': { hebrew: 'נדה', chapters: 10 },
-  'Machshirin': { hebrew: 'מכשירין', chapters: 6 },
+  'Makhshirin': { hebrew: 'מכשירין', chapters: 6 },
   'Zavim': { hebrew: 'זבים', chapters: 5 },
   'Tevul Yom': { hebrew: 'טבול יום', chapters: 4 },
   'Tevul_Yom': { hebrew: 'טבול יום', chapters: 4 },
   'Yadayim': { hebrew: 'ידים', chapters: 4 },
-  'Uktzin': { hebrew: 'עוקצין', chapters: 3 },
+  'Oktzin': { hebrew: 'עוקצין', chapters: 3 },
 };
 
 // Legacy map for backward compatibility

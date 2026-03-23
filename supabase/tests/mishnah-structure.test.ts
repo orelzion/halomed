@@ -40,18 +40,14 @@ Deno.test('mishnah-structure: has 63 tractates total', () => {
   assertEquals(ALL_TRACTATES.length, 63, 'Should have exactly 63 tractates');
 });
 
-Deno.test('mishnah-structure: total chapters equals 526', () => {
+Deno.test('mishnah-structure: total chapters equals 525', () => {
   const totalChapters = getTotalChapters();
-  assertEquals(totalChapters, 526, 'Should have 526 chapters total');
+  assertEquals(totalChapters, 525, 'Should have 525 chapters total');
 });
 
-Deno.test('mishnah-structure: total mishnayot approximately 4192', () => {
+Deno.test('mishnah-structure: total mishnayot equals 4192', () => {
   const totalMishnayot = getTotalMishnayot();
-  // Allow some variance (4,192 is approximate)
-  assert(
-    totalMishnayot >= 4100 && totalMishnayot <= 4300,
-    `Total mishnayot should be around 4,192, got ${totalMishnayot}`
-  );
+  assertEquals(totalMishnayot, 4192, 'Should have exactly 4,192 mishnayot total');
 });
 
 // ============================================================================
@@ -107,11 +103,11 @@ Deno.test('mishnah-structure: Berakhot is first tractate', () => {
   assertEquals(first.totalMishnayot, 57, 'Berakhot should have 57 mishnayot');
 });
 
-Deno.test('mishnah-structure: Uktzin is last tractate', () => {
+Deno.test('mishnah-structure: Oktzin is last tractate', () => {
   const last = ALL_TRACTATES[ALL_TRACTATES.length - 1];
   assertExists(last, 'Last tractate should exist');
-  assertEquals(last.english, 'Uktzin', 'Last tractate should be Uktzin');
-  assertEquals(last.hebrew, 'עוקצין', 'Uktzin Hebrew name should be עוקצין');
+  assertEquals(last.english, 'Oktzin', 'Last tractate should be Oktzin');
+  assertEquals(last.hebrew, 'עוקצין', 'Oktzin Hebrew name should be עוקצין');
 });
 
 Deno.test('mishnah-structure: all tractates have English and Hebrew names', () => {
@@ -129,9 +125,9 @@ Deno.test('mishnah-structure: Berakhot has exact per-chapter mishnayot', () => {
   assertExists(berakhot.mishnayotPerChapter, 'Berakhot should have per-chapter data');
   
   // Verify chapter counts
-  assertEquals(berakhot.mishnayotPerChapter[1], 5, 'Chapter 1 should have 5 mishnayot');
-  assertEquals(berakhot.mishnayotPerChapter[2], 8, 'Chapter 2 should have 8 mishnayot');
-  assertEquals(berakhot.mishnayotPerChapter[9], 5, 'Chapter 9 should have 5 mishnayot');
+  assertEquals(berakhot.mishnayotPerChapter[0], 5, 'Chapter 1 should have 5 mishnayot');
+  assertEquals(berakhot.mishnayotPerChapter[1], 8, 'Chapter 2 should have 8 mishnayot');
+  assertEquals(berakhot.mishnayotPerChapter[8], 5, 'Chapter 9 should have 5 mishnayot');
 });
 
 // ============================================================================
@@ -157,10 +153,10 @@ Deno.test('mishnah-structure: getTractateAtIndex(0) returns Berakhot', () => {
   assertEquals(first.english, 'Berakhot');
 });
 
-Deno.test('mishnah-structure: getTractateAtIndex(62) returns Uktzin', () => {
+Deno.test('mishnah-structure: getTractateAtIndex(62) returns Oktzin', () => {
   const last = getTractateAtIndex(62);
   assertExists(last, 'Should get last tractate');
-  assertEquals(last.english, 'Uktzin');
+  assertEquals(last.english, 'Oktzin');
 });
 
 Deno.test('mishnah-structure: getTractateAtIndex(-1) returns undefined', () => {
@@ -213,7 +209,7 @@ Deno.test('mishnah-structure: getContentRefForGlobalIndex handles last mishnah',
   const lastIndex = totalMishnayot - 1;
   const ref = getContentRefForGlobalIndex(lastIndex);
   assert(ref.startsWith('Mishnah_'), 'Should return valid Mishnah reference');
-  assert(ref.includes('Uktzin'), 'Last reference should be from Uktzin');
+  assert(ref.includes('Oktzin'), 'Last reference should be from Oktzin');
 });
 
 // ============================================================================
@@ -228,8 +224,9 @@ Deno.test('mishnah-structure: tractates are in correct order', () => {
   
   // Check last few tractates
   const lastIndex = ALL_TRACTATES.length - 1;
-  assertEquals(ALL_TRACTATES[lastIndex - 2].english, 'Yadayim', 'Second to last should be Yadayim');
-  assertEquals(ALL_TRACTATES[lastIndex - 1].english, 'Uktzin', 'Last should be Uktzin');
+  assertEquals(ALL_TRACTATES[lastIndex - 2].english, 'Tevul_Yom', 'Third to last should be Tevul_Yom');
+  assertEquals(ALL_TRACTATES[lastIndex - 1].english, 'Yadayim', 'Second to last should be Yadayim');
+  assertEquals(ALL_TRACTATES[lastIndex].english, 'Oktzin', 'Last should be Oktzin');
 });
 
 Deno.test('mishnah-structure: no duplicate tractate names', () => {

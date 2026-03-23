@@ -28,15 +28,12 @@ const {
 // CONSTANTS VALIDATION
 // ============================================================================
 
-Deno.test('content-order: TOTAL_CHAPTERS equals 526', () => {
-  assertEquals(TOTAL_CHAPTERS, 526, 'Should have 526 chapters total');
+Deno.test('content-order: TOTAL_CHAPTERS equals 525', () => {
+  assertEquals(TOTAL_CHAPTERS, 525, 'Should have 525 chapters total');
 });
 
-Deno.test('content-order: TOTAL_MISHNAYOT approximately 4192', () => {
-  assert(
-    TOTAL_MISHNAYOT >= 4100 && TOTAL_MISHNAYOT <= 4300,
-    `Total mishnayot should be around 4,192, got ${TOTAL_MISHNAYOT}`
-  );
+Deno.test('content-order: TOTAL_MISHNAYOT equals 4192', () => {
+  assertEquals(TOTAL_MISHNAYOT, 4192, 'Total mishnayot should be exactly 4,192');
 });
 
 // ============================================================================
@@ -66,13 +63,13 @@ Deno.test('content-order: getContentRefForIndex handles last mishnah', () => {
   const lastIndex = TOTAL_MISHNAYOT - 1;
   const ref = getContentRefForIndex(lastIndex, 'DAILY_WEEKDAYS_ONLY');
   assertStringIncludes(ref, 'Mishnah_', 'Should return valid reference');
-  assertStringIncludes(ref, 'Uktzin', 'Last reference should be from Uktzin');
+  assertStringIncludes(ref, 'Oktzin', 'Last reference should be from Oktzin');
 });
 
 Deno.test('content-order: getContentRefForIndex handles out-of-bounds gracefully', () => {
   const ref = getContentRefForIndex(TOTAL_MISHNAYOT + 100, 'DAILY_WEEKDAYS_ONLY');
   assertStringIncludes(ref, 'Mishnah_', 'Should return valid reference even for out-of-bounds');
-  assertStringIncludes(ref, 'Uktzin', 'Should return last tractate for out-of-bounds');
+  assertStringIncludes(ref, 'Oktzin', 'Should return last tractate for out-of-bounds');
 });
 
 // ============================================================================
@@ -187,7 +184,7 @@ Deno.test('content-order: full path from first to last mishnah', () => {
   // Test last mishnah
   const lastIndex = TOTAL_MISHNAYOT - 1;
   const lastRef = getContentRefForIndex(lastIndex, 'DAILY_WEEKDAYS_ONLY');
-  assertStringIncludes(lastRef, 'Uktzin', 'Last should be from Uktzin');
+  assertStringIncludes(lastRef, 'Oktzin', 'Last should be from Oktzin');
   
   // Test tractate transitions
   const berakhotEnd = 56; // Last mishnah of Berakhot
@@ -215,8 +212,8 @@ Deno.test('content-order: chapter-per-day covers all chapters', () => {
 
 Deno.test('content-order: getGlobalChapterForMishnahIndex maps first Sheviit mishnah to Sheviit chapter 1', () => {
   // Start of Sheviit in canonical order:
-  // Berakhot (57) + Peah (69) + Demai (53) + Kilayim (76) = 255
-  const sheviitStartMishnahIndex = 255;
+  // Berakhot (57) + Peah (69) + Demai (53) + Kilayim (77) = 256
+  const sheviitStartMishnahIndex = 256;
 
   // Chapters before Sheviit in Zeraim:
   // Berakhot (9) + Peah (8) + Demai (7) + Kilayim (9) = 33

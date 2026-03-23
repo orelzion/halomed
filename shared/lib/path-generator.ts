@@ -300,23 +300,21 @@ export function getInfoForIndex(index: number): {
   let chapter = tractate.chapters;
   let mishna = 1;
 
-  if (tractate.mishnayotPerChapter && tractate.mishnayotPerChapter.length === tractate.chapters) {
-    // Use actual chapter data when available
-    let cum2 = 0;
-    for (let c = 0; c < tractate.mishnayotPerChapter.length; c++) {
-      if (localIndex < cum2 + tractate.mishnayotPerChapter[c]) {
-        chapter = c + 1;
-        mishna = Math.floor(localIndex - cum2 + 1);
-        break;
-      }
-      cum2 += tractate.mishnayotPerChapter[c];
+  if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+    throw new Error(
+      `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+    );
+  }
+
+  // Use exact chapter data only
+  let cum2 = 0;
+  for (let c = 0; c < tractate.mishnayotPerChapter.length; c++) {
+    if (localIndex < cum2 + tractate.mishnayotPerChapter[c]) {
+      chapter = c + 1;
+      mishna = Math.floor(localIndex - cum2 + 1);
+      break;
     }
-  } else {
-    // Fallback: float-average distribution (matches canonical getContentRefForIndex)
-    const avgPerChapter = tractate.totalMishnayot / tractate.chapters;
-    chapter = Math.min(Math.floor(localIndex / avgPerChapter) + 1, tractate.chapters);
-    const mishnayotBeforeThisChapter = Math.floor((chapter - 1) * avgPerChapter);
-    mishna = Math.max(Math.floor(localIndex - mishnayotBeforeThisChapter + 1), 1);
+    cum2 += tractate.mishnayotPerChapter[c];
   }
   
   // Ensure integers (prevent floating point issues)
@@ -378,20 +376,19 @@ export function getGlobalChapterForIndex(index: number): number {
     if (index < cumulativeIndex + tractate.totalMishnayot) {
       const localIndex = index - cumulativeIndex;
 
-      // Find which chapter within this tractate
-      if (tractate.mishnayotPerChapter && tractate.mishnayotPerChapter.length === tractate.chapters) {
-        let cumulative = 0;
-        for (let c = 0; c < tractate.mishnayotPerChapter.length; c++) {
-          if (localIndex < cumulative + tractate.mishnayotPerChapter[c]) {
-            return globalChapter + c;
-          }
-          cumulative += tractate.mishnayotPerChapter[c];
+      if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+        throw new Error(
+          `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+        );
+      }
+
+      // Find which chapter within this tractate using exact data
+      let cumulative = 0;
+      for (let c = 0; c < tractate.mishnayotPerChapter.length; c++) {
+        if (localIndex < cumulative + tractate.mishnayotPerChapter[c]) {
+          return globalChapter + c;
         }
-      } else {
-        // Fallback: use average distribution
-        const avgPerChapter = tractate.totalMishnayot / tractate.chapters;
-        const localChapter = Math.min(Math.floor(localIndex / avgPerChapter), tractate.chapters - 1);
-        return globalChapter + localChapter;
+        cumulative += tractate.mishnayotPerChapter[c];
       }
     }
 
@@ -419,9 +416,12 @@ export function getFirstIndexOfChapter(globalChapter: number): number {
       }
 
       // Move to next chapter
-      const chapterSize = tractate.mishnayotPerChapter && tractate.mishnayotPerChapter.length === tractate.chapters
-        ? tractate.mishnayotPerChapter[c]
-        : Math.ceil(tractate.totalMishnayot / tractate.chapters);
+      if (tractate.mishnayotPerChapter.length !== tractate.chapters) {
+        throw new Error(
+          `Invalid mishnayotPerChapter for ${tractate.english}: expected ${tractate.chapters}, got ${tractate.mishnayotPerChapter.length}`
+        );
+      }
+      const chapterSize = tractate.mishnayotPerChapter[c];
       cumulativeIndex += chapterSize;
       currentGlobalChapter++;
     }
