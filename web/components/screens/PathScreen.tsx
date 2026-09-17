@@ -7,9 +7,33 @@ import { useTranslation } from '@/lib/i18n';
 import { useRouter, usePathname } from 'next/navigation';
 import { formatContentRef, formatHebrewNumber, getTractateHebrew, isLastChapter } from '@/lib/utils/date-format';
 import { useAuthContext } from '@/components/providers/AuthProvider';
+import { usePreferences } from '@/lib/hooks/usePreferences';
 import { supabase } from '@/lib/supabase/client';
 import { Mascot } from '@/components/ui/Mascot';
+import { MarkDayCompleteDialog } from '@/components/ui/MarkDayCompleteDialog';
+import { CompletionToast } from '@/components/ui/CompletionToast';
+import { advanceStudyProgress } from '@/lib/utils/studyProgress';
 import posthog from 'posthog-js';
+
+/**
+ * Format a YYYY-MM-DD date for the path's date separators (and the "mark day
+ * complete" dialog), collapsing today/tomorrow/yesterday to relative labels.
+ */
+function formatDateSeparator(dateStr: string): string {
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+  if (dateStr === today) return 'היום';
+  if (dateStr === tomorrow) return 'מחר';
+  if (dateStr === yesterday) return 'אתמול';
+
+  return new Date(dateStr).toLocaleDateString('he-IL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
 
 /**
  * Get week range (Sunday to Thursday) for a weekly quiz date
@@ -174,6 +198,7 @@ function SparklesIcon({ className = '' }: { className?: string }) {
 export function PathScreen() {
   const { nodes, loading, currentNodeIndex, loadMore, hasMore } = usePath();
   const { streak } = usePathStreak();
+  const { preferences } = usePreferences();
   const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
@@ -181,7 +206,13 @@ export function PathScreen() {
   const { session } = useAuthContext();
   const hasEnsuredContent = useRef(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
-  
+
+  // "Mark whole day as complete" - lets users who studied elsewhere (e.g. at
+  // synagogue) skip opening each Mishna individually
+  const [showMarkDayDialog, setShowMarkDayDialog] = useState(false);
+  const [isMarkingDay, setIsMarkingDay] = useState(false);
+  const [showDayCompletionToast, setShowDayCompletionToast] = useState(false);
+
   // Prevent browser scroll restoration on initial load
   useEffect(() => {
     if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
@@ -429,6 +460,41 @@ export function PathScreen() {
     }
   };
 
+  // Learning nodes still pending for the day the user is currently on (the day
+  // containing the first uncompleted node). Reviews/quizzes are excluded since
+  // they aren't tracked via current_content_index.
+  const currentContentIndex = preferences?.current_content_index ?? 0;
+  const currentDayDate = currentNodeIndex !== null ? nodes[currentNodeIndex]?.unlock_date : null;
+  const todaysRemainingLearningNodes = currentDayDate
+    ? nodes.filter(n =>
+        n.node_type === 'learning' &&
+        n.is_divider !== 1 &&
+        n.unlock_date === currentDayDate &&
+        n.index >= currentContentIndex
+      )
+    : [];
+
+  const handleMarkDayComplete = async () => {
+    if (todaysRemainingLearningNodes.length === 0) return;
+
+    setIsMarkingDay(true);
+    try {
+      const maxIndex = Math.max(...todaysRemainingLearningNodes.map(n => n.index));
+      const advanced = await advanceStudyProgress(maxIndex + 1);
+
+      if (advanced) {
+        posthog.capture('path_day_marked_complete', {
+          date: currentDayDate,
+          items_count: todaysRemainingLearningNodes.length,
+        });
+        setShowMarkDayDialog(false);
+        setShowDayCompletionToast(true);
+      }
+    } finally {
+      setIsMarkingDay(false);
+    }
+  };
+
   // Calculate stats
   const completedCount = nodes.filter(n => n.completed_at != null && n.is_divider !== 1).length; // Use loose equality to handle both null and undefined
   const totalCount = nodes.filter(n => n.is_divider !== 1).length;
@@ -511,24 +577,7 @@ export function PathScreen() {
               // If previous node is a divider, look at its unlock_date (dividers inherit the date of their chapter's last mishna)
               const prevNodeDate = prevNode?.unlock_date;
               const showDateSeparator = !isDivider && (!prevNode || prevNodeDate !== node.unlock_date);
-              
-              // Format date for separator
-              const formatDateSeparator = (dateStr: string) => {
-                const today = new Date().toISOString().split('T')[0];
-                const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                
-                if (dateStr === today) return 'היום';
-                if (dateStr === tomorrow) return 'מחר';
-                if (dateStr === yesterday) return 'אתמול';
-                
-                return new Date(dateStr).toLocaleDateString('he-IL', { 
-                  weekday: 'long', 
-                  day: 'numeric', 
-                  month: 'long' 
-                });
-              };
-              
+
               if (isDivider) {
                 // Convert tractate to Hebrew and chapter to Hebrew numeral
                 const tractateHebrew = node.tractate ? getTractateHebrew(node.tractate) || node.tractate : '';
@@ -748,7 +797,22 @@ export function PathScreen() {
                       <div className="h-px flex-1 bg-desert-oasis-muted/30 dark:bg-gray-600/30" />
                     </div>
                   )}
-                  
+
+                  {/* Mark whole day as complete - only for the current day's group,
+                      and only when there's more than one item to skip past */}
+                  {showDateSeparator && node.unlock_date === currentDayDate && todaysRemainingLearningNodes.length >= 2 && (
+                    <div className="mb-4 mr-8">
+                      <button
+                        type="button"
+                        onClick={() => setShowMarkDayDialog(true)}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-desert-oasis-accent/40 text-desert-oasis-accent font-explanation font-semibold text-sm hover:bg-desert-oasis-accent/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-desert-oasis-accent focus-visible:ring-offset-2"
+                      >
+                        <CheckIcon className="w-4 h-4" />
+                        {t('mark_day_complete_button')}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Node card */}
                   <button
                     type="button"
@@ -878,6 +942,20 @@ export function PathScreen() {
         {/* Bottom padding for safe area */}
         <div className="h-20" />
       </section>
+
+      <MarkDayCompleteDialog
+        isOpen={showMarkDayDialog}
+        itemCount={todaysRemainingLearningNodes.length}
+        dateLabel={currentDayDate ? formatDateSeparator(currentDayDate) : ''}
+        isSubmitting={isMarkingDay}
+        onConfirm={handleMarkDayComplete}
+        onClose={() => setShowMarkDayDialog(false)}
+      />
+
+      <CompletionToast
+        show={showDayCompletionToast}
+        onComplete={() => setShowDayCompletionToast(false)}
+      />
     </div>
   );
 }
