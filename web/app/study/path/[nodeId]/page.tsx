@@ -15,6 +15,7 @@ import { Mascot } from '@/components/ui/Mascot';
 import { CompletionToast } from '@/components/ui/CompletionToast';
 import ReactMarkdown from 'react-markdown';
 import { getContentRefForIndex } from '@shared/lib/path-generator';
+import { advanceStudyProgress } from '@/lib/utils/studyProgress';
 
 interface PathNode {
   id: string;
@@ -77,23 +78,12 @@ export default function PathStudyPage() {
         }
         const userPrefs = await db.user_preferences.find().exec();
         if (userPrefs.length > 0) {
-          const pref = userPrefs[0];
-          const currentIndex = pref.current_content_index ?? 0;
-          
-          // Only increment if completing and this is the current item
+          const currentIndex = userPrefs[0].current_content_index ?? 0;
+
+          // Only increment if completing and this is exactly the current item
           if (isCompleted && node.contentIndex === currentIndex) {
-            const newIndex = currentIndex + 1;
-            console.log(`[Study] Completing item ${node.contentIndex}, updating current_content_index: ${currentIndex} -> ${newIndex}`);
-            
-            await pref.patch({
-              current_content_index: newIndex,
-              last_study_date: new Date().toISOString().split('T')[0],
-              updated_at: new Date().toISOString(),
-            });
-            
-            // Verify the update
-            const updatedPref = await db.user_preferences.findOne(pref.id).exec();
-            console.log(`[Study] Updated current_content_index: ${updatedPref?.current_content_index}`);
+            const advanced = await advanceStudyProgress(currentIndex + 1);
+            console.log(`[Study] Completing item ${node.contentIndex}, advanced=${advanced}`);
           } else {
             console.log(`[Study] Not incrementing: isCompleted=${isCompleted}, nodeIndex=${node.contentIndex}, currentIndex=${currentIndex}`);
           }
