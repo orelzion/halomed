@@ -9,20 +9,6 @@ import type { DatabaseCollections } from '../database/schemas';
 const YEARS_AHEAD = 2; // Calculate Yom Tov dates for 2 years ahead
 
 /**
- * Check if we need to refresh Yom Tov dates
- */
-function needsRefresh(currentUntil: string | undefined): boolean {
-  if (!currentUntil) return true;
-  
-  const untilDate = new Date(currentUntil);
-  const today = new Date();
-  
-  // Refresh if we're within 30 days of the end date
-  const daysUntilEnd = (untilDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-  return daysUntilEnd < 30;
-}
-
-/**
  * Fetch Yom Tov dates from the backend API
  */
 async function fetchYomTovDates(
@@ -67,14 +53,6 @@ export async function syncYomTovDates(
       return;
     }
     
-    const currentUntil = prefsDoc.yom_tov_dates_until;
-    
-    // Check if we need to refresh
-    if (!needsRefresh(currentUntil)) {
-      console.log('[YomTov Sync] Dates are up to date, skipping');
-      return;
-    }
-    
     console.log('[YomTov Sync] Fetching Yom Tov dates...');
     
     // Calculate date range
@@ -92,6 +70,16 @@ export async function syncYomTovDates(
     
     console.log(`[YomTov Sync] Fetched ${yomTovDates.length} Yom Tov dates`);
     
+    // Always recompute (cheap) so cached dates self-heal when the calendar mode
+    // or calculation changes; only write when the result actually differs.
+    const current = prefsDoc.yom_tov_dates ?? [];
+    const unchanged =
+      current.length === yomTovDates.length && current.every((d, i) => d === yomTovDates[i]);
+    if (unchanged) {
+      console.log('[YomTov Sync] Dates are up to date');
+      return;
+    }
+
     // Update preferences
     await prefsDoc.patch({
       yom_tov_dates: yomTovDates,

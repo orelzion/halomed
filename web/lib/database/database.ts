@@ -91,7 +91,7 @@ await rxdbDatabase.addCollections({
                   // Ensure all required fields exist
                   skip_friday: oldDoc.skip_friday ?? true,
                   skip_yom_tov: oldDoc.skip_yom_tov ?? true,
-                  israel_mode: oldDoc.israel_mode ?? false,
+                  israel_mode: oldDoc.israel_mode ?? true,
                   yom_tov_dates: oldDoc.yom_tov_dates ?? [],
                   yom_tov_dates_until: oldDoc.yom_tov_dates_until ?? null,
                 };
