@@ -56,8 +56,17 @@ export async function syncYomTovDates(
     console.log('[YomTov Sync] Fetching Yom Tov dates...');
     
     // Calculate date range
+    // Must cover the whole path since path_start_date: the path's dates are
+    // counted in study days from the start, so a missing past holiday would
+    // shift every date and make completed days look overdue.
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30); // Include recent past
+    if (prefsDoc.path_start_date) {
+      const pathStart = new Date(prefsDoc.path_start_date);
+      if (!isNaN(pathStart.getTime()) && pathStart < startDate) {
+        startDate.setTime(pathStart.getTime());
+      }
+    }
     const endDate = new Date();
     endDate.setFullYear(endDate.getFullYear() + YEARS_AHEAD);
     
