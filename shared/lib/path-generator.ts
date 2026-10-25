@@ -236,6 +236,26 @@ export function toHebrewMishna(num: number): string {
   return String(num);
 }
 
+const HEBREW_CHAPTER_ORDINALS = [
+  '',
+  'ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שביעי', 'שמיני', 'תשיעי', 'עשירי',
+  'אחד עשר', 'שנים עשר', 'שלשה עשר', 'ארבעה עשר', 'חמשה עשר',
+  'ששה עשר', 'שבעה עשר', 'שמונה עשר', 'תשעה עשר', 'עשרים',
+  'עשרים ואחד', 'עשרים ושנים', 'עשרים ושלשה', 'עשרים וארבעה', 'עשרים וחמשה',
+  'עשרים וששה', 'עשרים ושבעה', 'עשרים ושמונה', 'עשרים ותשעה', 'שלשים',
+];
+
+/**
+ * Chapter number as the ordinal used in printed editions (1 -> "ראשון"),
+ * for headings such as "פרק ראשון".
+ */
+export function toHebrewChapterOrdinal(num: number): string {
+  if (num >= 1 && num <= 30) {
+    return HEBREW_CHAPTER_ORDINALS[num];
+  }
+  return String(num);
+}
+
 /**
  * Format a content ref (e.g., "Mishnah_Berakhot.1.1") to Hebrew (e.g., "ברכות א:א")
  */

@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { usePreferences } from './usePreferences';
+import { buildUserProgress } from '@/lib/utils/studyProgress';
 import { 
   computePath, 
   type PathNode as ComputedPathNode,
-  type Pace,
-  type ReviewIntensity,
 } from '@shared/lib/path-generator';
 
 export interface PathNode {
@@ -41,24 +40,10 @@ export function usePath() {
   const [hasMore, setHasMore] = useState(true);
 
   // Build progress object for path computation
-  const progress = useMemo(() => {
-    if (!preferences) return null;
-    
-    const yomTovDatesSet = new Set<string>(preferences.yom_tov_dates || []);
-    
-    return {
-      currentContentIndex: preferences.current_content_index ?? 0,
-      pace: (preferences.pace || 'two_mishna') as Pace,
-      reviewIntensity: (preferences.review_intensity || 'none') as ReviewIntensity,
-      startDate: preferences.path_start_date 
-        ? new Date(preferences.path_start_date) 
-        : new Date(),
-      studyDays: {
-        skipFriday: preferences.skip_friday ?? true,
-        yomTovDates: yomTovDatesSet,
-      },
-    };
-  }, [preferences]);
+  const progress = useMemo(
+    () => (preferences ? buildUserProgress(preferences) : null),
+    [preferences]
+  );
 
   // Helper function to determine if a review/quiz node appears before the first uncompleted learning node
   function isBeforeCurrentLearningNode(

@@ -14,7 +14,7 @@ const t = getTranslation();
 
 // Load Google Fonts
 const frankRuhlLibre = Frank_Ruhl_Libre({
-  weight: '700',
+  weight: ['400', '500', '700'],
   subsets: ['latin', 'hebrew'],
   variable: '--font-source',
   display: 'swap',

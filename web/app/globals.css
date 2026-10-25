@@ -18,6 +18,10 @@ body {
   --bg-card: #FAEDCD;
   --text-primary: #1A1A1A;
   --text-secondary: #4A4A4A;
+  /* Study page: darker brown for rules, letters and labels (accent is too light as text) */
+  --study-ink: #7A4E24;
+  --study-rule: rgba(26, 26, 26, 0.16);
+  --study-soft: rgba(212, 163, 115, 0.28);
 }
 
 .dark {
@@ -26,6 +30,9 @@ body {
   --bg-card: #2D2D2D;
   --text-primary: #FEFAE0;
   --text-secondary: #B0B0B0;
+  --study-ink: #E3B98C;
+  --study-rule: rgba(254, 250, 224, 0.2);
+  --study-soft: rgba(212, 163, 115, 0.3);
 }
 
 /*

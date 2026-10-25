@@ -29,23 +29,19 @@ url: "http://localhost:3000"
 - assertVisible:
     id: "done_button"
 
-# Test done button toggle
+# Finishing a mishna opens the next one on the same page (no trip back to the path)
 - tapOn:
     id: "done_button"
 
-# Verify completed state
+# The next mishna and its done button are now the ones being studied
 - assertVisible:
-    text: "✓ סיימתי"
+    id: "mishna_text"
 
-# Test expandable section
 - assertVisible:
-    text: "סיכום פרשנויות"
+    id: "done_button"
 
-- tapOn:
-    text: "סיכום פרשנויות"
-
-# Verify expanded content
+# Notes (explanation, opinions, expansions, halakha) are part of the page, not a separate section
 - assertVisible:
-    id: "deep_dive_content"
+    id: "explanation_text"
 
 - killApp
