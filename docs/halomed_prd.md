@@ -164,14 +164,22 @@ A calm, warm design inspired by parchment and quiet study spaces.
 ---
 
 ### 7.2 Study Screen
-- Vertical continuous scroll
-- Source text followed immediately by explanation
-- “Done” button appears only when a unit is scheduled
-- Button is fixed at the absolute bottom of the scroll
+The study screen reads like a page of a printed Mishnayot edition.
+
+- Vertical continuous scroll: the mishnayot of a chapter sit on one page, and when a chapter ends the next one follows on the same page
+- Each mishna is marked by its Hebrew letter in the margin, and its first word is set larger
+- Size sets the hierarchy: the mishna is in large serif type, everything else in smaller type
+- Under each mishna, in this order: the explanation, then the opinions and expansions as notes that each open with a bold lead, then the halakha last, then a footnote that the explanation was written by AI
+- There are no separate expandable sections
+- A running head shows the tractate and chapter, with a letter for each mishna of the chapter (filled once done) that can be tapped to jump to it
+- “Done” closes each mishna and is at the end of its notes
+- Finished mishnayot fold to a few lines (their notes can be reopened); mishnayot not yet reached appear dimmed
+- Marks between mishnayot show the end of a chapter and the end of a study day. Reviews and weekly quizzes stay on the path and never interrupt the page
 
 **On Done:**
 - Haptic feedback
 - Study completion is recorded
+- The next mishna opens directly below, with no return to the path and no loading screen
 
 ---
 

@@ -17,22 +17,11 @@ url: "http://localhost:3000"
 - tapOn:
     id: "done_button"
 
-# Wait for update
-# Wait (handled by assertions)
-
-# Verify completed state
+# The page moves straight on to the next mishna, with its own done button
 - assertVisible:
-    text: "✓ סיימתי"
+    id: "mishna_text"
 
-# Toggle back
-- tapOn:
+- assertVisible:
     id: "done_button"
-
-# Wait for update
-# Wait (handled by assertions)
-
-# Verify toggled back
-- assertVisible:
-    text: "סיימתי"
 
 - killApp

@@ -114,5 +114,19 @@
   "review_session_error": "שגיאה בטעינת מפגש החזרה",
   "review_session_swipe_hint": "החלק ימינה להמשך, שמאלה לתרגול נוסף",
   "review_session_fresh_content": "כל החומר שלמדת עדיין טרי!",
-  "review_session_back_to_path": "חזרה לנתיב"
+  "review_session_back_to_path": "חזרה לנתיב",
+  "study_running_head": "{tractate} · פרק {chapter}",
+  "study_chapter_heading": "פרק {chapter}",
+  "study_chapter_end": "סוף פרק {chapter}",
+  "study_chapter_nav": "משניות הפרק",
+  "study_mishna_aria": "משנה {mishna}",
+  "study_progress_compact": "{current} מתוך {total}",
+  "study_halakha_label": "להלכה",
+  "study_notes_toggle": "ביאור והלכה",
+  "study_source_prefix": "מקור:",
+  "study_ai_notice": "תוכן זה נוצר על ידי בינה מלאכותית. מומלץ לבדוק את המקור המקורי ב-",
+  "study_generating": "יוצר תוכן...",
+  "study_content_not_found": "תוכן לא נמצא",
+  "study_load_error": "שגיאה בטעינת התוכן",
+  "study_review_waiting": "מפגש חזרה מחכה בדרך הלימוד"
 }
