@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useTranslation } from '@/lib/i18n';
 import { useStudyContent } from '@/lib/hooks/useStudyContent';
 import { formatContentRef } from '@/lib/utils/date-format';
+import { MarginLetter } from './MarginLetter';
 import { MishnaText } from './MishnaText';
-import { Ornament } from './PageMarks';
 import { PinnedMishna } from './PinnedMishna';
 import { StudyDoneBar } from './StudyDoneBar';
 import { StudyNotes } from './StudyNotes';
@@ -32,39 +32,6 @@ interface MishnaSectionProps {
   registerRef: (index: number, element: HTMLElement | null) => void;
   onComplete: (index: number) => void;
   onOpen: (index: number) => void;
-}
-
-const CHECK = (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-/** The letter hung in the margin beside a mishna. */
-function MarginLetter({ letter, isDone, isMuted }: { letter: string; isDone: boolean; isMuted: boolean }) {
-  const tone = isDone
-    ? 'border-study-ink bg-study-ink text-[var(--bg-primary)]'
-    : isMuted
-      ? 'border-study-rule text-[var(--text-secondary)]'
-      : 'border-study-ink text-study-ink';
-  return (
-    <span
-      aria-hidden="true"
-      className={`absolute start-4 top-2.5 grid size-[34px] place-items-center rounded-full border-[1.5px] font-source text-lg font-bold ${tone}`}
-    >
-      {isDone ? CHECK : letter}
-    </span>
-  );
 }
 
 function Skeleton({ lines = 3 }: { lines?: number }) {
@@ -101,28 +68,6 @@ function useKeepScrollPosition(ref: RefObject<HTMLElement | null>) {
   });
 }
 
-/**
- * True once `ref` has scrolled up past the bottom of the header, so the pinned
- * copy of the mishna can take its place while the notes are read.
- */
-function useScrolledPastHeader(ref: RefObject<HTMLElement | null>, enabled: boolean): boolean {
-  const [past, setPast] = useState(false);
-
-  useEffect(() => {
-    const element = ref.current;
-    if (!enabled || !element) return;
-    const headerHeight = parseFloat(getComputedStyle(element).getPropertyValue('--study-head')) || 108;
-    const observer = new IntersectionObserver(
-      ([entry]) => setPast(!entry.isIntersecting && entry.boundingClientRect.bottom <= headerHeight),
-      { rootMargin: `-${headerHeight}px 0px 0px 0px` }
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref, enabled]);
-
-  return enabled && past;
-}
-
 export function MishnaSection({
   index,
   contentRef,
@@ -145,8 +90,7 @@ export function MishnaSection({
   const sourceText = ready && content ? content.source_text_he : null;
   const [notesOpen, setNotesOpen] = useState(false);
   const sectionRef = useRef<HTMLElement | null>(null);
-  const mishnaRef = useRef<HTMLDivElement | null>(null);
-  const isPinned = useScrolledPastHeader(mishnaRef, mode === 'full' && sourceText !== null);
+
   useKeepScrollPosition(sectionRef);
 
   const setRef = (element: HTMLElement | null) => {
@@ -238,36 +182,28 @@ export function MishnaSection({
     );
   }
 
-  // full. `overflow-clip` cuts the pinned mishna off where this mishna ends, so it never
-  // hangs over the next one (it clips without making a scroll container, so sticky still works).
+  // full. The mishna is a sticky panel at the top of the section, so it stays in view while
+  // the notes below it scroll, and leaves with the section.
   return (
     <section
       ref={setRef}
       data-testid={`study_unit_${index}`}
-      className="mt-1.5 scroll-mt-[var(--study-head,7rem)] overflow-clip"
+      className="mt-1.5 scroll-mt-[var(--study-head,7rem)]"
     >
       {heading}
       {sourceText !== null ? (
         <>
-          <div ref={mishnaRef} className="relative ps-14 pe-5">
-            <MarginLetter letter={letter} isDone={isDone} isMuted={false} />
-            <MishnaText source={sourceText} size="full" id={isFocus ? 'mishna_text' : undefined} />
+          <PinnedMishna
+            sourceText={sourceText}
+            letter={letter}
+            isDone={isDone}
+            collapsed={pinCollapsed}
+            onToggle={onTogglePin}
+            textId={isFocus ? 'mishna_text' : undefined}
+          />
+          <div className="pt-5">
+            <StudyNotes explanation={explanationData} contentRef={contentRef} primary={isFocus} />
           </div>
-          {/* Zero height, so showing the pinned copy never moves the page */}
-          <div className="sticky top-[var(--study-head,7rem)] z-10 h-0">
-            {isPinned && (
-              <div className="absolute inset-x-0 top-0">
-                <PinnedMishna
-                  sourceText={sourceText}
-                  letter={letter}
-                  collapsed={pinCollapsed}
-                  onToggle={onTogglePin}
-                />
-              </div>
-            )}
-          </div>
-          <Ornament />
-          <StudyNotes explanation={explanationData} contentRef={contentRef} primary={isFocus} />
           <StudyDoneBar isDone={isDone} onClick={() => onComplete(index)} primary={isFocus} />
         </>
       ) : (

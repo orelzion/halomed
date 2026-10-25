@@ -172,7 +172,7 @@ The study screen reads like a page of a printed Mishnayot edition.
 - Under each mishna, in this order: the explanation, then the opinions and expansions as notes that each open with a bold lead, then the halakha last, then a footnote that the explanation was written by AI
 - There are no separate expandable sections
 - A running head shows the tractate and chapter, with a letter for each mishna of the chapter (filled once done) that can be tapped to jump to it
-- While the notes of a mishna are read, the mishna stays pinned under the header, so the text and its explanation are always on screen together. The pinned copy is capped in height (it scrolls inside itself for long mishnayot), can be folded to a single line, and the choice is remembered
+- The mishna is pinned under the header from the start of its section until the section ends, so the text and its explanation are always on screen together. It sits in the page flow, so the notes begin below it and are never covered. It is capped in height (it scrolls inside itself for long mishnayot), can be folded to a single line, and the choice is remembered
 - “Done” closes each mishna and is at the end of its notes
 - Finished mishnayot fold to a few lines (their notes can be reopened); mishnayot not yet reached appear dimmed
 - Marks between mishnayot show the end of a chapter and the end of a study day. Reviews and weekly quizzes stay on the path and never interrupt the page
