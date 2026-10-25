@@ -1,5 +1,6 @@
 'use client';
 
+import type { Ref } from 'react';
 import { useTranslation } from '@/lib/i18n';
 
 export interface ChapterLetter {
@@ -16,6 +17,8 @@ interface StudyRunningHeadProps {
   letters: ChapterLetter[];
   onBack: () => void;
   onJump: (index: number) => void;
+  /** Lets the page measure the header, so things can stick right below it. */
+  headerRef?: Ref<HTMLElement>;
 }
 
 /** Circles stop fitting on a phone beyond this many; the head shows a count instead. */
@@ -52,12 +55,12 @@ function circleClasses({ isDone, isFocus }: Pick<ChapterLetter, 'isDone' | 'isFo
  * The page header: back arrow, the tractate and chapter as a running head, a
  * row of letters for the mishnayot of the chapter, and a double rule.
  */
-export function StudyRunningHead({ title, letters, onBack, onJump }: StudyRunningHeadProps) {
+export function StudyRunningHead({ title, letters, onBack, onJump, headerRef }: StudyRunningHeadProps) {
   const { t } = useTranslation();
   const focusPosition = letters.findIndex((l) => l.isFocus);
 
   return (
-    <header className="sticky top-0 z-20 bg-desert-oasis-primary after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-gradient-to-b after:from-[color:var(--bg-primary)] after:to-transparent dark:bg-desert-oasis-dark-primary">
+    <header ref={headerRef} className="sticky top-0 z-20 bg-desert-oasis-primary after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-gradient-to-b after:from-[color:var(--bg-primary)] after:to-transparent dark:bg-desert-oasis-dark-primary">
       <div className="mx-auto max-w-2xl px-4">
         <div className="flex h-14 items-center">
           <button

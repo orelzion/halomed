@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import { usePreferences } from '@/lib/hooks/usePreferences';
@@ -35,6 +35,34 @@ interface View {
   previous: number | null;
 }
 
+const PIN_COLLAPSED_KEY = 'halomed_study_pin_collapsed';
+
+/** Whether the reader folded the pinned mishna, remembered between visits. */
+function usePinCollapsed(): [boolean, () => void] {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem(PIN_COLLAPSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggle = useCallback(() => {
+    setCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(PIN_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        // The choice just is not remembered
+      }
+      return next;
+    });
+  }, []);
+
+  return [collapsed, toggle];
+}
+
 function chapterOf(index: number): number {
   return getGlobalChapterForIndex(index);
 }
@@ -51,6 +79,7 @@ export function ChapterStudyPage({ startIndex }: ChapterStudyPageProps) {
   const { nodes: pathNodes } = usePath();
 
   const [view, setView] = useState<View>({ focus: startIndex, previous: null });
+  const [pinCollapsed, togglePin] = usePinCollapsed();
   // The page holds every mishna from the start of the opened chapter to the end of the
   // furthest chapter reached, so a chapter that ends flows into the next one.
   const windowStart = useMemo(() => getFirstIndexOfChapter(chapterOf(startIndex)), [startIndex]);
@@ -100,6 +129,20 @@ export function ChapterStudyPage({ startIndex }: ChapterStudyPageProps) {
   }, []);
 
   const isReady = !preferencesLoading && focusInfo !== null;
+
+  // Things that stick below the header need its height; expose it as a CSS variable
+  const pageRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const page = pageRef.current;
+    const header = headerRef.current;
+    if (!page || !header) return;
+    const update = () => page.style.setProperty('--study-head', `${header.offsetHeight}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [isReady]);
   useEffect(() => {
     if (!isReady) return;
     const element = sectionElements.current.get(view.focus);
@@ -162,8 +205,12 @@ export function ChapterStudyPage({ startIndex }: ChapterStudyPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-desert-oasis-primary pb-24 [overflow-anchor:none] dark:bg-desert-oasis-dark-primary">
+    <div
+      ref={pageRef}
+      className="min-h-screen bg-desert-oasis-primary pb-24 [overflow-anchor:none] dark:bg-desert-oasis-dark-primary"
+    >
       <StudyRunningHead
+        headerRef={headerRef}
         title={t('study_running_head', {
           tractate: focusInfo.tractate.hebrew,
           chapter: toHebrewChapter(focusInfo.chapter),
@@ -235,6 +282,8 @@ export function ChapterStudyPage({ startIndex }: ChapterStudyPageProps) {
                 isFocus={unit.index === view.focus}
                 isDone={unit.index < reachedIndex}
                 isReachable={unit.index <= reachedIndex}
+                pinCollapsed={pinCollapsed}
+                onTogglePin={togglePin}
                 registerRef={registerRef}
                 onComplete={handleComplete}
                 onOpen={goTo}

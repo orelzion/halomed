@@ -139,5 +139,7 @@
   "study_generating": "יוצר תוכן...",
   "study_content_not_found": "תוכן לא נמצא",
   "study_load_error": "שגיאה בטעינת התוכן",
-  "study_review_waiting": "מפגש חזרה מחכה בדרך הלימוד"
+  "study_review_waiting": "מפגש חזרה מחכה בדרך הלימוד",
+  "study_pin_collapse": "כיווץ המשנה",
+  "study_pin_expand": "הרחבת המשנה"
 }
