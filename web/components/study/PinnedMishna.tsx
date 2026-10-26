@@ -78,10 +78,20 @@ export function PinnedMishna({ sourceText, letter, isDone, collapsed, onToggle, 
 
   return (
     <div data-testid="pinned_mishna" className={PANEL}>
-      {/* The bottom padding keeps the fade off the last line when the text fits */}
-      <div className="relative max-h-[min(34dvh,18rem)] overflow-y-auto pb-6 ps-14 pe-5 [mask-image:linear-gradient(to_bottom,#000_calc(100%-1.5rem),transparent)]">
-        <MarginLetter letter={letter} isDone={isDone} isMuted={false} />
-        <MishnaText source={sourceText} size="panel" id={textId} />
+      {/*
+        The fade is an overlay, not a mask on the scrolling element: Android Chrome can paint
+        a masked scroller blank. The bottom padding keeps the fade off the last line when the
+        text fits.
+      */}
+      <div className="relative">
+        <div className="relative max-h-[min(34dvh,18rem)] overflow-y-auto pb-6 ps-14 pe-5">
+          <MarginLetter letter={letter} isDone={isDone} isMuted={false} />
+          <MishnaText source={sourceText} size="panel" id={textId} />
+        </div>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-[linear-gradient(to_top,var(--bg-primary),transparent)]"
+        />
       </div>
       <button
         type="button"
